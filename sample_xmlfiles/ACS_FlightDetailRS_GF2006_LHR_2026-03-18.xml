@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap-env:Header>
+    <eb:MessageHeader xmlns:eb="http://www.ebxml.org/namespaces/messageHeader" eb:version="1.0" soap-env:mustUnderstand="1">
+      <eb:From>
+        <eb:PartyId eb:type="URI" />
+      </eb:From>
+      <eb:To>
+        <eb:PartyId eb:type="URI" />
+      </eb:To>
+      <eb:CPAId>GF</eb:CPAId>
+      <eb:ConversationId>V1@280b16ec-5eac-46c0-893f-c88f8e8cb632@310b16ec-5dad-46c0-893f-c88f8e8cb643@780b16ec-5eac-46c0-893f-c88f8e8cb699</eb:ConversationId>
+      <eb:Service>ACS_FlightDetailRQ</eb:Service>
+      <eb:Action>ACS_FlightDetailRS</eb:Action>
+      <eb:MessageData>
+        <eb:MessageId>3484068334392871260</eb:MessageId>
+        <eb:Timestamp>2026-03-19T09:17:19</eb:Timestamp>
+        <eb:RefToMessageId>mid:20260312-000001@your.domain</eb:RefToMessageId>
+      </eb:MessageData>
+    </eb:MessageHeader>
+    <wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+      <wsse:BinarySecurityToken valueType="String" EncodingType="wsse:Base64Binary">Shared/IDL:IceSess\/SessMgr:1\.0.IDL/Common/!ICESMS\/RESG!ICESMSLB\/RES.LB!1773909407612!7138!801</wsse:BinarySecurityToken>
+    </wsse:Security>
+  </soap-env:Header>
+  <soap-env:Body>
+    <ns3:ACS_FlightDetailRS xmlns:ns3="http://services.sabre.com/ACS/BSO/flightDetail/v3" xmlns:ns2="http://services.sabre.com/STL/v3">
+      <ItineraryResponseList>
+        <ItineraryInfoResponse>
+          <Airline>GF</Airline>
+          <Flight>2006</Flight>
+          <Origin>LHR</Origin>
+          <DepartureDate>2026-03-18</DepartureDate>
+          <DepartureTime>09:50PM</DepartureTime>
+          <ScheduledDepartureDate>2026-03-18</ScheduledDepartureDate>
+          <ScheduledDepartureTime>09:50PM</ScheduledDepartureTime>
+          <EstimatedDepartureDate>2026-03-18</EstimatedDepartureDate>
+          <EstimatedDepartureTime>09:50PM</EstimatedDepartureTime>
+          <DepartureGate>408</DepartureGate>
+          <DepartureTerminal>4</DepartureTerminal>
+          <BoardingTime>08:50PM</BoardingTime>
+          <ArrivalDate>2026-03-19</ArrivalDate>
+          <ArrivalTime>07:20AM</ArrivalTime>
+          <ScheduledArrivalTime>07:20AM</ScheduledArrivalTime>
+          <EstimatedArrivalDate>2026-03-19</EstimatedArrivalDate>
+          <EstimatedArrivalTime>07:20AM</EstimatedArrivalTime>
+          <FlightDurationInMinutes>390</FlightDurationInMinutes>
+          <AircraftType>789</AircraftType>
+          <FlightStatus>PDC</FlightStatus>
+          <AircraftConfigNumber>42</AircraftConfigNumber>
+          <CheckinRuleNumber>4</CheckinRuleNumber>
+          <SeatConfig>26/256</SeatConfig>
+          <BagCheckInOption>PW</BagCheckInOption>
+          <AutoOn>OFF</AutoOn>
+          <FreeTextInfoList>
+            <ns2:FreeTextInfo>
+              <ns2:TextLine>
+                <ns2:Text>26/256</ns2:Text>
+              </ns2:TextLine>
+            </ns2:FreeTextInfo>
+            <ns2:FreeTextInfo>
+              <ns2:TextLine>
+                <ns2:Text>LHR   MS1 2218 LCL CLOSE J7Y38/SECOK- 1</ns2:Text>
+              </ns2:TextLine>
+            </ns2:FreeTextInfo>
+            <ns2:FreeTextInfo>
+              <ns2:TextLine>
+                <ns2:Text>NN</ns2:Text>
+              </ns2:TextLine>
+            </ns2:FreeTextInfo>
+          </FreeTextInfoList>
+        </ItineraryInfoResponse>
+      </ItineraryResponseList>
+      <LegInfoList>
+        <LegInfo>
+          <LegCity>LHR</LegCity>
+          <LegStatus>PDC</LegStatus>
+          <LegDate>2026-03-18</LegDate>
+          <LegDepartureTime>09:50PM</LegDepartureTime>
+          <LegApp>N</LegApp>
+        </LegInfo>
+        <LegInfo>
+          <LegCity>DMM</LegCity>
+          <LegArrivalTime>07:20AM</LegArrivalTime>
+          <LegApp>Y</LegApp>
+        </LegInfo>
+      </LegInfoList>
+      <PassengerCounts classOfService="Y">
+        <Authorized>256</Authorized>
+        <Booked>38</Booked>
+        <Available>218</Available>
+        <Thru>0</Thru>
+        <Local>38</Local>
+        <NonRevenueLocal>0</NonRevenueLocal>
+        <NonRevenueThru>0</NonRevenueThru>
+        <PaperTicket>0</PaperTicket>
+        <ElectronicTicket>38</ElectronicTicket>
+        <Kiosk>0</Kiosk>
+        <StandbyRestriction>B10</StandbyRestriction>
+        <LocalOnBoard>38</LocalOnBoard>
+        <TotalOnBoard>38</TotalOnBoard>
+        <TotalBoardingPassIssued>38</TotalBoardingPassIssued>
+      </PassengerCounts>
+      <PassengerCounts classOfService="J">
+        <Authorized>26</Authorized>
+        <Booked>7</Booked>
+        <Available>19</Available>
+        <Thru>0</Thru>
+        <Local>7</Local>
+        <NonRevenueLocal>0</NonRevenueLocal>
+        <NonRevenueThru>0</NonRevenueThru>
+        <PaperTicket>0</PaperTicket>
+        <ElectronicTicket>7</ElectronicTicket>
+        <Kiosk>0</Kiosk>
+        <StandbyRestriction>B10</StandbyRestriction>
+        <LocalOnBoard>7</LocalOnBoard>
+        <TotalOnBoard>7</TotalOnBoard>
+        <TotalBoardingPassIssued>7</TotalBoardingPassIssued>
+      </PassengerCounts>
+      <JumpSeat>
+        <Cockpit inUse="false">2</Cockpit>
+        <Cabin inUse="false">2</Cabin>
+      </JumpSeat>
+      <TotalPlan>0</TotalPlan>
+      <Result messageId="ID-prod-cki-ws-group3-9m2j-1773734630587-3-10856016" timeStamp="2026-03-19T09:17:19.338Z">
+        <ns2:Status>Success</ns2:Status>
+        <ns2:CompletionStatus>Complete</ns2:CompletionStatus>
+        <ns2:System>ACS-BSO</ns2:System>
+      </Result>
+    </ns3:ACS_FlightDetailRS>
+  </soap-env:Body>
+</soap-env:Envelope>

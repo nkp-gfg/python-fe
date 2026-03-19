@@ -1,0 +1,11 @@
+meta {
+  name: Get Snapshots
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/flights/2006/snapshots?origin=LHR&date=2026-03-19&snapshot_type=passenger_list&limit=20
+  body: none
+  auth: none
+}

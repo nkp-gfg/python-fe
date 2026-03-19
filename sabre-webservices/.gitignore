@@ -1,0 +1,23 @@
+# Environment secrets (contains credentials)
+**/.env
+
+# Bruno cache
+.bruno/
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Node modules (if using scripts)
+node_modules/
+
+# Logs
+*.log

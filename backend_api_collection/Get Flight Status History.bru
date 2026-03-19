@@ -1,0 +1,11 @@
+meta {
+  name: Get Flight Status History
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/flights/2006/status/history?origin=LHR&date=2026-03-19&limit=10
+  body: none
+  auth: none
+}

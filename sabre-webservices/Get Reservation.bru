@@ -1,0 +1,106 @@
+meta {
+  name: Get Reservation
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/{{cpaid}}
+  body: xml
+  auth: inherit
+}
+
+headers {
+  Content-Type: text/xml; charset=utf-8
+  SOAPAction: "Trip_SearchRQ"
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+      <soapenv:Header>
+          <eb:MessageHeader soapenv:mustUnderstand="0">
+              <eb:From>
+                  <eb:PartyId/>
+              </eb:From>
+              <eb:To>
+                  <eb:PartyId/>
+              </eb:To>
+              <eb:CPAId>{{cpaid}}</eb:CPAId>
+              <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+              <eb:Service>Trip_SearchRQ</eb:Service>
+              <eb:Action>Trip_SearchRQ</eb:Action>
+              <eb:MessageData>
+                  <eb:MessageId>{{messageId}}</eb:MessageId>
+                  <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+              </eb:MessageData>
+          </eb:MessageHeader>
+          <wsse:Security soapenv:mustUnderstand="0">
+              <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+          </wsse:Security>
+      </soapenv:Header>
+      <soapenv:Body>
+          <Trip_SearchRQ Version="4.5.0" 
+                         xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+                         xmlns="http://webservices.sabre.com/triprecord">
+              <ReadRequests>
+                  <ReservationReadRequest>
+                      <FlightCriteria>
+                          <Flight>
+                              <FlightNumber>{{flightNumber}}</FlightNumber>
+                              <DepartureAirport>{{departureAirport}}</DepartureAirport>
+                              <DepartureDateTime Is="{{departureDateTime}}"/>
+                              <AirlineCode>{{airlineCode}}</AirlineCode>
+                          </Flight>
+                      </FlightCriteria>
+                      
+                      <PosCriteria AirlineCode="{{airlineCode}}"/>
+                      <ReturnOptions ViewName="TripSearchBlob" 
+                                    ResponseFormat="STL"
+                                    SearchType="ACTIVE">
+                          <SubjectAreas>
+                              <SubjectArea>HEADER</SubjectArea>
+                              <SubjectArea>NAME</SubjectArea>
+                              <SubjectArea>PASSENGERDETAILS</SubjectArea>
+                              <SubjectArea>PRERESERVEDSEAT</SubjectArea>
+                              <SubjectArea>TICKETS</SubjectArea>
+                              <SubjectArea>ITINERARY</SubjectArea>
+                              <SubjectArea>LOYALTY</SubjectArea>
+                              <SubjectArea>FQTV</SubjectArea>
+                              <SubjectArea>EXT_FQTV</SubjectArea>
+                          </SubjectAreas>
+                      </ReturnOptions>
+                  </ReservationReadRequest>
+              </ReadRequests>
+          </Trip_SearchRQ>
+      </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+vars:pre-request {
+  flightNumber: 2130
+  departureAirport: DMM
+  departureDateTime: 2026-03-18T12:25:00
+  airlineCode: GF
+}
+
+script:pre-request {
+  // Generate dynamic MessageId and Timestamp
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

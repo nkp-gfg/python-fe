@@ -1,0 +1,76 @@
+meta {
+  name: Flight Status
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/{{cpaid}}
+  body: xml
+  auth: inherit
+}
+
+headers {
+  Content-Type: text/xml; charset=utf-8
+  SOAPAction: "ACS_FlightDetailRQ"
+}
+
+vars:pre-request {
+  flightNumber: 2056
+  origin: DMM
+  airlineCode: GF
+}
+
+script:pre-request {
+  // Generate dynamic MessageId and Timestamp
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope
+      xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+      xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+      xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+      xmlns:v3="http://services.sabre.com/ACS/BSO/flightDetail/v3">
+    <soapenv:Header>
+      <eb:MessageHeader soapenv:mustUnderstand="0">
+        <eb:From><eb:PartyId/></eb:From>
+        <eb:To><eb:PartyId/></eb:To>
+        <eb:CPAId>{{cpaid}}</eb:CPAId>
+        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+        <eb:Service>ACS_FlightDetailRQ</eb:Service>
+        <eb:Action>ACS_FlightDetailRQ</eb:Action>
+        <eb:MessageData>
+          <eb:MessageId>{{messageId}}</eb:MessageId>
+          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+        </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security soapenv:mustUnderstand="0">
+        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+      </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+      <v3:ACS_FlightDetailRQ Version="3.2.0">
+        <FlightInfo>
+          <Airline>{{airlineCode}}</Airline>
+          <Flight>{{flightNumber}}</Flight>
+          <Origin>{{origin}}</Origin>
+        </FlightInfo>
+      </v3:ACS_FlightDetailRQ>
+    </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+settings {
+  encodeUrl: true
+}

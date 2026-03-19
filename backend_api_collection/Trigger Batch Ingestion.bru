@@ -1,0 +1,36 @@
+meta {
+  name: Trigger Batch Ingestion
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/flights/ingest/batch
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "flights": [
+      {
+        "airline": "GF",
+        "flightNumber": "2006",
+        "origin": "LHR",
+        "departureDate": "2026-03-19",
+        "departureDateTime": "2026-03-19T08:00:00"
+      },
+      {
+        "airline": "GF",
+        "flightNumber": "2057",
+        "origin": "BOM",
+        "departureDate": "2026-03-19",
+        "departureDateTime": "2026-03-19T03:10:00"
+      }
+    ]
+  }
+}

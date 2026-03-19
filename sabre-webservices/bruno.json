@@ -1,0 +1,16 @@
+{
+  "version": "1",
+  "name": "Python FE Sabre APIs",
+  "type": "collection",
+  "ignore": ["node_modules", ".git"],
+  "scripts": {
+    "moduleWhitelist": [],
+    "filesystemAccess": {
+      "allow": false
+    }
+  },
+  "clientCertificates": {
+    "enabled": false,
+    "certs": []
+  }
+}

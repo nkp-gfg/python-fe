@@ -1,0 +1,11 @@
+meta {
+  name: Get Ingestion Job Status
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/flights/ingest/jobs/{{jobId}}
+  body: none
+  auth: none
+}

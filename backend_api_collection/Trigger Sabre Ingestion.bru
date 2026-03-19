@@ -1,0 +1,25 @@
+meta {
+  name: Trigger Sabre Ingestion
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/flights/ingest
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "airline": "GF",
+    "flightNumber": "2006",
+    "origin": "LHR",
+    "departureDate": "2026-03-19",
+    "departureDateTime": "2026-03-19T08:00:00"
+  }
+}
