@@ -23,15 +23,30 @@ DB_NAME = "falconeye"
 
 _client = None
 _db = None
+_owns_connection = False  # True when we created the MongoClient ourselves
+
+
+def init_db(db):
+    """Inject an external database instance (e.g. from the API layer).
+
+    When running inside FastAPI, the API already holds a live MongoClient.
+    Calling this avoids creating a second connection (and a second DNS lookup
+    that may time out).
+    """
+    global _db, _owns_connection
+    _db = db
+    _owns_connection = False
+    logger.info("Storage layer using injected DB connection.")
 
 
 def get_db():
     """Return the falconeye database, creating the connection on first call."""
-    global _client, _db
+    global _client, _db, _owns_connection
     if _db is None:
         uri = os.environ["MONGODB_URI"]
         _client = MongoClient(uri)
         _db = _client[DB_NAME]
+        _owns_connection = True
         logger.info("Connected to MongoDB database '%s'", DB_NAME)
     return _db
 
@@ -50,9 +65,29 @@ def _compute_checksum(data):
     return hashlib.sha256(stable.encode()).hexdigest()
 
 
+def _drop_index_if_exists(collection, index_name: str):
+    """Drop an index by name, ignoring errors if it doesn't exist."""
+    try:
+        collection.drop_index(index_name)
+    except Exception:
+        pass
+
+
 def ensure_indexes():
     """Create indexes for all collections."""
     db = get_db()
+
+    # Drop stale indexes whose key-spec or name changed (safe if already gone)
+    _drop_index_if_exists(db["changes"], "chg_flight_lookup")
+    _drop_index_if_exists(db["changes"], "chg_pnr")
+    _drop_index_if_exists(db["flight_status"], "flight_lookup")
+    _drop_index_if_exists(db["passenger_list"], "pax_lookup")
+    _drop_index_if_exists(db["passenger_list"], "pax_pnr")        # old name
+    _drop_index_if_exists(db["passenger_list"], "pax_pnr_lookup")  # new name
+    _drop_index_if_exists(db["reservations"], "res_lookup")
+    _drop_index_if_exists(db["reservations"], "res_pnr")          # old name
+    _drop_index_if_exists(db["reservations"], "res_pnr_lookup")   # new name
+    _drop_index_if_exists(db["trip_reports"], "trip_report_lookup")
 
     # sabre_requests
     db["sabre_requests"].create_index(
@@ -74,13 +109,15 @@ def ensure_indexes():
 
     # changes
     db["changes"].create_index(
-        [("flightNumber", 1), ("departureDate", 1),
+        [("flightNumber", 1), ("origin", 1), ("departureDate", 1),
          ("detectedAt", -1)],
         name="chg_flight_lookup")
     db["changes"].create_index(
         [("afterSnapshotId", 1)], name="chg_snapshot")
     db["changes"].create_index(
-        [("passenger.pnr", 1)], name="chg_pnr")
+        [("passenger.pnr", 1), ("detectedAt", -1)], name="chg_pnr")
+    db["changes"].create_index(
+        [("changeType", 1)], name="chg_type")
 
     # flights (current state)
     db["flights"].create_index(
@@ -91,16 +128,30 @@ def ensure_indexes():
     # Legacy collections (keep indexes for backward compatibility)
     db["flight_status"].create_index(
         [("airline", 1), ("flightNumber", 1),
-         ("origin", 1), ("departureDate", 1)],
+         ("origin", 1), ("departureDate", 1),
+         ("fetchedAt", -1)],
         name="flight_lookup")
     db["passenger_list"].create_index(
         [("airline", 1), ("flightNumber", 1),
-         ("origin", 1), ("departureDate", 1)],
+         ("origin", 1), ("departureDate", 1),
+         ("fetchedAt", -1)],
         name="pax_lookup")
+    db["passenger_list"].create_index(
+        [("passengers.pnr", 1)], name="pax_pnr_lookup")
     db["reservations"].create_index(
         [("airline", 1), ("flightNumber", 1),
-         ("departureAirport", 1), ("departureDate", 1)],
+         ("departureAirport", 1), ("departureDate", 1),
+         ("fetchedAt", -1)],
         name="res_lookup")
+    db["reservations"].create_index(
+        [("reservations.pnr", 1)], name="res_pnr_lookup")
+
+    # trip_reports
+    db["trip_reports"].create_index(
+        [("airline", 1), ("flightNumber", 1),
+         ("origin", 1), ("departureDate", 1),
+         ("fetchedAt", -1)],
+        name="trip_report_lookup")
 
     logger.info("MongoDB indexes ensured.")
 
@@ -297,11 +348,18 @@ def store_reservations(doc):
     return result.inserted_id
 
 
+def store_trip_reports(doc):
+    """Insert a trip_reports document. Returns the inserted _id."""
+    result = get_db()["trip_reports"].insert_one(doc)
+    return result.inserted_id
+
+
 def close():
-    """Close the MongoDB connection."""
-    global _client, _db
-    if _client:
+    """Close the MongoDB connection (only if we own it)."""
+    global _client, _db, _owns_connection
+    if _owns_connection and _client:
         _client.close()
-        _client = None
-        _db = None
         logger.info("MongoDB connection closed.")
+    _client = None
+    _db = None
+    _owns_connection = False

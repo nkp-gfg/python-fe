@@ -231,3 +231,65 @@ class SabreClient:
             "conversationId": self._conversation_id,
         }
         return data, xml_text, meta
+
+    # ── Passenger Data (per-passenger detail) ─────────────────────────────
+
+    def get_passenger_data(self, airline, flight_number, departure_date, origin, last_name, pnr=None):
+        """
+        Call GetPassengerDataRQ for detailed per-passenger data.
+        Looks up by LastName + optional PNR within a flight itinerary.
+        Returns (parsed_body_dict, raw_xml_string, request_meta).
+        """
+        pnr_element = ""
+        if pnr:
+            pnr_element = f'<v4:PNRLocator>{pnr}</v4:PNRLocator>'
+        body = templates.PASSENGER_DATA.format(
+            **self._common_vars(),
+            airline=airline,
+            flight_number=flight_number,
+            departure_date=departure_date,
+            origin=origin,
+            last_name=last_name,
+            pnr_element=pnr_element,
+        )
+        xml_text, http_status, duration_ms, request_xml = self._post(
+            "GetPassengerDataRQ", body)
+        parsed = self._parse_xml(xml_text)
+        data = self._extract_body(parsed, "GetPassengerDataRS")
+        meta = {
+            "requestXml": request_xml,
+            "httpStatus": http_status,
+            "durationMs": duration_ms,
+            "sessionToken": self._token,
+            "conversationId": self._conversation_id,
+        }
+        return data, xml_text, meta
+
+    # ── Trip Reports ───────────────────────────────────────────────────────
+
+    def get_trip_report(self, airline, flight_number, departure_date, origin, report_type):
+        """
+        Call Trip_ReportsRQ with a specific report type.
+        report_type: "MLX" (cancelled passengers), "MLC" (ever-booked passengers)
+        Returns (parsed_body_dict, raw_xml_string, request_meta).
+        """
+        body = templates.TRIP_REPORT.format(
+            **self._common_vars(),
+            airline=airline,
+            flight_number=flight_number,
+            departure_date=departure_date,
+            origin=origin,
+            report_type=report_type,
+        )
+        xml_text, http_status, duration_ms, request_xml = self._post(
+            "Trip_ReportsRQ", body, timeout=60)
+        parsed = self._parse_xml(xml_text)
+        data = self._extract_body(parsed, "Trip_ReportsRS")
+        meta = {
+            "requestXml": request_xml,
+            "httpStatus": http_status,
+            "durationMs": duration_ms,
+            "sessionToken": self._token,
+            "conversationId": self._conversation_id,
+        }
+        return data, xml_text, meta

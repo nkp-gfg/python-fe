@@ -41,9 +41,21 @@ def _utc_now() -> str:
 class SabreIngestRequest(BaseModel):
     """Payload required to fetch a flight from Sabre and persist it."""
 
-    airline: str = Field(default="GF", description="Airline code")
-    flightNumber: str = Field(..., description="Flight number")
-    origin: str = Field(..., description="Departure airport code")
+    airline: str = Field(
+        default="GF", min_length=2, max_length=2,
+        pattern=r"^[A-Z0-9]{2}$",
+        description="2-character IATA airline code",
+    )
+    flightNumber: str = Field(
+        ..., min_length=1, max_length=5,
+        pattern=r"^\d{1,5}$",
+        description="Flight number (digits only)",
+    )
+    origin: str = Field(
+        ..., min_length=3, max_length=3,
+        pattern=r"^[A-Z]{3}$",
+        description="3-letter IATA departure airport code",
+    )
     departureDate: date = Field(..., description="Departure date YYYY-MM-DD")
     departureDateTime: datetime = Field(
         ..., description="Departure timestamp YYYY-MM-DDTHH:MM:SS"
@@ -150,7 +162,15 @@ async def _run_batch_job(job_id: str, payloads: list[dict]) -> None:
 async def ingest_flight(payload: SabreIngestRequest):
     """Trigger the Sabre SOAP pipeline for one flight (synchronous)."""
     feeder_payload = payload.model_dump(mode="json")
-    result = await run_in_threadpool(run_feeder, [feeder_payload])
+    try:
+        result = await run_in_threadpool(run_feeder, [feeder_payload])
+    except Exception as exc:
+        logger.exception("Ingestion failed for %s%s",
+                         payload.airline, payload.flightNumber)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Ingestion pipeline error: {exc}",
+        )
     flight_result = result["results"][0] if result["results"] else None
 
     if flight_result is None:

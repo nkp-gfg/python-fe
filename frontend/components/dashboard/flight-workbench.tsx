@@ -1,41 +1,60 @@
 "use client";
 
-import { startTransition, useDeferredValue, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { startTransition, useDeferredValue, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient, useIsMutating } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
   ArrowRight,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
+  CheckCircle2,
+  CloudDownload,
   Database,
-  Gauge,
-  GitCompareArrows,
+  Filter,
+  Info,
   Loader2,
+  Menu,
   Network,
-  Search,
-  PanelLeft,
   Plane,
   Radar,
-  ScanSearch,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  Users,
+  Clock,
+  Briefcase,
+  Ticket,
+  X,
 } from "lucide-react";
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
+import { useDebounce } from "@/lib/hooks";
 
-import { fetchDashboard, fetchFlightTree, fetchFlights } from "@/lib/api";
-import type { FlightDashboard, FlightListItem } from "@/lib/types";
+import { fetchDashboard, fetchFlightTree, fetchFlights, ingestFlight } from "@/lib/api";
+import type { FlightListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatePanels } from "@/components/dashboard/state-panels";
+import type { StateCardKey } from "@/components/dashboard/state-panels";
+import { BottomDetailPanel } from "@/components/dashboard/bottom-detail-panel";
+import type { DetailView } from "@/components/dashboard/bottom-detail-panel";
 import { PassengerTree } from "@/components/dashboard/passenger-tree";
+import { IngestionPanel } from "@/components/dashboard/ingestion-panel";
+import { TileInfoPanel, type TileInfoKey } from "@/components/dashboard/tile-info-panel";
+import { PassengerTable } from "@/components/dashboard/passenger-table";
+import { StandbyPanel } from "@/components/dashboard/standby-panel";
+import { PassengerDetailSheet } from "@/components/dashboard/passenger-detail-sheet";
+import { ChangeTimeline } from "@/components/dashboard/change-timeline";
+import { StatusHistory } from "@/components/dashboard/status-history";
+import { ReservationView } from "@/components/dashboard/reservation-view";
 
 type FlightSelection = {
   flightNumber: string;
@@ -50,17 +69,22 @@ interface FlightWorkbenchProps {
 export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const queryClient = useQueryClient();
   const [treeOpen, setTreeOpen] = useState(false);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
+  const [ingestOpen, setIngestOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [activeInfo, setActiveInfo] = useState<TileInfoKey>("booked");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<FlightSelection | null>(initialSelection ?? null);
+  const [detailPnr, setDetailPnr] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [bottomView, setBottomView] = useState<DetailView | null>(null);
 
-  const {
-    data: flights,
-    isLoading: flightsLoading,
-    error: flightsError,
-  } = useQuery({
+  const { data: flights, isLoading: flightsLoading, error: flightsError, refetch: refetchFlights, isFetching: flightsFetching } = useQuery({
     queryKey: ["flights"],
     queryFn: () => fetchFlights(),
     refetchInterval: 30_000,
@@ -79,11 +103,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
 
   const deferredSelected = useDeferredValue(effectiveSelected);
 
-  const {
-    data: dashboard,
-    isLoading: dashboardLoading,
-    error: dashboardError,
-  } = useQuery({
+  const { data: dashboard, isLoading: dashboardLoading, error: dashboardError, refetch: refetchDashboard, isFetching: dashboardFetching } = useQuery({
     queryKey: [
       "dashboard",
       deferredSelected?.flightNumber,
@@ -100,10 +120,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     refetchInterval: 30_000,
   });
 
-  const {
-    data: tree,
-    isLoading: treeLoading,
-  } = useQuery({
+  const { data: tree, isLoading: treeLoading, refetch: refetchTree, isFetching: treeFetching } = useQuery({
     queryKey: [
       "tree",
       deferredSelected?.flightNumber,
@@ -120,6 +137,54 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     refetchInterval: 30_000,
   });
 
+  const [ingestingFlight, setIngestingFlight] = useState<string | null>(null);
+  const [confirmFlight, setConfirmFlight] = useState<FlightListItem | null>(null);
+  const ingestMutation = useMutation({
+    mutationKey: ["ingest"],
+    mutationFn: ingestFlight,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["flights"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["tree"] });
+    },
+    onSettled: () => setIngestingFlight(null),
+  });
+
+  /** Convert Sabre "2026-03-20T04:00PM" → ISO "2026-03-20T16:00:00" */
+  function toIsoDateTime(raw: string | undefined, fallbackDate: string): string {
+    if (!raw) return `${fallbackDate}T00:00:00`;
+    const m = raw.match(/(\d{4}-\d{2}-\d{2})T(\d{1,2}):(\d{2})(AM|PM)?/i);
+    if (!m) return `${fallbackDate}T00:00:00`;
+    let [, datePart, hStr, min, ampm] = m;
+    let h = parseInt(hStr, 10);
+    if (ampm) {
+      const up = ampm.toUpperCase();
+      if (up === "PM" && h < 12) h += 12;
+      if (up === "AM" && h === 12) h = 0;
+    }
+    return `${datePart}T${String(h).padStart(2, "0")}:${min}:00`;
+  }
+
+  function handleQuickIngest(flight: FlightListItem, e: React.MouseEvent) {
+    e.stopPropagation();
+    setConfirmFlight(flight);
+  }
+
+  function executeIngest() {
+    if (!confirmFlight) return;
+    const flight = confirmFlight;
+    setConfirmFlight(null);
+    const key = `${flight.flightNumber}-${flight.origin}-${flight.departureDate}`;
+    setIngestingFlight(key);
+    ingestMutation.mutate({
+      airline: flight.airline,
+      flightNumber: flight.flightNumber,
+      origin: flight.origin,
+      departureDate: flight.departureDate,
+      departureDateTime: toIsoDateTime(flight.schedule?.scheduledDeparture, flight.departureDate),
+    });
+  }
+
   const selectedFlight =
     flights?.find(
       (flight) =>
@@ -128,20 +193,39 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         flight.departureDate === effectiveSelected?.date,
     ) ?? null;
 
-  const filteredFlights = (flights ?? []).filter((flight) => {
-    const haystack = [
-      flight.airline,
-      flight.flightNumber,
-      flight.origin,
-      flight.destination,
-      flight.status,
-      flight.aircraft?.registration,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(search.toLowerCase());
-  });
+  const availableDates = useMemo(() => {
+    const dates = [...new Set((flights ?? []).map((f) => f.departureDate))].sort().reverse();
+    return dates;
+  }, [flights]);
+
+  const availableStatuses = useMemo(() => {
+    return [...new Set((flights ?? []).map((f) => f.status).filter(Boolean))].sort();
+  }, [flights]);
+
+  const filteredFlights = useMemo(() => {
+    const list = (flights ?? []).filter((flight) => {
+      if (dateFilter !== "all" && flight.departureDate !== dateFilter) return false;
+      if (statusFilter !== "all" && flight.status !== statusFilter) return false;
+      const haystack = [
+        flight.airline,
+        flight.flightNumber,
+        flight.origin,
+        flight.destination,
+        flight.status,
+        flight.aircraft?.registration,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(debouncedSearch.toLowerCase());
+    });
+    list.sort((a, b) => {
+      const dateCmp = b.departureDate.localeCompare(a.departureDate);
+      if (dateCmp !== 0) return dateCmp;
+      return a.flightNumber.localeCompare(b.flightNumber);
+    });
+    return list;
+  }, [flights, debouncedSearch, dateFilter, statusFilter]);
 
   function selectFlight(flight: FlightListItem) {
     const next = {
@@ -161,613 +245,1017 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     }
   }
 
+  function openTree() {
+    setIngestOpen(false);
+    setInfoOpen(false);
+    setTreeOpen(true);
+  }
+
+  function openIngest() {
+    setTreeOpen(false);
+    setInfoOpen(false);
+    setIngestOpen(true);
+  }
+
+  function openInfo(key: TileInfoKey) {
+    setTreeOpen(false);
+    setIngestOpen(false);
+    setActiveInfo(key);
+    setInfoOpen(true);
+  }
+
+  const activeIngestions = useIsMutating({ mutationKey: ["ingest"] });
+
+  const isRefreshing = dashboardFetching || treeFetching;
+
+  function refreshAll() {
+    refetchFlights();
+    if (deferredSelected) {
+      refetchDashboard();
+      refetchTree();
+    }
+  }
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#050816] text-foreground">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.12),transparent_28%),radial-gradient(circle_at_80%_20%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.10),transparent_22%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:72px_72px]" />
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground font-sans antialiased text-sm">
+      {/* Top Navigation Bar */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-4 lg:px-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setMobileRailOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2 font-semibold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-white">
+              <Plane className="h-4 w-4" />
+            </div>
+            <span className="hidden sm:inline-flex text-base tracking-tight text-card-foreground">FalconEye Ops</span>
+          </div>
+        </div>
 
-      <div className="relative flex h-screen overflow-hidden">
-        <aside
-          className={cn(
-            "hidden border-r border-white/8 bg-[#09101d]/92 backdrop-blur-xl md:flex md:flex-col transition-[width] duration-300",
-            sidebarCollapsed ? "w-[72px]" : "w-[250px]",
+        <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 sm:flex">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+            Live Data
+          </div>
+          {activeIngestions > 0 && (
+            <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 animate-in fade-in">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Ingesting{activeIngestions > 1 ? ` (${activeIngestions})` : "…"}</span>
+            </div>
           )}
-        >
-          <div className="border-b border-white/8 px-3 py-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 text-[#111827] shadow-[0_12px_30px_rgba(245,158,11,0.28)]">
-                <Plane className="h-4 w-4" />
-              </div>
-              {!sidebarCollapsed && (
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold tracking-tight text-white">
-                    FalconEye Ops
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    Live manifest workspace
-                  </div>
-                </div>
-              )}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-slate-300 hover:bg-white/8 hover:text-white"
-                onClick={() => setSidebarCollapsed((value) => !value)}
-                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                {sidebarCollapsed ? (
-                  <ChevronRight className="h-4 w-4" />
-                ) : (
-                  <ChevronLeft className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+          <Separator orientation="vertical" className="hidden h-5 sm:block" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refreshAll}
+            disabled={isRefreshing}
+            className="h-8 gap-2"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", isRefreshing && "animate-spin")} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openIngest}
+            className="h-8 gap-2"
+          >
+            <Database className="h-3.5 w-3.5 text-muted-foreground" />
+            Ingest Sabre
+          </Button>
+        </div>
+      </header>
 
-            {!sidebarCollapsed && (
-              <div className="mt-3 space-y-2">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search flight, route, status"
-                    className="h-8 w-full rounded-lg border border-white/8 bg-black/20 pl-9 pr-3 text-xs text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/35"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                <RailStat
-                  icon={<Radar className="h-3 w-3" />}
-                  label="Flights"
-                  value={String(flights?.length ?? 0)}
+      {/* Mobile Flight Sidebar */}
+      <Sheet open={mobileRailOpen} onOpenChange={setMobileRailOpen}>
+        <SheetContent side="left" className="w-[300px] p-0">
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b space-y-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Flights</span>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search flights..."
+                  aria-label="Search flights"
+                  className="w-full rounded-md border border-input bg-background px-9 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
-                <RailStat
-                  icon={<Activity className="h-3 w-3" />}
-                  label="Refresh"
-                  value="30s"
-                />
-                </div>
               </div>
-            )}
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-2 py-2">
-            {flightsLoading && (
-              <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Loading flights...
-              </div>
-            )}
-
-            {flightsError && (
-              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-300">
-                Failed to load flights from the database.
-              </div>
-            )}
-
-            <div className="space-y-2">
-              {filteredFlights.map((flight) => {
-                const active =
-                  flight.flightNumber === effectiveSelected?.flightNumber &&
-                  flight.origin === effectiveSelected?.origin &&
-                  flight.departureDate === effectiveSelected?.date;
-                return (
-                  <button
-                    key={`${flight.flightNumber}-${flight.origin}-${flight.departureDate}`}
-                    type="button"
-                    onClick={() => selectFlight(flight)}
-                    className={cn(
-                      "w-full rounded-xl border px-2.5 py-2 text-left transition-all duration-200",
-                      active
-                        ? "border-cyan-400/40 bg-gradient-to-br from-cyan-500/16 via-sky-500/10 to-emerald-500/10 shadow-[0_8px_24px_rgba(56,189,248,0.12)]"
-                        : "border-white/8 bg-white/[0.03] hover:border-white/14 hover:bg-white/[0.05]",
-                    )}
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/6 text-amber-300">
-                        <Plane className="h-3.5 w-3.5" />
-                      </div>
-                      {!sidebarCollapsed && (
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <div className="truncate text-xs font-semibold text-white">
-                              {flight.airline}
-                              {flight.flightNumber}
-                            </div>
-                            <Badge className={cn("border px-1.5 py-0 text-[9px]", statusTone(flight.status))}>
-                              {flight.status || "UNKNOWN"}
-                            </Badge>
-                          </div>
-                          <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">
-                            <span>{flight.origin}</span>
-                            <ArrowRight className="h-2.5 w-2.5" />
-                            <span>{flight.destination || "—"}</span>
-                          </div>
-                          <div className="mt-1.5 grid grid-cols-3 gap-1 text-[10px] text-slate-400">
-                            <FlightChip label="Date" value={flight.departureDate} />
-                            <FlightChip label="SOB" value={String(flight.operationalSummary?.soulsOnBoard ?? 0)} />
-                            <FlightChip label="Rec" value={String(flight.passengerSummary?.totalPassengers ?? 0)} />
-                          </div>
-                        </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <CalendarDays className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <select
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                      aria-label="Filter by date"
+                      className={cn(
+                        "w-full appearance-none rounded-md border py-1.5 pl-7 pr-6 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                        dateFilter !== "all"
+                          ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                          : "border-input bg-background"
                       )}
-                    </div>
+                    >
+                      <option value="all">All dates</option>
+                      {availableDates.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                    {dateFilter !== "all" && (
+                      <button
+                        onClick={() => setDateFilter("all")}
+                        className="absolute right-1 top-1.5 rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
+                        aria-label="Clear date filter"
+                      >
+                        <X className="h-3 w-3 text-blue-500" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative flex-1">
+                    <Filter className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      aria-label="Filter by status"
+                      className={cn(
+                        "w-full appearance-none rounded-md border py-1.5 pl-7 pr-6 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                        statusFilter !== "all"
+                          ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                          : "border-input bg-background"
+                      )}
+                    >
+                      <option value="all">All statuses</option>
+                      {availableStatuses.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    {statusFilter !== "all" && (
+                      <button
+                        onClick={() => setStatusFilter("all")}
+                        className="absolute right-1 top-1.5 rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
+                        aria-label="Clear status filter"
+                      >
+                        <X className="h-3 w-3 text-blue-500" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {(dateFilter !== "all" || statusFilter !== "all") && (
+                  <button
+                    onClick={() => { setDateFilter("all"); setStatusFilter("all"); }}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                    Clear all filters
                   </button>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
-
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="border-b border-white/8 bg-[#070c18]/82 px-4 py-3 backdrop-blur-xl sm:px-6">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                className="md:hidden border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
-                onClick={() => setMobileRailOpen(true)}
-              >
-                <PanelLeft className="h-4 w-4" />
-              </Button>
-              <div>
-                <div className="text-sm font-medium text-slate-200">Flight Console</div>
-                <div className="text-xs text-slate-500">
-                  Database-backed live passenger and load view
-                </div>
+                )}
               </div>
-              <div className="ml-auto flex items-center gap-2 text-xs text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.6)]" />
-                LIVE · refreshing every 30s
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
-            {dashboardLoading && (
-              <div className="flex h-full min-h-[50vh] items-center justify-center text-slate-400">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Loading selected flight...
-              </div>
-            )}
-
-            {dashboardError && (
-              <div className="flex min-h-[50vh] items-center justify-center">
-                <Card className="border-rose-500/20 bg-rose-500/10 text-rose-200">
-                  <CardContent className="py-6">
-                    Failed to load flight dashboard.
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {!dashboardLoading && !dashboardError && dashboard && effectiveSelected && (
-              <FlightCenterPanel
-                dashboard={dashboard}
-                selected={effectiveSelected}
-                selectedFlight={selectedFlight}
-                onOpenTree={() => setTreeOpen((v) => !v)}
-              />
-            )}
-          </div>
-        </main>
-
-        {/* ── Right tree sidebar (inline, not overlay) ── */}
-        {treeOpen && (
-          <aside className="hidden w-[420px] shrink-0 border-l border-white/8 bg-[#07101c]/96 md:flex md:flex-col transition-[width] duration-300">
-            <div className="border-b border-white/8 px-4 py-3 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-medium text-white">
-                  <Network className="h-4 w-4 text-cyan-300" />
-                  Passenger Tree
-                </div>
-                <div className="text-[11px] text-slate-400">Live database view</div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-slate-300 hover:bg-white/8 hover:text-white"
-                onClick={() => setTreeOpen(false)}
-                aria-label="Close tree panel"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
-              {treeLoading && (
-                <div className="flex items-center justify-center py-20 text-sm text-slate-400">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading tree...
+              {flightsLoading ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
-              )}
-              {!treeLoading && tree ? (
-                <PassengerTree tree={tree} />
               ) : (
-                !treeLoading && <div className="text-sm text-slate-400">No tree data available.</div>
-              )}
-            </div>
-          </aside>
-        )}
-      </div>
-
-      <Sheet open={mobileRailOpen} onOpenChange={setMobileRailOpen}>
-        <SheetContent
-          side="left"
-          className="w-[min(24rem,92vw)] max-w-none border-r border-white/10 bg-[#09101d]/96 p-0 text-white backdrop-blur-2xl md:hidden"
-        >
-          <SheetHeader className="border-b border-white/8 px-4 py-4">
-            <SheetTitle className="text-white">Flights</SheetTitle>
-            <SheetDescription className="text-slate-400">
-              Select a flight from the database list.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="max-h-full overflow-y-auto p-3">
-            <div className="space-y-2">
-              {filteredFlights.map((flight) => {
-                const active =
-                  flight.flightNumber === effectiveSelected?.flightNumber &&
-                  flight.origin === effectiveSelected?.origin &&
-                  flight.departureDate === effectiveSelected?.date;
-                return (
-                  <button
-                    key={`mobile-${flight.flightNumber}-${flight.origin}-${flight.departureDate}`}
-                    type="button"
-                    onClick={() => selectFlight(flight)}
-                    className={cn(
-                      "w-full rounded-2xl border px-3 py-3 text-left transition-all duration-200",
-                      active
-                        ? "border-cyan-400/40 bg-gradient-to-br from-cyan-500/16 via-sky-500/10 to-emerald-500/10 shadow-[0_14px_40px_rgba(56,189,248,0.15)]"
-                        : "border-white/8 bg-white/[0.03] hover:border-white/14 hover:bg-white/[0.05]",
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-white/6 text-amber-300">
-                        <Plane className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="truncate text-sm font-semibold text-white">
-                            {flight.airline}
-                            {flight.flightNumber}
+                <div className="space-y-1">
+                  {filteredFlights.map((flight, idx) => {
+                    const showDateHeader =
+                      idx === 0 || flight.departureDate !== filteredFlights[idx - 1].departureDate;
+                    const isActive =
+                      flight.flightNumber === effectiveSelected?.flightNumber &&
+                      flight.origin === effectiveSelected?.origin &&
+                      flight.departureDate === effectiveSelected?.date;
+                    return (
+                      <div key={`mob-${flight.flightNumber}-${flight.origin}-${flight.departureDate}`}>
+                        {showDateHeader && (
+                          <>
+                            {idx !== 0 && <div className="my-2 border-t border-border" />}
+                            <div className="flex items-center gap-2 px-1 pt-2 pb-1">
+                              <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{flight.departureDate}</span>
+                            </div>
+                          </>
+                        )}
+                      <button
+                        onClick={() => selectFlight(flight)}
+                        className={cn(
+                          "w-full flex flex-col gap-2 rounded-lg p-3 text-left transition-colors",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "hover:bg-accent hover:text-accent-foreground text-foreground"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-base">{flight.airline}{flight.flightNumber}</span>
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] px-1.5 font-medium border-transparent",
+                                isActive ? "bg-primary-foreground/20 text-primary-foreground" : getStatusColor(flight.status)
+                              )}
+                            >
+                              {flight.status || "UNKNOWN"}
+                            </Badge>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              title="Re-ingest from Sabre"
+                              onClick={(e) => handleQuickIngest(flight, e)}
+                              className={cn("rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors", isActive && "hover:bg-primary-foreground/20")}
+                            >
+                              {ingestingFlight === `${flight.flightNumber}-${flight.origin}-${flight.departureDate}` ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <CloudDownload className="h-3.5 w-3.5" />
+                              )}
+                            </span>
                           </div>
-                          <Badge className={cn("border px-2 py-0 text-[10px]", statusTone(flight.status))}>
-                            {flight.status || "UNKNOWN"}
-                          </Badge>
                         </div>
-                        <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
+                        <div className={cn("flex items-center gap-1.5 text-xs", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
                           <span>{flight.origin}</span>
                           <ArrowRight className="h-3 w-3" />
                           <span>{flight.destination || "Pending"}</span>
+                          <span className="mx-1">&bull;</span>
+                          <span>{flight.departureDate}</span>
                         </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
-                          <FlightChip label="SOB" value={String(flight.operationalSummary?.soulsOnBoard ?? 0)} />
-                          <FlightChip label="Records" value={String(flight.passengerSummary?.totalPassengers ?? 0)} />
-                        </div>
+                      </button>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </SheetContent>
       </Sheet>
-    </div>
-  );
-}
 
-function FlightCenterPanel({
-  dashboard,
-  selected,
-  selectedFlight,
-  onOpenTree,
-}: {
-  dashboard: FlightDashboard;
-  selected: FlightSelection;
-  selectedFlight: FlightListItem | null;
-  onOpenTree: () => void;
-}) {
-  const status = dashboard.flightStatus;
-  const overview = dashboard.overview;
-  const route = dashboard.route;
-
-  return (
-    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-3">
-      <Card className="overflow-hidden border-white/10 bg-[linear-gradient(135deg,rgba(12,20,35,0.96),rgba(8,15,28,0.9))] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
-        <CardContent className="relative px-4 py-4 sm:px-5 sm:py-5">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.16),transparent_24%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.12),transparent_18%)]" />
-          <div className="relative flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 text-[#101827] shadow-[0_20px_45px_rgba(245,158,11,0.28)]">
-                <Plane className="h-7 w-7" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                    GF{selected.flightNumber}
-                  </h1>
-                  <Badge className={cn("border px-2.5 py-0.5 text-xs", statusTone(status?.status ?? ""))}>
-                    {status?.status || "No status"}
-                  </Badge>
-                  <Badge className="border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs text-slate-300">
-                    {selected.date}
-                  </Badge>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
-                  <span className="font-medium text-slate-100">{route.origin || status?.origin || selected.origin}</span>
-                  <ArrowRight className="h-4 w-4 text-slate-500" />
-                  <span>{route.destination || selectedFlight?.destination || "Destination pending"}</span>
-                  <span className="text-slate-600">•</span>
-                  <span>Gate {status?.gate || "TBD"}</span>
-                </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                  <HeroPill
-                    icon={<Gauge className="h-4 w-4" />}
-                    label="Souls on board"
-                    value={String(overview.soulsOnBoard)}
-                  />
-                  <HeroPill
-                    icon={<Database className="h-4 w-4" />}
-                    label="Manifest records"
-                    value={String(overview.manifestRecords)}
-                  />
-                  <HeroPill
-                    icon={<GitCompareArrows className="h-4 w-4" />}
-                    label="Tracked changes"
-                    value={String(overview.trackedChanges)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 xl:items-end">
-              <div className="grid grid-cols-2 gap-2">
-                <MetaCard
-                  label="Aircraft"
-                  value={status?.aircraft?.type || selectedFlight?.aircraft?.type || "—"}
-                />
-                <MetaCard
-                  label="Registration"
-                  value={status?.aircraft?.registration || selectedFlight?.aircraft?.registration || "—"}
-                />
-                <MetaCard
-                  label="Scheduled dep"
-                  value={status?.schedule?.scheduledDeparture || "—"}
-                />
-                <MetaCard
-                  label="Estimated arr"
-                  value={status?.schedule?.estimatedArrival || "—"}
-                />
-              </div>
+      {/* Main Content Area */}
+      <PanelGroup orientation="horizontal" className="flex flex-1 overflow-hidden">
+        {/* Sidebar Flights List */}
+        <Panel defaultSize="20" minSize="15" maxSize="30" className="hidden lg:flex flex-col h-full border-r bg-muted/30">
+          <div className="p-4 border-b space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Flights</span>
               <Button
-                size="icon-lg"
-                className="bg-gradient-to-r from-cyan-400 to-sky-500 text-slate-950 hover:from-cyan-300 hover:to-sky-400"
-                onClick={onOpenTree}
-                aria-label="Open passenger tree"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => refetchFlights()}
+                disabled={flightsFetching}
               >
-                <Network className="h-5 w-5" />
+                <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", flightsFetching && "animate-spin")} />
               </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <StatePanels stateSummary={dashboard.stateSummary} />
-
-      <FlightInsights dashboard={dashboard} />
-    </div>
-  );
-}
-
-function FlightInsights({ dashboard }: { dashboard: FlightDashboard }) {
-  const summary = dashboard.passengerSummary;
-  const analysis = dashboard.analysis;
-  const changes = Object.entries(dashboard.changeSummary ?? {}).sort((a, b) => b[1] - a[1]);
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {/* Demographics */}
-      <Card className="border-white/10 bg-white/[0.035] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <CardContent className="px-5 py-4">
-          <div className="mb-3 flex items-center gap-2 border-b border-white/8 pb-2">
-            <Activity className="h-3.5 w-3.5 text-cyan-300" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">Demographics</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <InsightTile label="Adults" value={summary.adultCount} tone="text-white" />
-            <InsightTile label="Children" value={summary.childCount} tone="text-emerald-300" />
-            <InsightTile label="Infants" value={summary.infantCount} tone="text-amber-300" />
-            <InsightTile label="Non-rev" value={analysis.nonRevenue} tone="text-fuchsia-300" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Cabin mix */}
-      <Card className="border-white/10 bg-white/[0.035] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <CardContent className="px-5 py-4">
-          <div className="mb-3 flex items-center gap-2 border-b border-white/8 pb-2">
-            <ScanSearch className="h-3.5 w-3.5 text-cyan-300" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">Cabin Mix</span>
-          </div>
-          <div className="space-y-3">
-            <MixRow label="Economy" value={analysis.economy.total} total={summary.totalPassengers || 1} barClass="from-emerald-400 to-cyan-400" />
-            <MixRow label="Business" value={analysis.business.total} total={summary.totalPassengers || 1} barClass="from-amber-300 to-orange-400" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Operational posture */}
-      <Card className="border-white/10 bg-white/[0.035] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <CardContent className="px-5 py-4">
-          <div className="mb-3 flex items-center gap-2 border-b border-white/8 pb-2">
-            <CalendarDays className="h-3.5 w-3.5 text-cyan-300" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">Operational</span>
-          </div>
-          <div className="space-y-1.5 text-sm">
-            <InsightLine label="Checked in" value={analysis.checkedIn} />
-            <InsightLine label="Boarded" value={analysis.boarded} />
-            <InsightLine label="Not checked in" value={analysis.notCheckedIn} valueTone={analysis.notCheckedIn > 0 ? "text-amber-300" : "text-white"} />
-            <InsightLine label="Revenue" value={analysis.revenue} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Change summary */}
-      <Card className="border-white/10 bg-white/[0.035] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <CardContent className="px-5 py-4">
-          <div className="mb-3 flex items-center gap-2 border-b border-white/8 pb-2">
-            <Database className="h-3.5 w-3.5 text-cyan-300" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">Changes</span>
-          </div>
-          <div className="space-y-1.5 text-sm">
-            {changes.length > 0 ? (
-              changes.slice(0, 5).map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between">
-                  <span className="text-slate-400">{label}</span>
-                  <span className="font-semibold text-white">{value}</span>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search flights..."
+                aria-label="Search flights"
+                className="w-full rounded-md border border-input bg-background px-9 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <CalendarDays className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    aria-label="Filter by date"
+                    className={cn(
+                      "w-full appearance-none rounded-md border py-1.5 pl-7 pr-6 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                      dateFilter !== "all"
+                        ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                        : "border-input bg-background"
+                    )}
+                  >
+                    <option value="all">All dates</option>
+                    {availableDates.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                  {dateFilter !== "all" && (
+                    <button
+                      onClick={() => setDateFilter("all")}
+                      className="absolute right-1 top-1.5 rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
+                      aria-label="Clear date filter"
+                    >
+                      <X className="h-3 w-3 text-blue-500" />
+                    </button>
+                  )}
                 </div>
-              ))
+                <div className="relative flex-1">
+                  <Filter className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    aria-label="Filter by status"
+                    className={cn(
+                      "w-full appearance-none rounded-md border py-1.5 pl-7 pr-6 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                      statusFilter !== "all"
+                        ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                        : "border-input bg-background"
+                    )}
+                  >
+                    <option value="all">All statuses</option>
+                    {availableStatuses.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  {statusFilter !== "all" && (
+                    <button
+                      onClick={() => setStatusFilter("all")}
+                      className="absolute right-1 top-1.5 rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
+                      aria-label="Clear status filter"
+                    >
+                      <X className="h-3 w-3 text-blue-500" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {(dateFilter !== "all" || statusFilter !== "all") && (
+                <button
+                  onClick={() => { setDateFilter("all"); setStatusFilter("all"); }}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                  Clear all filters
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3">
+            {flightsLoading ? (
+              <div className="flex h-full items-center justify-center text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : flightsError ? (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-center text-sm">
+                <div className="font-semibold text-destructive mb-1">Backend Offline</div>
+                <div className="text-destructive/80">Could not connect to API at 127.0.0.1:8000.</div>
+              </div>
             ) : (
-              <div className="text-sm text-slate-500">No tracked changes yet.</div>
+              <div className="space-y-1">
+                {filteredFlights.map((flight, idx) => {
+                  const showDateHeader =
+                    idx === 0 || flight.departureDate !== filteredFlights[idx - 1].departureDate;
+                  const isActive =
+                    flight.flightNumber === effectiveSelected?.flightNumber &&
+                    flight.origin === effectiveSelected?.origin &&
+                    flight.departureDate === effectiveSelected?.date;
+                  return (
+                    <div key={`${flight.flightNumber}-${flight.origin}-${flight.departureDate}`}>
+                      {showDateHeader && (
+                        <>
+                          {idx !== 0 && <div className="my-2 border-t border-border" />}
+                          <div className="flex items-center gap-2 px-1 pt-2 pb-1">
+                            <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{flight.departureDate}</span>
+                          </div>
+                        </>
+                      )}
+                    <button
+                      onClick={() => selectFlight(flight)}
+                      className={cn(
+                        "w-full flex flex-col gap-2 rounded-lg p-3 text-left transition-colors",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "hover:bg-accent hover:text-accent-foreground text-foreground"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-base">
+                          {flight.airline}{flight.flightNumber}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-[10px] px-1.5 font-medium border-transparent",
+                              isActive 
+                                ? "bg-primary-foreground/20 text-primary-foreground" 
+                                : getStatusColor(flight.status)
+                            )}
+                          >
+                            {flight.status || "UNKNOWN"}
+                          </Badge>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            title="Re-ingest from Sabre"
+                            onClick={(e) => handleQuickIngest(flight, e)}
+                            className={cn("rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors", isActive && "hover:bg-primary-foreground/20")}
+                          >
+                            {ingestingFlight === `${flight.flightNumber}-${flight.origin}-${flight.departureDate}` ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <CloudDownload className="h-3.5 w-3.5" />
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <div className={cn("flex items-center gap-1.5 text-xs", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                        <span>{flight.origin}</span>
+                        <ArrowRight className="h-3 w-3" />
+                        <span>{flight.destination || "Pending"}</span>
+                        <span className="mx-1">•</span>
+                        <span>{flight.departureDate}</span>
+                      </div>
+                    </button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </Panel>
+
+        <PanelResizeHandle className="w-1 border-r bg-border/50 hover:bg-primary/50 cursor-col-resize transition-all" />
+
+        {/* Console Workspace */}
+        <Panel minSize="40">
+          <main className="h-full w-full overflow-y-auto bg-muted/10 p-3 lg:p-4">
+            <div className="mx-auto max-w-6xl space-y-3">
+              {dashboardLoading && (
+                <div className="flex min-h-[400px] items-center justify-center text-muted-foreground">
+                  <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                  Loading dashboard...
+                </div>
+              )}
+
+              {dashboardError && (
+                <Card className="border-destructive/20 bg-destructive/10">
+                  <CardContent className="p-6 text-destructive flex items-center gap-3">
+                    <Activity className="h-5 w-5" />
+                    Failed to load flight dashboard data.
+                  </CardContent>
+                </Card>
+              )}
+
+              {!effectiveSelected && !flightsLoading && (
+                <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/50 mb-6">
+                    <Plane className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  {flightsError ? (
+                    <>
+                      <h2 className="text-2xl font-semibold mb-2 text-foreground">Backend Disconnected</h2>
+                      <p className="text-muted-foreground max-w-md">
+                        We couldn&apos;t reach the FalconEye backend services. Please ensure the API is running locally and try again.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-2xl font-semibold mb-2 text-foreground">No flight selected</h2>
+                      <p className="text-muted-foreground max-w-md">
+                        Select a flight from the sidebar to view live operations data and passenger manifest.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {!dashboardLoading && !dashboardError && dashboard && effectiveSelected && (
+                <>
+                  {/* Compact Flight Header */}
+                  <div className="rounded-lg border bg-card shadow-sm px-4 py-2.5">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      {/* Flight identity */}
+                      <div className="flex items-center gap-3">
+                        <h1 className="text-xl font-bold tracking-tight">
+                          GF{effectiveSelected.flightNumber}
+                        </h1>
+                        <Badge 
+                          variant="secondary"
+                          className={cn("px-2 py-0.5 text-[11px] font-semibold", getStatusColor(dashboard.flightStatus?.status || ""))}
+                        >
+                          {dashboard.flightStatus?.status || "NO STATUS"}
+                        </Badge>
+                        {/* Data integrity badge */}
+                        {dashboard.dataIntegrity?.valid ? (
+                          <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400" title={`All ${dashboard.dataIntegrity.checks} validation checks passed`}>
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Verified</span>
+                          </span>
+                        ) : dashboard.dataIntegrity && !dashboard.dataIntegrity.valid ? (
+                          <span
+                            className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 cursor-help"
+                            title={dashboard.dataIntegrity.warnings.join(" | ")}
+                          >
+                            <ShieldAlert className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">{dashboard.dataIntegrity.warnings.length} warning{dashboard.dataIntegrity.warnings.length !== 1 ? "s" : ""}</span>
+                          </span>
+                        ) : null}
+                        <span className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{dashboard.route.origin || effectiveSelected.origin}</span>
+                          <ArrowRight className="h-3 w-3" />
+                          <span className="font-medium text-foreground">{dashboard.route.destination || selectedFlight?.destination || "—"}</span>
+                          <span className="mx-0.5">•</span>
+                          {effectiveSelected.date}
+                          <span className="mx-0.5">•</span>
+                          Gate {dashboard.flightStatus?.gate || "TBD"}
+                        </span>
+                      </div>
+
+                      {/* KPI strip */}
+                      <div className="flex items-center gap-4 text-xs">
+                        {/* Prominent souls on board */}
+                        <button
+                          className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 hover:ring-1 hover:ring-emerald-400 transition-all cursor-pointer"
+                          title="Souls on board (passengers + infants aboard)"
+                          onClick={() => setBottomView(bottomView === "sob" ? null : "sob")}
+                        >
+                          <Users className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span className="font-bold text-emerald-700 dark:text-emerald-300">{dashboard.overview.soulsOnBoard}</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">SOB</span>
+                        </button>
+                        <button
+                          className="flex items-center gap-1.5 hover:bg-muted/50 rounded px-1 py-0.5 transition-colors cursor-pointer"
+                          title="Total souls on manifest"
+                          onClick={() => setBottomView(bottomView === "souls" ? null : "souls")}
+                        >
+                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-semibold">{dashboard.overview.totalSouls}</span>
+                          <span className="text-muted-foreground">souls</span>
+                        </button>
+                        <button
+                          className="flex items-center gap-1.5 hover:bg-muted/50 rounded px-1 py-0.5 transition-colors cursor-pointer"
+                          title="Manifest records (seated passengers)"
+                          onClick={() => setBottomView(bottomView === "records" ? null : "records")}
+                        >
+                          <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-semibold">{dashboard.overview.manifestRecords}</span>
+                          <span className="text-muted-foreground">records</span>
+                        </button>
+                        <div className="flex items-center gap-1.5" title="Change updates">
+                          <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-semibold">{dashboard.overview.trackedChanges}</span>
+                          <span className="text-muted-foreground">updates</span>
+                        </div>
+                        <Separator orientation="vertical" className="h-5 hidden md:block" />
+                        <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
+                          <span><span className="text-foreground font-medium">{dashboard.flightStatus?.aircraft?.type || "—"}</span> / {dashboard.flightStatus?.aircraft?.registration || "—"}</span>
+                          {/* Schedule with delay indicator */}
+                          <ScheduleDelay schedule={dashboard.flightStatus?.schedule} />
+                        </div>
+                        {/* Last-fetched timestamp */}
+                        {dashboard.fetchedAt && (
+                          <>
+                            <Separator orientation="vertical" className="h-5 hidden lg:block" />
+                            <span className="hidden lg:flex items-center gap-1 text-[10px] text-muted-foreground" title={`Data fetched at ${dashboard.fetchedAt}`}>
+                              <Clock className="h-3 w-3" />
+                              {new Date(dashboard.fetchedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1.5 text-xs"
+                          onClick={openTree}
+                          disabled={treeOpen}
+                        >
+                          <Network className="h-3.5 w-3.5" />
+                          <span className="hidden lg:inline">Pax Tree</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tab Navigation */}
+                  <Tabs defaultValue="overview">
+                    <TabsList>
+                      <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="passengers">Passengers</TabsTrigger>
+                      <TabsTrigger value="standby">Standby</TabsTrigger>
+                      <TabsTrigger value="changes">Changes</TabsTrigger>
+                      <TabsTrigger value="history">History</TabsTrigger>
+                      <TabsTrigger value="reservations">Reservations</TabsTrigger>
+                    </TabsList>
+
+                    {/* Overview Tab — compact executive dashboard */}
+                    <TabsContent value="overview" className="mt-3 space-y-3">
+                      <StatePanels
+                        stateSummary={dashboard.stateSummary}
+                        onInfoClick={openInfo}
+                        onCardClick={(key: StateCardKey) => setBottomView(bottomView === key ? null : key)}
+                        activeCard={(bottomView === "booked" || bottomView === "checkedIn" || bottomView === "boarded" || bottomView === "others") ? bottomView : null}
+                      />
+
+                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                        {/* Demographics */}
+                        <Card className="shadow-sm">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Users className="h-3.5 w-3.5 text-blue-500" />
+                              <h3 className="text-xs font-semibold">Demographics</h3>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                              <div>
+                                <p className="text-[10px] text-muted-foreground">Adults</p>
+                                <p className="text-lg font-bold">{dashboard.passengerSummary.adultCount}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-muted-foreground">Children</p>
+                                <p className="text-lg font-bold text-amber-500">{dashboard.passengerSummary.childCount}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-muted-foreground">Infants</p>
+                                <p className="text-lg font-bold text-emerald-500">{dashboard.passengerSummary.infantCount}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-muted-foreground">Non-Rev</p>
+                                <p className="text-lg font-bold text-purple-500">{dashboard.analysis?.nonRevenue ?? 0}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Cabin Mix with Load Factor */}
+                        <Card className="shadow-sm">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Ticket className="h-3.5 w-3.5 text-emerald-500" />
+                              <h3 className="text-xs font-semibold">Cabin Mix</h3>
+                            </div>
+                            <div className="space-y-2">
+                              {(dashboard.passengerSummary.cabinSummary ?? []).map((cabin) => {
+                                const authorized = cabin.authorized || 0;
+                                const count = cabin.count || 0;
+                                const loadFactor = authorized > 0 ? Math.round((count / authorized) * 100) : 0;
+                                const isEconomy = cabin.cabin === "Y";
+                                return (
+                                  <div key={cabin.cabin}>
+                                    <div className="flex justify-between text-xs mb-1">
+                                      <span className="text-muted-foreground">
+                                        {isEconomy ? "Economy" : "Business"}
+                                      </span>
+                                      <span className="font-medium">
+                                        {count}
+                                        {authorized > 0 && (
+                                          <span className="text-muted-foreground ml-1">/ {authorized}</span>
+                                        )}
+                                        {authorized > 0 && (
+                                          <span className={cn(
+                                            "ml-1 text-[10px] font-semibold",
+                                            loadFactor >= 95 ? "text-rose-500" : loadFactor >= 80 ? "text-amber-500" : "text-emerald-500"
+                                          )}>
+                                            {loadFactor}%
+                                          </span>
+                                        )}
+                                      </span>
+                                    </div>
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                                      <div 
+                                        className={cn(
+                                          "h-full transition-all",
+                                          loadFactor >= 95 ? "bg-rose-500" : loadFactor >= 80 ? "bg-amber-500" : isEconomy ? "bg-emerald-500" : "bg-amber-500"
+                                        )}
+                                        style={{ width: `${authorized > 0 ? Math.max(2, loadFactor) : Math.max(2, (count / Math.max(1, dashboard.passengerSummary.totalPassengers)) * 100)}%` }} 
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {(!dashboard.passengerSummary.cabinSummary || dashboard.passengerSummary.cabinSummary.length === 0) && (
+                                <>
+                                  <div>
+                                    <div className="flex justify-between text-xs mb-1">
+                                      <span className="text-muted-foreground">Economy</span>
+                                      <span className="font-medium">{dashboard.analysis?.economy?.total ?? 0}</span>
+                                    </div>
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                                      <div className="h-full bg-emerald-500" style={{ width: `${Math.max(2, ((dashboard.analysis?.economy?.total ?? 0) / Math.max(1, dashboard.passengerSummary.totalPassengers)) * 100)}%` }} />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex justify-between text-xs mb-1">
+                                      <span className="text-muted-foreground">Business</span>
+                                      <span className="font-medium">{dashboard.analysis?.business?.total ?? 0}</span>
+                                    </div>
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                                      <div className="h-full bg-amber-500" style={{ width: `${Math.max(2, ((dashboard.analysis?.business?.total ?? 0) / Math.max(1, dashboard.passengerSummary.totalPassengers)) * 100)}%` }} />
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Operational Status */}
+                        <Card className="shadow-sm">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Radar className="h-3.5 w-3.5 text-purple-500" />
+                              <h3 className="text-xs font-semibold">Operational Phase</h3>
+                            </div>
+                            <div className="space-y-1.5 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Checked in</span>
+                                <span className="font-medium">{dashboard.analysis?.checkedIn ?? 0}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Boarded</span>
+                                <span className="font-medium">{dashboard.analysis?.boarded ?? 0}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Not checked in</span>
+                                <span className={cn("font-medium", (dashboard.analysis?.notCheckedIn ?? 0) > 0 ? "text-rose-500" : "text-emerald-500")}>
+                                  {dashboard.analysis?.notCheckedIn ?? 0}
+                                </span>
+                              </div>
+                              <div className="flex justify-between border-t pt-1">
+                                <span className="text-muted-foreground">Revenue tickets</span>
+                                <span className="font-medium text-blue-500">{dashboard.analysis?.revenue ?? 0}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Non-revenue</span>
+                                <span className="font-medium text-purple-500">{dashboard.analysis?.nonRevenue ?? 0}</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Activity Stream */}
+                        <Card className="shadow-sm">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Clock className="h-3.5 w-3.5 text-amber-500" />
+                              <h3 className="text-xs font-semibold">Activity Stream</h3>
+                            </div>
+                            <div className="space-y-1.5 text-xs">
+                              {Object.entries(dashboard.changeSummary ?? {})
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 4)
+                                .map(([label, count]) => (
+                                  <div key={label} className="flex justify-between items-center">
+                                    <span className="text-muted-foreground capitalize">{label.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                    <Badge variant="secondary" className="px-1 text-[10px] h-4">{count}</Badge>
+                                  </div>
+                              ))}
+                              {Object.keys(dashboard.changeSummary ?? {}).length === 0 && (
+                                <div className="text-muted-foreground text-center py-2">
+                                  No recent activity.
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Bottom Detail Panel */}
+                      {bottomView && effectiveSelected && (
+                        <BottomDetailPanel
+                          view={bottomView}
+                          flightNumber={effectiveSelected.flightNumber}
+                          origin={effectiveSelected.origin}
+                          date={effectiveSelected.date}
+                          dashboard={dashboard}
+                          onClose={() => setBottomView(null)}
+                          onSelectPassenger={(pnr) => {
+                            setDetailPnr(pnr);
+                            setDetailOpen(true);
+                          }}
+                        />
+                      )}
+                    </TabsContent>
+
+                    {/* Passengers Tab */}
+                    <TabsContent value="passengers" className="mt-3">
+                      <PassengerTable
+                        flightNumber={effectiveSelected.flightNumber}
+                        origin={effectiveSelected.origin}
+                        date={effectiveSelected.date}
+                        onSelectPassenger={(pnr) => {
+                          setDetailPnr(pnr);
+                          setDetailOpen(true);
+                        }}
+                      />
+                    </TabsContent>
+
+                    {/* Standby Tab */}
+                    <TabsContent value="standby" className="mt-3">
+                      <StandbyPanel
+                        flightNumber={effectiveSelected.flightNumber}
+                        origin={effectiveSelected.origin}
+                        date={effectiveSelected.date}
+                      />
+                    </TabsContent>
+
+                    {/* Changes Tab */}
+                    <TabsContent value="changes" className="mt-3">
+                      <ChangeTimeline
+                        flightNumber={effectiveSelected.flightNumber}
+                        origin={effectiveSelected.origin}
+                        date={effectiveSelected.date}
+                      />
+                    </TabsContent>
+
+                    {/* History Tab */}
+                    <TabsContent value="history" className="mt-3">
+                      <StatusHistory
+                        flightNumber={effectiveSelected.flightNumber}
+                        origin={effectiveSelected.origin}
+                        date={effectiveSelected.date}
+                      />
+                    </TabsContent>
+
+                    {/* Reservations Tab */}
+                    <TabsContent value="reservations" className="mt-3">
+                      <ReservationView
+                        flightNumber={effectiveSelected.flightNumber}
+                        origin={effectiveSelected.origin}
+                        date={effectiveSelected.date}
+                      />
+                    </TabsContent>
+                  </Tabs>
+
+                  {/* Passenger Detail Sheet */}
+                  <PassengerDetailSheet
+                    open={detailOpen}
+                    onOpenChange={setDetailOpen}
+                    flightNumber={effectiveSelected.flightNumber}
+                    origin={effectiveSelected.origin}
+                    date={effectiveSelected.date}
+                    pnr={detailPnr}
+                  />
+                </>
+              )}
+            </div>
+          </main>
+        </Panel>
+
+        {(treeOpen || ingestOpen || infoOpen) && (
+          <>
+            <PanelResizeHandle className="relative flex w-px items-center justify-center bg-border focus-visible:outline-none data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full transition-colors hover:bg-primary" />
+            
+            <Panel defaultSize="35" minSize="25" maxSize="60">
+              <aside className="flex h-full flex-col bg-background shadow-2xl border-l relative overflow-hidden">
+                {treeOpen && (
+                  <>
+                    <div className="flex items-center justify-between border-b bg-muted/30 p-5 sticky top-0 z-10">
+                      <div>
+                        <h2 className="text-lg font-semibold tracking-tight">Passenger Tree</h2>
+                        <p className="text-sm text-muted-foreground">Hierarchical breakdown of flight passengers.</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => refetchTree()} disabled={treeFetching}>
+                          <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", treeFetching && "animate-spin")} />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setTreeOpen(false)}>Close</Button>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
+                      {treeLoading ? (
+                        <div className="flex items-center justify-center p-20 text-muted-foreground">
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Processing topology...
+                        </div>
+                      ) : tree ? (
+                        <PassengerTree tree={tree} />
+                      ) : (
+                        <div className="text-center text-muted-foreground mt-10">No tree data found for this flight.</div>
+                      )}
+                    </div>
+                  </>
+                )}
+                {ingestOpen && (
+                  <>
+                    <div className="flex items-center justify-between border-b bg-muted/30 p-5 sticky top-0 z-10">
+                      <div>
+                        <h2 className="text-lg font-semibold tracking-tight">Sabre Ingestion</h2>
+                        <p className="text-sm text-muted-foreground">Import live flight data into the operational database.</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setIngestOpen(false)}>Close</Button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      <IngestionPanel />
+                    </div>
+                  </>
+                )}
+                {infoOpen && (
+                  <>
+                    <div className="flex items-center justify-between border-b bg-muted/30 p-5 sticky top-0 z-10">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                          <Info className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-semibold tracking-tight">Tile Documentation</h2>
+                          <p className="text-sm text-muted-foreground">How the tile is calculated</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setInfoOpen(false)}>Close</Button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
+                      <TileInfoPanel activeTab={activeInfo} />
+                    </div>
+                  </>
+                )}
+              </aside>
+            </Panel>
+          </>
+        )}
+      </PanelGroup>
+
+      {/* Ingest Confirmation Dialog */}
+      <AlertDialog open={!!confirmFlight} onOpenChange={(open) => { if (!open) setConfirmFlight(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Re-ingest from Sabre</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmFlight && (
+                <>
+                  Fetch latest data for{" "}
+                  <span className="font-semibold text-foreground">
+                    {confirmFlight.airline}{confirmFlight.flightNumber}
+                  </span>{" "}
+                  ({confirmFlight.origin} → {confirmFlight.destination || "?"}, {confirmFlight.departureDate})?
+                  <br /><br />
+                  This will pull FlightStatus, PassengerList, and Reservations from Sabre and update the local database.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeIngest}>
+              <CloudDownload className="h-4 w-4 mr-2" />
+              Ingest
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
 
-function RailStat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-lg border border-white/8 bg-white/[0.04] px-2.5 py-2">
-      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-        {icon}
-        {label}
-      </div>
-      <div className="mt-0.5 text-xs font-semibold text-white">{value}</div>
-    </div>
-  );
-}
-
-function FlightChip({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-white/8 bg-black/20 px-1.5 py-1">
-      <div className="text-[8px] uppercase tracking-[0.18em] text-slate-500">{label}</div>
-      <div className="mt-0.5 truncate text-[11px] font-medium text-slate-200">{value}</div>
-    </div>
-  );
-}
-
-function HeroPill({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-slate-500">
-        {icon}
-        {label}
-      </div>
-      <div className="mt-0.5 text-lg font-semibold text-white">{value}</div>
-    </div>
-  );
-}
-
-function MetaCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/8 bg-black/20 px-2.5 py-2">
-      <div className="text-[9px] uppercase tracking-[0.2em] text-slate-500">{label}</div>
-      <div className="mt-0.5 truncate text-xs font-medium text-white">{value}</div>
-    </div>
-  );
-}
-
-function InsightTile({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: string;
-}) {
-  return (
-    <div className="rounded-xl border border-white/8 bg-black/20 px-2.5 py-2">
-      <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500">{label}</div>
-      <div className={cn("mt-0.5 text-lg font-semibold", tone)}>{value}</div>
-    </div>
-  );
-}
-
-function InsightLine({
-  label,
-  value,
-  valueTone,
-}: {
-  label: string;
-  value: number;
-  valueTone?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-slate-400">{label}</span>
-      <span className={cn("font-semibold text-white", valueTone)}>{value}</span>
-    </div>
-  );
-}
-
-function MixRow({
-  label,
-  value,
-  total,
-  barClass,
-}: {
-  label: string;
-  value: number;
-  total: number;
-  barClass: string;
-}) {
-  const width = Math.max(6, Math.round((value / total) * 100));
-
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="text-slate-400">{label}</span>
-        <span className="font-semibold text-white">{value}</span>
-      </div>
-      <div className="h-2.5 rounded-full bg-white/6">
-        <div
-          className={cn("h-full rounded-full bg-gradient-to-r", barClass)}
-          style={{ width: `${width}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function statusTone(status: string) {
-  switch (status) {
+function getStatusColor(status: string) {
+  switch (status.toUpperCase()) {
     case "PDC":
-      return "bg-emerald-400/10 text-emerald-300 border-emerald-400/25";
+      return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
     case "OPENCI":
-      return "bg-cyan-400/10 text-cyan-300 border-cyan-400/25";
+      return "bg-blue-500/15 text-blue-600 dark:text-blue-400";
     case "BOARDING":
-      return "bg-amber-400/10 text-amber-200 border-amber-400/25";
+      return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
     case "DEPARTED":
-      return "bg-fuchsia-400/10 text-fuchsia-300 border-fuchsia-400/25";
+      return "bg-purple-500/15 text-purple-600 dark:text-purple-400";
     default:
-      return "bg-white/6 text-slate-300 border-white/10";
+      return "bg-secondary text-secondary-foreground";
   }
+}
+
+function ScheduleDelay({ schedule }: { schedule?: { scheduledDeparture?: string; estimatedDeparture?: string; scheduledArrival?: string; estimatedArrival?: string } }) {
+  if (!schedule?.scheduledDeparture) return <span>STD —</span>;
+
+  const std = schedule.scheduledDeparture;
+  const etd = schedule.estimatedDeparture;
+
+  // Parse HH:MM from the time strings (last 8 chars is HH:MM:SS)
+  const stdTime = std.slice(-8, -3); // HH:MM
+
+  if (!etd || etd === std) {
+    return <span>STD {stdTime}</span>;
+  }
+
+  // Calculate delay in minutes
+  const parseMinutes = (t: string) => {
+    const hhmm = t.slice(-8, -3);
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const delayMin = parseMinutes(etd) - parseMinutes(std);
+
+  if (delayMin === 0) return <span>STD {stdTime}</span>;
+
+  const etdTime = etd.slice(-8, -3);
+  const sign = delayMin > 0 ? "+" : "";
+
+  return (
+    <span className="flex items-center gap-1">
+      <span>STD {stdTime}</span>
+      <span className={cn(
+        "text-[10px] font-semibold px-1 rounded",
+        delayMin > 0 ? "text-rose-500 bg-rose-50 dark:bg-rose-950/40" : "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40"
+      )}>
+        ETD {etdTime} ({sign}{delayMin}m)
+      </span>
+    </span>
+  );
 }

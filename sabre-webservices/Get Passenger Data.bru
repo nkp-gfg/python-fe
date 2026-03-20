@@ -1,7 +1,7 @@
 meta {
-  name: Get Passenger List
+  name: Get Passenger Data
   type: http
-  seq: 3
+  seq: 6
 }
 
 post {
@@ -12,7 +12,7 @@ post {
 
 headers {
   Content-Type: text/xml; charset=utf-8
-  SOAPAction: "GetPassengerListRQ"
+  SOAPAction: "GetPassengerDataRQ"
 }
 
 body:xml {
@@ -20,15 +20,15 @@ body:xml {
   <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                     xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
                     xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
-                    xmlns:v4="http://services.sabre.com/checkin/getPassengerList/v4">
+                    xmlns:v4="http://services.sabre.com/checkin/getPassengerData/v4">
     <soapenv:Header>
       <eb:MessageHeader soapenv:mustUnderstand="0">
         <eb:From><eb:PartyId/></eb:From>
         <eb:To><eb:PartyId/></eb:To>
         <eb:CPAId>{{cpaid}}</eb:CPAId>
         <eb:ConversationId>{{conversationId}}</eb:ConversationId>
-        <eb:Service>GetPassengerListRQ</eb:Service>
-        <eb:Action>GetPassengerListRQ</eb:Action>
+        <eb:Service>GetPassengerDataRQ</eb:Service>
+        <eb:Action>GetPassengerDataRQ</eb:Action>
         <eb:MessageData>
           <eb:MessageId>{{messageId}}</eb:MessageId>
           <eb:Timestamp>{{timestamp}}</eb:Timestamp>
@@ -39,8 +39,10 @@ body:xml {
       </wsse:Security>
     </soapenv:Header>
     <soapenv:Body>
-      <v4:GetPassengerListRQ version="4.0.0"
-                             timeStamp="2026-03-07T10:00:00Z"
+      <v4:GetPassengerDataRQ version="4.0.4"
+                             validateCheckInRequirements="true"
+                             includeTimaticInfo="true"
+                             timeStamp="{{timestamp}}"
                              messageID="MSG-000001"
                              serviceOption="Stateless">
         <v4:Itinerary>
@@ -49,24 +51,24 @@ body:xml {
           <v4:DepartureDate>{{departureDate}}</v4:DepartureDate>
           <v4:Origin>{{origin}}</v4:Origin>
         </v4:Itinerary>
-        <v4:DisplayCodeRequest>
-          <v4:DisplayCodes condition="OR">
-            <v4:DisplayCode>RV</v4:DisplayCode>
-            <v4:DisplayCode>XRV</v4:DisplayCode>
-            <v4:DisplayCode>BP</v4:DisplayCode>
-          </v4:DisplayCodes>
-          <v4:SortSequence>Name</v4:SortSequence>
-        </v4:DisplayCodeRequest>
-      </v4:GetPassengerListRQ>
+        <v4:PassengerList>
+          <v4:Passenger>
+            <v4:LastName>{{lastName}}</v4:LastName>
+            <v4:PNRLocator>{{pnr}}</v4:PNRLocator>
+          </v4:Passenger>
+        </v4:PassengerList>
+      </v4:GetPassengerDataRQ>
     </soapenv:Body>
   </soapenv:Envelope>
 }
 
 vars:pre-request {
-  flightNumber: 2272
-  departureDate: 2026-03-20
-  origin: DMM
+  flightNumber: 2057
+  departureDate: 2026-03-19
+  origin: BOM
   airlineCode: GF
+  lastName: SMITH
+  pnr: ABC123
 }
 
 script:pre-request {

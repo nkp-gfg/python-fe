@@ -1,0 +1,322 @@
+"use client";
+
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchPassengers } from "@/lib/api";
+import type { PassengerRecord, FlightDashboard } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Users,
+  UserCheck,
+  PlaneTakeoff,
+  Info,
+  Loader2,
+  X,
+  Baby,
+  Briefcase,
+  ShieldCheck,
+} from "lucide-react";
+
+export type DetailView =
+  | "booked"
+  | "checkedIn"
+  | "boarded"
+  | "others"
+  | "sob"       // Souls on board (boarded passengers + infants)
+  | "souls"     // All souls on manifest
+  | "records";  // All manifest records
+
+interface BottomDetailPanelProps {
+  view: DetailView;
+  flightNumber: string;
+  origin: string;
+  date: string;
+  dashboard: FlightDashboard;
+  onClose: () => void;
+  onSelectPassenger?: (pnr: string) => void;
+}
+
+const VIEW_CONFIG: Record<DetailView, { title: string; icon: React.ReactNode; description: string }> = {
+  booked: {
+    title: "Booked Passengers",
+    icon: <Users className="h-4 w-4 text-blue-500" />,
+    description: "Passengers who are booked but have not yet checked in.",
+  },
+  checkedIn: {
+    title: "Checked-In Passengers",
+    icon: <UserCheck className="h-4 w-4 text-amber-500" />,
+    description: "Passengers who have checked in but not yet boarded.",
+  },
+  boarded: {
+    title: "Boarded Passengers",
+    icon: <PlaneTakeoff className="h-4 w-4 text-emerald-500" />,
+    description: "Passengers who have boarded the aircraft.",
+  },
+  others: {
+    title: "Other Passengers",
+    icon: <Info className="h-4 w-4 text-muted-foreground" />,
+    description: "Jump seat, non-revenue, offloaded, and no-show passengers.",
+  },
+  sob: {
+    title: "Souls on Board (SOB)",
+    icon: <ShieldCheck className="h-4 w-4 text-emerald-500" />,
+    description: "All souls physically on board: boarded passengers + their lap infants.",
+  },
+  souls: {
+    title: "Total Souls on Manifest",
+    icon: <Users className="h-4 w-4 text-blue-500" />,
+    description: "All passengers on manifest plus their lap infants (totalPassengers + infantCount).",
+  },
+  records: {
+    title: "Manifest Records",
+    icon: <Briefcase className="h-4 w-4 text-muted-foreground" />,
+    description: "All seated passenger records on the manifest (excludes lap infants who share a seat).",
+  },
+};
+
+function filterPassengers(passengers: PassengerRecord[], view: DetailView): PassengerRecord[] {
+  switch (view) {
+    case "booked":
+      return passengers.filter((p) => !p.isCheckedIn && !p.isBoarded);
+    case "checkedIn":
+      return passengers.filter((p) => p.isCheckedIn && !p.isBoarded);
+    case "boarded":
+      return passengers.filter((p) => p.isBoarded);
+    case "others":
+      // Non-revenue or staff (employee type)
+      return passengers.filter((p) => !p.isRevenue || p.passengerType === "E");
+    case "sob":
+      // Souls on board = boarded passengers (infants are flagged via hasInfant)
+      return passengers.filter((p) => p.isBoarded);
+    case "souls":
+      // All passengers on manifest
+      return passengers;
+    case "records":
+      // All manifest records (same as full list)
+      return passengers;
+    default:
+      return passengers;
+  }
+}
+
+function getStatusBadge(p: PassengerRecord) {
+  if (p.isBoarded)
+    return <Badge className="bg-emerald-500/15 text-emerald-600 border-transparent text-[10px]">Boarded</Badge>;
+  if (p.isCheckedIn)
+    return <Badge className="bg-blue-500/15 text-blue-600 border-transparent text-[10px]">Checked-In</Badge>;
+  return <Badge className="bg-amber-500/15 text-amber-600 border-transparent text-[10px]">Booked</Badge>;
+}
+
+function getCabinLabel(cabin: string) {
+  return cabin === "J" ? "Business" : "Economy";
+}
+
+function getTypeBadge(p: PassengerRecord) {
+  const badges: React.ReactNode[] = [];
+  if (p.passengerType === "E")
+    badges.push(<Badge key="staff" className="bg-purple-500/15 text-purple-600 border-transparent text-[10px]">Staff</Badge>);
+  if (!p.isRevenue && p.passengerType !== "E")
+    badges.push(<Badge key="nr" className="bg-purple-500/15 text-purple-600 border-transparent text-[10px]">Non-Rev</Badge>);
+  if (p.isChild)
+    badges.push(<Badge key="chd" className="bg-amber-500/15 text-amber-600 border-transparent text-[10px]">Child</Badge>);
+  if (p.hasInfant)
+    badges.push(<Badge key="inf" className="bg-teal-500/15 text-teal-600 border-transparent text-[10px]">+Infant</Badge>);
+  if (p.isStandby)
+    badges.push(<Badge key="sb" className="bg-rose-500/15 text-rose-600 border-transparent text-[10px]">Standby</Badge>);
+  return badges.length > 0 ? <div className="flex gap-1 flex-wrap">{badges}</div> : null;
+}
+
+export function BottomDetailPanel({
+  view,
+  flightNumber,
+  origin,
+  date,
+  dashboard,
+  onClose,
+  onSelectPassenger,
+}: BottomDetailPanelProps) {
+  const config = VIEW_CONFIG[view];
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["passengers", flightNumber, origin, date],
+    queryFn: () => fetchPassengers(flightNumber, origin, date),
+  });
+
+  const allPassengers = useMemo(() => data?.passengers ?? [], [data]);
+  const filtered = useMemo(() => filterPassengers(allPassengers, view), [allPassengers, view]);
+
+  // Summary counts for the filtered set
+  const summary = useMemo(() => {
+    const adults = filtered.filter((p) => !p.isChild).length;
+    const children = filtered.filter((p) => p.isChild).length;
+    const infants = filtered.filter((p) => p.hasInfant).length;
+    const revenue = filtered.filter((p) => p.isRevenue).length;
+    const nonRevenue = filtered.filter((p) => !p.isRevenue).length;
+    const staff = filtered.filter((p) => p.passengerType === "E").length;
+    const economy = filtered.filter((p) => p.cabin !== "J").length;
+    const business = filtered.filter((p) => p.cabin === "J").length;
+    const souls = filtered.length + infants;
+    return { adults, children, infants, revenue, nonRevenue, staff, economy, business, souls, total: filtered.length };
+  }, [filtered]);
+
+  // For "others" view, also compute jump seat and offloaded/no-show from dashboard
+  const othersInfo = view === "others" ? {
+    jumpSeat: dashboard.stateSummary.others.jumpSeat,
+    offloaded: dashboard.stateSummary.others.offloaded,
+    noShow: dashboard.stateSummary.others.noShow,
+    offloadedAvailable: dashboard.stateSummary.others.offloadedAvailable,
+    noShowAvailable: dashboard.stateSummary.others.noShowAvailable,
+  } : null;
+
+  return (
+    <div className="rounded-lg border bg-card shadow-sm mt-3 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+        <div className="flex items-center gap-2">
+          {config.icon}
+          <div>
+            <h3 className="text-sm font-semibold">{config.title}</h3>
+            <p className="text-[10px] text-muted-foreground">{config.description}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Quick stats */}
+          <div className="hidden sm:flex items-center gap-3 text-[10px] text-muted-foreground">
+            <span><span className="font-medium text-foreground">{summary.total}</span> passengers</span>
+            {summary.infants > 0 && <span><span className="font-medium text-teal-600">+{summary.infants}</span> infants</span>}
+            <span><span className="font-medium text-foreground">{summary.souls}</span> souls</span>
+            <span className="text-muted-foreground/50">|</span>
+            <span><span className="font-medium text-foreground">{summary.economy}</span> Y</span>
+            <span><span className="font-medium text-foreground">{summary.business}</span> J</span>
+            {summary.staff > 0 && <span><span className="font-medium text-purple-600">{summary.staff}</span> staff</span>}
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Others-specific info bar */}
+      {othersInfo && (
+        <div className="px-4 py-1.5 bg-muted/20 border-b flex items-center gap-4 text-xs">
+          <span className="text-muted-foreground">
+            Jump Seat: <span className="font-medium text-foreground">{othersInfo.jumpSeat}</span>
+          </span>
+          <span className="text-muted-foreground">
+            Offloaded: <span className={cn("font-medium", (othersInfo.offloaded ?? 0) > 0 ? "text-rose-500" : "text-foreground")}>
+              {othersInfo.offloadedAvailable ? othersInfo.offloaded : "N/A"}
+            </span>
+          </span>
+          <span className="text-muted-foreground">
+            No Show: <span className={cn("font-medium", (othersInfo.noShow ?? 0) > 0 ? "text-orange-500" : "text-foreground")}>
+              {othersInfo.noShowAvailable ? othersInfo.noShow : "N/A"}
+            </span>
+          </span>
+        </div>
+      )}
+
+      {/* SOB-specific info bar */}
+      {view === "sob" && (
+        <div className="px-4 py-1.5 bg-emerald-50/50 dark:bg-emerald-950/20 border-b flex items-center gap-4 text-xs">
+          <span className="text-muted-foreground">
+            Boarded passengers: <span className="font-semibold text-foreground">{summary.total}</span>
+          </span>
+          <span className="text-muted-foreground">
+            Lap infants aboard: <span className="font-semibold text-teal-600">{summary.infants}</span>
+          </span>
+          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+            Total Souls on Board: {summary.souls}
+          </span>
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="max-h-[280px] overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading passenger data...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+            No passengers in this category.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="text-[10px]">
+                <TableHead className="py-1.5 px-2">#</TableHead>
+                <TableHead className="py-1.5 px-2">Name</TableHead>
+                <TableHead className="py-1.5 px-2">PNR</TableHead>
+                <TableHead className="py-1.5 px-2">Cabin</TableHead>
+                <TableHead className="py-1.5 px-2">Seat</TableHead>
+                <TableHead className="py-1.5 px-2">Status</TableHead>
+                <TableHead className="py-1.5 px-2">Type</TableHead>
+                <TableHead className="py-1.5 px-2">Ticket</TableHead>
+                <TableHead className="py-1.5 px-2 text-right">Bags</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((p, idx) => (
+                <TableRow
+                  key={`${p.pnr}-${p.passengerId}`}
+                  className={cn(
+                    "text-xs cursor-pointer hover:bg-muted/50 transition-colors",
+                    p.hasInfant && "bg-teal-50/30 dark:bg-teal-950/10"
+                  )}
+                  onClick={() => onSelectPassenger?.(p.pnr)}
+                >
+                  <TableCell className="py-1 px-2 text-muted-foreground">{idx + 1}</TableCell>
+                  <TableCell className="py-1 px-2 font-medium">
+                    {p.lastName}, {p.firstName}
+                    {p.hasInfant && (
+                      <Baby className="inline ml-1 h-3 w-3 text-teal-500" />
+                    )}
+                  </TableCell>
+                  <TableCell className="py-1 px-2 font-mono text-muted-foreground">{p.pnr}</TableCell>
+                  <TableCell className="py-1 px-2">
+                    <span className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded",
+                      p.cabin === "J" ? "bg-amber-500/10 text-amber-600" : "bg-emerald-500/10 text-emerald-600"
+                    )}>
+                      {getCabinLabel(p.cabin)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="py-1 px-2 font-mono">{p.seat || "—"}</TableCell>
+                  <TableCell className="py-1 px-2">{getStatusBadge(p)}</TableCell>
+                  <TableCell className="py-1 px-2">{getTypeBadge(p)}</TableCell>
+                  <TableCell className="py-1 px-2 font-mono text-muted-foreground">{p.ticketNumber || "—"}</TableCell>
+                  <TableCell className="py-1 px-2 text-right">{p.bagCount}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+
+      {/* Footer summary */}
+      {filtered.length > 0 && (
+        <div className="px-4 py-1.5 border-t bg-muted/20 flex items-center gap-4 text-[10px] text-muted-foreground">
+          <span>Adults: <span className="font-medium text-foreground">{summary.adults}</span></span>
+          <span>Children: <span className="font-medium text-amber-600">{summary.children}</span></span>
+          <span>Infants: <span className="font-medium text-teal-600">{summary.infants}</span></span>
+          <span className="text-muted-foreground/50">|</span>
+          <span>Revenue: <span className="font-medium text-blue-600">{summary.revenue}</span></span>
+          <span>Non-Revenue: <span className="font-medium text-purple-600">{summary.nonRevenue}</span></span>
+        </div>
+      )}
+    </div>
+  );
+}

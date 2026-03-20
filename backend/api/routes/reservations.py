@@ -1,8 +1,11 @@
 """Reservation API endpoints."""
 
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
+from backend.api.validators import validate_date, validate_origin
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/flights", tags=["reservations"])
 
 
@@ -16,14 +19,16 @@ def _strip_id(doc):
 @router.get("/{flight_number}/reservations")
 def get_reservations(
     flight_number: str,
-    airport: str = Query(None, description="Departure airport code"),
+    origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
 ):
     """Get the latest reservations document for a flight."""
+    validate_date(date)
+    validate_origin(origin)
     db = get_db()
     query = {"flightNumber": flight_number}
-    if airport:
-        query["departureAirport"] = airport
+    if origin:
+        query["departureAirport"] = origin
     if date:
         query["departureDate"] = date
 
@@ -40,6 +45,7 @@ def get_reservation_by_pnr(
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
 ):
     """Find a specific reservation by PNR locator."""
+    validate_date(date)
     db = get_db()
     query = {"flightNumber": flight_number, "reservations.pnr": pnr}
     if date:

@@ -29,7 +29,9 @@ Bruno API collection for testing the FalconEye FastAPI endpoints.
 
 - `GET /flights/{flight_number}/passengers` — Latest passenger list
 - `GET /flights/{flight_number}/passengers/summary` — Passenger count summary
+- `GET /flights/{flight_number}/passengers/standby-list` — Prioritized standby & upgrade queue
 - `GET /flights/{flight_number}/passengers/{pnr}` — Passenger by PNR
+- `GET /flights/{flight_number}/passengers/{pnr}/detail` — Real-time detailed passenger data from Sabre
 
 ### Reservations
 
@@ -58,7 +60,9 @@ Bruno API collection for testing the FalconEye FastAPI endpoints.
 - `Get Flight Status History.bru`
 - `Get Passengers.bru`
 - `Get Passenger Summary.bru`
+- `Get Standby List.bru`
 - `Get Passenger by PNR.bru`
+- `Get Passenger Detail.bru`
 - `Get Reservations.bru`
 - `Get Reservation by PNR.bru`
 - `Get Changes.bru`

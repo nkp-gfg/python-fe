@@ -65,7 +65,9 @@ When this endpoint is called, FalconEye runs the existing feeder pipeline in thi
 2. `ACS_FlightDetailRQ`
 3. `GetPassengerListRQ`
 4. `Trip_SearchRQ`
-5. `SessionCloseRQ`
+5. `Trip_ReportsRQ` (MLX — cancelled passengers)
+6. `Trip_ReportsRQ` (MLC — ever-booked passengers)
+7. `SessionCloseRQ`
 
 For each business API response, FalconEye:
 
@@ -74,7 +76,7 @@ For each business API response, FalconEye:
 3. Stores immutable snapshots in `snapshots`
 4. Detects and stores changes in `changes`
 5. Updates the current-state document in `flights`
-6. Maintains legacy compatibility collections: `flight_status`, `passenger_list`, `reservations`
+6. Maintains legacy compatibility collections: `flight_status`, `passenger_list`, `reservations`, `trip_reports`
 
 ## Response Shape
 

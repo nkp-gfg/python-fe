@@ -30,19 +30,19 @@ export function PassengerTree({ tree }: Props) {
       <path
         key={`${from.x}-${from.y}-${to.x}-${to.y}`}
         d={`M${from.x},${fy} C${from.x},${mid} ${to.x},${mid} ${to.x},${ty}`}
-        fill="none"
-        stroke="hsl(var(--border))"
-        strokeWidth={2}
+        className="fill-none stroke-border drop-shadow-sm"
+        strokeWidth={1.5}
         strokeLinecap="round"
       />
     );
   }
 
   const badgeColors: Record<string, { bg: string; fg: string }> = {
-    M: { bg: "rgba(59,142,237,.2)", fg: "#3b8eed" },
-    F: { bg: "rgba(232,88,140,.2)", fg: "#e8588c" },
-    C: { bg: "rgba(46,194,126,.2)", fg: "#2ec27e" },
-    I: { bg: "rgba(232,154,60,.2)", fg: "#e89a3c" },
+    M: { bg: "rgba(59,130,246,0.15)", fg: "rgb(59,130,246)" }, // blue-500 — Male
+    F: { bg: "rgba(236,72,153,0.15)", fg: "rgb(236,72,153)" }, // pink-500 — Female
+    A: { bg: "rgba(59,130,246,0.15)", fg: "rgb(59,130,246)" }, // blue-500 — Adults
+    C: { bg: "rgba(16,185,129,0.15)", fg: "rgb(16,185,129)" }, // emerald-500 — Children
+    I: { bg: "rgba(245,158,11,0.15)", fg: "rgb(245,158,11)" }, // amber-500 — Infants
   };
 
   function nodeBox(
@@ -50,12 +50,15 @@ export function PassengerTree({ tree }: Props) {
     borderColor: string,
     textColor: string,
     label: string,
-    val: number,
+    val: number | string,
     sub?: string,
     bdg?: FlightTree["nodes"][number]["badges"],
   ) {
     const left = nd.x - nd.w / 2;
     const top = nd.y - nd.h / 2;
+    const isUnavailable = typeof val === "string";
+    const displayBorder = isUnavailable ? borderColor : borderColor;
+    const displayStroke = isUnavailable ? [4, 3] : undefined;
     return (
       <g key={`node-${nd.x}-${nd.y}`}>
         <rect
@@ -63,41 +66,42 @@ export function PassengerTree({ tree }: Props) {
           y={top}
           width={nd.w}
           height={nd.h}
-          rx={12}
-          fill="hsl(var(--card))"
-          stroke={borderColor}
-          strokeWidth={2}
+          rx={8}
+          className="fill-card shadow-sm drop-shadow-sm"
+          stroke={displayBorder}
+          strokeWidth={1.5}
+          strokeDasharray={displayStroke ? displayStroke.join(",") : undefined}
         />
         <text
           x={nd.x}
-          y={top + 16}
+          y={top + 18}
           textAnchor="middle"
-          fill="hsl(var(--muted-foreground))"
-          fontSize={10}
+          className="fill-muted-foreground"
+          fontSize={11}
           fontWeight={500}
-          fontFamily="var(--font-roboto), system-ui, sans-serif"
+          fontFamily="inherit"
         >
           {label}
         </text>
         <text
           x={nd.x}
-          y={top + 37}
+          y={top + 38}
           textAnchor="middle"
           fill={textColor}
-          fontSize={21}
-          fontWeight={700}
-          fontFamily="var(--font-roboto), system-ui, sans-serif"
+          fontSize={20}
+          fontWeight={600}
+          fontFamily="inherit"
         >
           {val}
         </text>
         {sub && (
           <text
             x={nd.x}
-            y={top + 51}
+            y={top + 52}
             textAnchor="middle"
-            fill="hsl(var(--muted-foreground))"
-            fontSize={9}
-            fontFamily="var(--font-roboto), system-ui, sans-serif"
+            className="fill-muted-foreground"
+            fontSize={10}
+            fontFamily="inherit"
           >
             {sub}
           </text>
@@ -105,30 +109,30 @@ export function PassengerTree({ tree }: Props) {
         {bdg &&
           bdg.length > 0 &&
           (() => {
-            let bx = nd.x - (bdg.length * 26) / 2;
-            const by = top + nd.h - 16;
+            let bx = nd.x - (bdg.length * 28) / 2;
+            const by = top + nd.h - 18;
             return bdg.map((b) => {
-              const col = badgeColors[b.type];
+              const col = badgeColors[b.type] || { bg: "hsl(var(--muted))", fg: "hsl(var(--muted-foreground))" };
               const txt = `${b.type} ${b.value}`;
-              const tw = txt.length * 5.5 + 8;
+              const tw = txt.length * 6 + 10;
               const el = (
                 <g key={`bdg-${b.type}-${nd.x}`}>
                   <rect
                     x={bx}
                     y={by}
                     width={tw}
-                    height={13}
-                    rx={3}
+                    height={16}
+                    rx={4}
                     fill={col.bg}
                   />
                   <text
                     x={bx + tw / 2}
-                    y={by + 10}
+                    y={by + 11.5}
                     textAnchor="middle"
                     fill={col.fg}
-                    fontSize={8.5}
-                    fontWeight={700}
-                    fontFamily="var(--font-roboto), system-ui, sans-serif"
+                    fontSize={9}
+                    fontWeight={600}
+                    fontFamily="inherit"
                   >
                     {txt}
                   </text>
@@ -143,22 +147,26 @@ export function PassengerTree({ tree }: Props) {
   }
 
   return (
-    <Card className="border-white/10 bg-white/[0.03] shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
-      <CardContent className="py-5">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-[0.2em]">
+    <Card className="shadow-none border-transparent bg-transparent">
+      <CardContent className="p-0">
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             {tree.title}
           </h3>
-          <span className="rounded bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-400">
-            {tree.badge}
-          </span>
+          {tree.badge && (
+            <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-500">
+              {tree.badge}
+            </span>
+          )}
         </div>
 
-        <div className="overflow-x-auto flex justify-center">
+        <div className="overflow-auto flex justify-center pb-4">
           <svg
-            width="100%"
             viewBox={`0 0 ${tree.width} ${tree.height}`}
-            className="max-w-[940px]"
+            className="w-full h-auto font-sans"
+            preserveAspectRatio="xMidYMin meet"
+            role="img"
+            aria-label="Passenger breakdown tree diagram"
           >
             {/* Connections */}
             {tree.edges.map((edge) => {

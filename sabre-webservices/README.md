@@ -32,8 +32,9 @@ sabre-webservices/
 ├── Create Session.bru      # 1. Authenticate and get session token
 ├── Get Reservation.bru     # 2. Trip_SearchRQ by flight criteria
 ├── Get Passenger List.bru  # 3. GetPassengerListRQ for a flight manifest
-├── Flight Status.bru       # 4. ACS_FlightDetailRQ for flight status
-└── Close Session.bru       # 5. Close the session
+├── Get Passenger Data.bru  # 4. GetPassengerDataRQ for per-passenger detail
+├── Flight Status.bru       # 5. ACS_FlightDetailRQ for flight status
+└── Close Session.bru       # 6. Close the session
 ```
 
 ## Workflow

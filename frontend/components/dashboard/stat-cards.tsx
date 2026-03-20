@@ -4,25 +4,26 @@ import { Card, CardContent } from "@/components/ui/card";
 interface Props {
   overview: FlightDashboard["overview"];
   passengerSummary: FlightDashboard["passengerSummary"];
+  analysis: FlightDashboard["analysis"];
 }
 
-export function StatCards({ passengerSummary: ps, overview }: Props) {
+export function StatCards({ passengerSummary: ps, overview, analysis }: Props) {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       <StatCard
-        value={overview.soulsOnBoard}
-        label="Souls on Board"
-        sub={`${ps.totalPassengers} records · ${ps.infantCount} INF`}
+        value={ps.totalPassengers}
+        label="Total Pax"
+        sub={`${ps.totalSouls} souls (incl. ${ps.infantCount} INF)`}
         accent="text-foreground"
       />
       <StatCard
-        value={overview.economySouls}
+        value={analysis.economy.total}
         label="Economy"
         sub={`Auth: ${ps.cabinSummary.find((c) => c.cabin === "Y")?.authorized ?? "—"}`}
         accent="text-emerald-400"
       />
       <StatCard
-        value={overview.businessSouls}
+        value={analysis.business.total}
         label="Business"
         sub={`Auth: ${ps.cabinSummary.find((c) => c.cabin === "J")?.authorized ?? "—"}`}
         accent="text-amber-400"

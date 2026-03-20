@@ -1,8 +1,11 @@
 """Change tracking API endpoints."""
 
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
+from backend.api.validators import validate_date, validate_origin
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/flights", tags=["changes"])
 
 
@@ -16,6 +19,8 @@ def get_changes(
     limit: int = Query(100, ge=1, le=1000),
 ):
     """Get detected changes for a flight, newest first."""
+    validate_date(date)
+    validate_origin(origin)
     db = get_db()
     query = {"flightNumber": flight_number}
     if origin:
@@ -42,6 +47,8 @@ def get_changes_summary(
     date: str = Query(None),
 ):
     """Get a summary of change counts by type for a flight."""
+    validate_date(date)
+    validate_origin(origin)
     db = get_db()
     match = {"flightNumber": flight_number}
     if origin:
@@ -74,6 +81,8 @@ def get_snapshots(
     limit: int = Query(20, ge=1, le=100),
 ):
     """List snapshot metadata for a flight (without full data)."""
+    validate_date(date)
+    validate_origin(origin)
     db = get_db()
     query = {"flightNumber": flight_number}
     if origin:
@@ -103,6 +112,7 @@ def get_passenger_changes(
     limit: int = Query(100, ge=1, le=1000),
 ):
     """Get all changes for a specific passenger by PNR."""
+    validate_date(date)
     db = get_db()
     query = {"flightNumber": flight_number, "passenger.pnr": pnr}
     if date:

@@ -13,4 +13,5 @@ learned by analyzing Gulf Air (GF) Sabre API responses across multiple flights.
 | change_tracking.md     | Design for detecting differences between API snapshots                     |
 | data_preservation.md   | Strategy for storing all raw data for data warehouse use                   |
 | ingestion_api.md       | FastAPI trigger for Sabre SOAP ingestion and required request inputs       |
+| trip_reports_api.md    | Trip_ReportsRQ integration for offloaded/no-show detection (MLX/MLC)       |
 | scenarios.md           | Real-world scenarios discovered from data analysis                         |

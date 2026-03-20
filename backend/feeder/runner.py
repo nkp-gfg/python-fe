@@ -25,7 +25,7 @@ Input JSON format:
 """
 
 from backend.feeder import storage
-from backend.feeder.converter import convert_flight_status, convert_passenger_list, convert_reservations
+from backend.feeder.converter import convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports
 from backend.feeder.differ import detect_changes
 from backend.sabre.client import SabreClient, SabreError
 import json
@@ -148,7 +148,6 @@ def run_feeder(flights):
     """
     Fetch data from Sabre for a list of flights and store with full preservation.
     """
-    storage.ensure_indexes()
     results = []
 
     with SabreClient() as client:
@@ -246,9 +245,72 @@ def run_feeder(flights):
                     "error": str(e),
                 }
 
+            # 4. Trip Reports (MLX + MLC for offloaded / no-show detection)
+            try:
+                # MLX = cancelled passengers
+                mlx_raw, mlx_xml, mlx_meta = client.get_trip_report(
+                    airline, fn, dep_date, origin, "MLX")
+                mlx_doc = convert_trip_report(
+                    mlx_raw, airline, fn, dep_date, origin, "MLX")
+
+                # Store raw MLX request
+                storage.store_raw_request(
+                    api_type="TripReport_MLX",
+                    flight_info=flight_info,
+                    request_xml=mlx_meta["requestXml"],
+                    response_xml=mlx_xml,
+                    response_json=mlx_raw,
+                    http_status=mlx_meta["httpStatus"],
+                    duration_ms=mlx_meta["durationMs"],
+                    session_token=mlx_meta.get("sessionToken"),
+                    conversation_id=mlx_meta.get("conversationId"),
+                )
+
+                # MLC = ever-booked passengers
+                mlc_raw, mlc_xml, mlc_meta = client.get_trip_report(
+                    airline, fn, dep_date, origin, "MLC")
+                mlc_doc = convert_trip_report(
+                    mlc_raw, airline, fn, dep_date, origin, "MLC")
+
+                # Store raw MLC request
+                storage.store_raw_request(
+                    api_type="TripReport_MLC",
+                    flight_info=flight_info,
+                    request_xml=mlc_meta["requestXml"],
+                    response_xml=mlc_xml,
+                    response_json=mlc_raw,
+                    http_status=mlc_meta["httpStatus"],
+                    duration_ms=mlc_meta["durationMs"],
+                    session_token=mlc_meta.get("sessionToken"),
+                    conversation_id=mlc_meta.get("conversationId"),
+                )
+
+                # Merge both reports into one document for storage
+                merged = merge_trip_reports(
+                    mlx_doc, mlc_doc, airline, fn, dep_date, origin)
+                storage.store_trip_reports(merged)
+
+                flight_result["apis"]["tripReports"] = {
+                    "status": "success",
+                    "cancelledCount": merged.get("cancelledCount", 0),
+                    "everBookedCount": merged.get("everBookedCount", 0),
+                    "mlxDurationMs": mlx_meta["durationMs"],
+                    "mlcDurationMs": mlc_meta["durationMs"],
+                }
+                logger.info("Trip reports complete: %s%s — cancelled=%d ever_booked=%d",
+                            airline, fn,
+                            merged.get("cancelledCount", 0),
+                            merged.get("everBookedCount", 0))
+            except SabreError as e:
+                logger.warning("Trip reports failed for %s%s: %s (non-fatal)",
+                               airline, fn, e)
+                flight_result["apis"]["tripReports"] = {
+                    "status": "error",
+                    "error": str(e),
+                }
+
             results.append(flight_result)
 
-    storage.close()
     logger.info("Feeder run complete. Processed %d flight(s).", len(flights))
     return {
         "processedFlights": len(flights),
@@ -282,7 +344,9 @@ def main():
         logger.error("No flights found in input JSON.")
         sys.exit(1)
 
+    storage.ensure_indexes()
     run_feeder(flights)
+    storage.close()
 
 
 if __name__ == "__main__":

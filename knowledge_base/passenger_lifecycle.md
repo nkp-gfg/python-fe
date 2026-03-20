@@ -21,6 +21,27 @@ BOOKED → CHECKED_IN → BOARDED → (PDC confirmed)
 CANCELLED  NO_SHOW    OFFLOADED
 ```
 
+### Offloaded Detection (via Trip_ReportsRQ MLX)
+
+Offloaded passengers are detected from the Sabre Trip_ReportsRQ MLX (cancelled passenger list):
+- MLX returns all passengers whose booking was removed from the flight
+- Count of MLX passengers = offloaded count shown in dashboard
+- Available as soon as trip report data is ingested
+
+### No-Show Detection (via Trip_ReportsRQ MLC + passenger_list)
+
+No-show passengers are detected by comparing two data sources:
+1. **MLC report** (Trip_ReportsRQ) = all passengers EVER booked on the flight
+2. **Current manifest** (passenger_list) = passengers currently on the flight
+
+```
+no_show = (MLC ever-booked set) - (current manifest set)
+Match key: (PNR, lastName.upper())
+Condition: flight status must be FINAL or PDC
+```
+
+This is more reliable than snapshot-based detection because MLC captures ALL historical bookings, not just what was present in our last snapshot.
+
 ### State Transitions Observed
 
 From analysis of GF2006 LHR 2026-03-18 (sample=early check-in → live=PDC):
@@ -87,7 +108,8 @@ Observed PNR patterns:
 
 ## Non-Revenue Passengers
 
-- **Type E**: Staff/employee (observed on GF2057)
+- **Type E**: Staff/employee — always non-revenue
+- **Type S**: Standby — can be revenue OR non-revenue (determined by Indicators array)
 - Indicator includes `NonRevenue`
 - May not have seat assigned (`noSeat` count)
 - Can be standby or confirmed

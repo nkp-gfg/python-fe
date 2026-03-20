@@ -1,129 +1,205 @@
+"use client";
+
 import type { FlightDashboard } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronDown } from "lucide-react";
+import { Users, UserCheck, PlaneTakeoff, Info } from "lucide-react";
+import type { TileInfoKey } from "@/components/dashboard/tile-info-panel";
+
+export type StateCardKey = "booked" | "checkedIn" | "boarded" | "others";
 
 interface Props {
   stateSummary: FlightDashboard["stateSummary"];
+  onInfoClick: (key: TileInfoKey) => void;
+  onCardClick?: (key: StateCardKey) => void;
+  activeCard?: StateCardKey | null;
 }
 
-export function StatePanels({ stateSummary }: Props) {
+export function StatePanels({ stateSummary, onInfoClick, onCardClick, activeCard }: Props) {
   const { booked, checkedIn, boarded, others } = stateSummary;
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {/* BOOKED */}
-      <PanelCard
-        title="BOOKED"
-        titleClass="text-muted-foreground"
-        count={booked.totalSouls}
-        rows={[
-          { label: "Not Checked-In", value: booked.totalSouls },
-          { label: "Business", value: booked.business, labelClass: "text-blue-400" },
-          { label: "Economy", value: booked.economy, labelClass: "text-emerald-400" },
-        ]}
-        footer={{ adults: booked.adults, children: booked.children, infants: booked.infants }}
-      />
+    <>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* BOOKED */}
+        <PanelCard
+          title="Booked"
+          icon={<Users className="h-4 w-4 text-blue-500" />}
+          count={booked.totalPassengers}
+          soulsCount={booked.totalSouls}
+          rows={[
+            { label: "Total Booked", value: booked.totalPassengers },
+            { label: "Business", value: booked.business },
+            { label: "Economy", value: booked.economy },
+          ]}
+          footer={{ adults: booked.adults, children: booked.children, infants: booked.infants }}
+          onInfoClick={() => onInfoClick("booked")}
+          onClick={() => onCardClick?.("booked")}
+          active={activeCard === "booked"}
+        />
 
-      {/* CHECKED-IN */}
-      <PanelCard
-        title="CHECKED-IN"
-        titleClass="text-amber-400"
-        count={checkedIn.totalSouls}
-        rows={[
-          { label: "Total Checked-in", value: checkedIn.totalSouls },
-          { label: "Business", value: checkedIn.business, labelClass: "text-blue-400" },
-          { label: "Economy", value: checkedIn.economy, labelClass: "text-emerald-400" },
-        ]}
-        footer={{ adults: checkedIn.adults, children: checkedIn.children, infants: checkedIn.infants }}
-      />
+        {/* CHECKED-IN */}
+        <PanelCard
+          title="Checked-In"
+          icon={<UserCheck className="h-4 w-4 text-amber-500" />}
+          count={checkedIn.totalPassengers}
+          soulsCount={checkedIn.totalSouls}
+          rows={[
+            { label: "Total Checked-in", value: checkedIn.totalPassengers },
+            {
+              label: "No Show",
+              value: others.noShow,
+              unavailable: !others.noShowAvailable,
+              labelClass: "text-orange-500 dark:text-orange-400",
+              valueClass: (others.noShow ?? 0) > 0 ? "text-orange-500 dark:text-orange-400 font-semibold" : "text-foreground",
+            },
+            { label: "Business", value: checkedIn.business },
+            { label: "Economy", value: checkedIn.economy },
+          ]}
+          footer={{ adults: checkedIn.adults, children: checkedIn.children, infants: checkedIn.infants }}
+          onInfoClick={() => onInfoClick("checkedIn")}
+          onClick={() => onCardClick?.("checkedIn")}
+          active={activeCard === "checkedIn"}
+        />
 
-      {/* BOARDED */}
-      <PanelCard
-        title="BOARDED"
-        titleClass="text-destructive"
-        count={boarded.totalSouls}
-        rows={[
-          {
-            label: "Total Boarded",
-            value: boarded.totalSouls,
-            valueClass: "text-destructive",
-          },
-          { label: "Business", value: boarded.business, labelClass: "text-blue-400" },
-          { label: "Economy", value: boarded.economy, labelClass: "text-emerald-400" },
-        ]}
-        footer={{
-          adults: boarded.adults,
-          children: boarded.children,
-          infants: boarded.infants,
-        }}
-      />
+        {/* BOARDED */}
+        <PanelCard
+          title="Boarded"
+          icon={<PlaneTakeoff className="h-4 w-4 text-emerald-500" />}
+          count={boarded.totalPassengers}
+          soulsCount={boarded.totalSouls}
+          rows={[
+            {
+              label: "Total Boarded",
+              value: boarded.totalPassengers,
+              valueClass: "text-emerald-600 dark:text-emerald-400 font-semibold",
+            },
+            { label: "Business", value: boarded.business },
+            { label: "Economy", value: boarded.economy },
+          ]}
+          footer={{
+            adults: boarded.adults,
+            children: boarded.children,
+            infants: boarded.infants,
+          }}
+          onInfoClick={() => onInfoClick("boarded")}
+          onClick={() => onCardClick?.("boarded")}
+          active={activeCard === "boarded"}
+        />
 
-      {/* OTHERS */}
-      <Card className="border-white/10 bg-white/[0.035] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <CardContent className="px-4 py-3">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
-            <span className="text-[10px] font-bold tracking-[0.22em] uppercase text-slate-300">
-              OTHERS
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold tabular-nums">
-                  {others.jumpSeat + others.nonRevenue}
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        {/* OTHERS */}
+        <Card
+          className={`shadow-sm cursor-pointer transition-all hover:ring-1 hover:ring-primary/30 ${activeCard === "others" ? "ring-2 ring-primary" : ""}`}
+          onClick={() => onCardClick?.("others")}
+        >
+          <CardContent className="p-3 flex flex-col h-full justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-muted-foreground font-medium text-xs">
+                  <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>Other Passengers</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xl font-bold tracking-tight">
+                    {others.jumpSeat + others.nonRevenue}
+                  </span>
+                  <InfoButton onClick={() => onInfoClick("others")} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Row label="Jump Seat" value={others.jumpSeat} />
+                <Row label="Non-Revenue" value={others.nonRevenue} />
+                <Row
+                  label="Offloaded"
+                  value={others.offloaded}
+                  unavailable={!others.offloadedAvailable}
+                  valueClass={(others.offloaded ?? 0) > 0 ? "text-rose-500 font-semibold" : undefined}
+                />
+                <Row
+                  label="No Show"
+                  value={others.noShow}
+                  unavailable={!others.noShowAvailable}
+                  valueClass={(others.noShow ?? 0) > 0 ? "text-orange-500 dark:text-orange-400 font-semibold" : undefined}
+                />
+              </div>
             </div>
-          </div>
-          <Row label="Jump Seat" value={others.jumpSeat} valueClass="text-emerald-400" />
-          <Row label="Non-Revenue" value={others.nonRevenue} valueClass="text-emerald-400" />
-          <Row label="Offloaded" value={others.offloaded} valueClass="text-slate-300" unavailable={!others.offloadedAvailable} />
-          <Row label="No Show" value={others.noShow} valueClass="text-slate-300" unavailable={!others.noShowAvailable} />
-          <div className="mt-3 border-t border-border pt-2 text-[10px] text-muted-foreground">
-            Live REST response
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+            <div className="mt-2 border-t pt-2 text-[10px] text-muted-foreground">
+              Live database response
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+    </>
+  );
+}
+
+function InfoButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className="flex h-6 w-6 items-center justify-center rounded-full border border-muted-foreground/20 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+      title="View calculation details"
+    >
+      <Info className="h-3 w-3" />
+    </button>
   );
 }
 
 function PanelCard({
   title,
-  titleClass,
+  icon,
   count,
+  soulsCount,
   rows,
   footer,
+  onInfoClick,
+  onClick,
+  active,
 }: {
   title: string;
-  titleClass: string;
+  icon: React.ReactNode;
   count: number;
-  rows: { label: string; value: number; labelClass?: string; valueClass?: string }[];
+  soulsCount?: number;
+  rows: { label: string; value: number | null; labelClass?: string; valueClass?: string; unavailable?: boolean }[];
   footer: { adults: number; children: number; infants: number };
+  onInfoClick: () => void;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   return (
-    <Card className="border-white/10 bg-white/[0.035] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-      <CardContent className="px-4 py-3">
-        <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
-          <span
-            className={`text-[10px] font-bold tracking-[0.22em] uppercase ${titleClass}`}
-          >
-            {title}
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold tabular-nums">{count}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+    <Card
+      className={`shadow-sm flex flex-col justify-between cursor-pointer transition-all hover:ring-1 hover:ring-primary/30 ${active ? "ring-2 ring-primary" : ""}`}
+      onClick={onClick}
+    >
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5 text-muted-foreground font-medium text-xs">
+            {icon}
+            <span>{title}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xl font-bold tracking-tight">{count}</span>
+            <InfoButton onClick={onInfoClick} />
           </div>
         </div>
-        {rows.map((r) => (
-          <Row key={r.label} {...r} />
-        ))}
-        <div className="mt-3 flex gap-3 border-t border-border pt-2 text-[10px] text-muted-foreground">
-          <span>
-            Adults: <b className="text-emerald-400">{footer.adults}</b>
-          </span>
-          <span>
-            Children: <b className="text-purple-400">{footer.children}</b>
-          </span>
-          <span>
-            Infants: <b className="text-amber-400">{footer.infants}</b>
-          </span>
+        <div className="space-y-1 mb-2">
+          {rows.map((r) => (
+            <Row key={r.label} {...r} />
+          ))}
+        </div>
+        <div className="mt-auto grid grid-cols-3 gap-2 border-t pt-2 text-[10px]">
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Adults</span>
+            <span className="font-medium text-foreground">{footer.adults}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Children</span>
+            <span className="font-medium text-amber-600 dark:text-amber-500">{footer.children}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Infants</span>
+            <span className="font-medium text-emerald-600 dark:text-emerald-500">{footer.infants}</span>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -144,9 +220,9 @@ function Row({
   unavailable?: boolean;
 }) {
   return (
-    <div className="flex justify-between py-0.5 text-sm">
+    <div className="flex items-center justify-between text-xs">
       <span className={labelClass ?? "text-muted-foreground"}>{label}</span>
-      <span className={`font-semibold tabular-nums ${valueClass ?? ""}`}>
+      <span className={`font-medium ${valueClass ?? "text-foreground"}`}>
         {unavailable ? "N/A" : (value ?? 0)}
       </span>
     </div>

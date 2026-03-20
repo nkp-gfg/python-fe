@@ -15,26 +15,6 @@ headers {
   SOAPAction: "ACS_FlightDetailRQ"
 }
 
-vars:pre-request {
-  flightNumber: 2056
-  origin: DMM
-  airlineCode: GF
-}
-
-script:pre-request {
-  // Generate dynamic MessageId and Timestamp
-  function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-  
-  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
-  bru.setVar("timestamp", new Date().toISOString());
-}
-
 body:xml {
   <?xml version="1.0" encoding="UTF-8"?>
   <soapenv:Envelope
@@ -71,6 +51,28 @@ body:xml {
   </soapenv:Envelope>
 }
 
+vars:pre-request {
+  flightNumber: 2272
+  origin: DMM
+  airlineCode: GF
+  DepartureDate: 2026-03-20
+}
+
+script:pre-request {
+  // Generate dynamic MessageId and Timestamp
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
 settings {
   encodeUrl: true
+  timeout: 0
 }

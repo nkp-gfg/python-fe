@@ -16,11 +16,19 @@ def _now_iso():
 
 
 def _pax_key(passenger):
-    """Create a unique key for a passenger: PNR + lastName + firstName."""
+    """Create a unique key for a passenger.
+
+    Uses PNR + lastName + firstName when PNR is available.
+    Falls back to lineNumber for staff/non-revenue passengers without a PNR.
+    """
     pnr = passenger.get("pnr", "")
     last = passenger.get("lastName", "")
     first = passenger.get("firstName", "")
-    return f"{pnr}|{last}|{first}"
+    if pnr:
+        return f"{pnr}|{last}|{first}"
+    # Staff may have no PNR — use lineNumber as fallback key
+    line = passenger.get("lineNumber", "")
+    return f"LINE:{line}|{last}|{first}"
 
 
 def _make_change(flight_info, change_type, before_snap_id, after_snap_id,

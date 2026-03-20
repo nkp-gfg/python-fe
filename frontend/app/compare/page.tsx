@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 
 /* ─────────── COMPARISON PAGE ─────────── */
@@ -50,7 +51,7 @@ function ComparePageContent() {
   );
 
   // Fetch flight list for selector
-  const { data: flights } = useQuery({
+  const { data: flights, refetch: refetchFlights, isFetching: flightsFetching } = useQuery({
     queryKey: ["flights"],
     queryFn: () => fetchFlights(),
   });
@@ -67,6 +68,15 @@ function ComparePageContent() {
           Flights
         </Link>
         <h1 className="text-sm font-semibold ml-4">Flight Comparison</h1>
+        <div className="flex-1" />
+        <button
+          onClick={() => refetchFlights()}
+          disabled={flightsFetching}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${flightsFetching ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
       </div>
 
       <div className="flex-1 px-6 py-5 max-w-7xl mx-auto w-full space-y-6">
@@ -266,7 +276,7 @@ function ComparisonTreePanel({
   origin: string;
   date: string;
 }) {
-  const { data: tree, isLoading, error } = useQuery({
+  const { data: tree, isLoading, error, refetch: refetchTree, isFetching: treeFetching } = useQuery({
     queryKey: ["tree", flightNumber, origin, date],
     queryFn: () => fetchFlightTree(flightNumber, origin, date),
   });
@@ -283,9 +293,18 @@ function ComparisonTreePanel({
               {origin} • {date}
             </div>
           </div>
-          <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
-            Tree API
-          </Badge>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refetchTree()}
+              disabled={treeFetching}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${treeFetching ? "animate-spin" : ""}`} />
+            </button>
+            <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
+              Tree API
+            </Badge>
+          </div>
         </div>
 
         {isLoading && (
@@ -318,7 +337,7 @@ function ComparisonColumn({
   origin: string;
   date: string;
 }) {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch: refetchDash, isFetching: dashFetching } = useQuery({
     queryKey: ["dashboard", flightNumber, origin, date],
     queryFn: () => fetchDashboard(flightNumber, origin, date),
   });
@@ -333,9 +352,18 @@ function ComparisonColumn({
 
   if (error || !data) {
     return (
-      <Card className="min-h-[400px] flex items-center justify-center text-destructive">
-        <AlertCircle className="h-5 w-5 mr-2" />
-        Failed to load
+      <Card className="min-h-[400px] flex flex-col items-center justify-center gap-3 text-destructive">
+        <div className="flex items-center">
+          <AlertCircle className="h-5 w-5 mr-2" />
+          Failed to load
+        </div>
+        <button
+          onClick={() => refetchDash()}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Retry
+        </button>
       </Card>
     );
   }
@@ -378,6 +406,13 @@ function ComparisonColumn({
                 <span className="ml-1">{date}</span>
               </div>
             </div>
+            <button
+              onClick={() => refetchDash()}
+              disabled={dashFetching}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${dashFetching ? "animate-spin" : ""}`} />
+            </button>
           </div>
           {fs?.aircraft && (
             <div className="flex items-center gap-2 mt-3 text-xs border border-border rounded-md px-3 py-1.5 w-fit">
