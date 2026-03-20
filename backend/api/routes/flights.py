@@ -175,6 +175,66 @@ def _analyze_passengers(passengers, gender_lookup=None):
     return result
 
 
+def _resolve_offloaded(offloaded, offloaded_available, flight_closed, ci_not_boarded):
+    """Resolve offloaded value, availability text, and colors."""
+    if offloaded_available:
+        return offloaded, "MLX report", offloaded > 0
+    if flight_closed:
+        return ci_not_boarded, "Inferred from manifest", ci_not_boarded > 0
+    return "—", "Needs Trip_ReportsRQ", False
+
+
+def _resolve_no_show(no_show, no_show_available, flight_closed, not_checked_in):
+    """Resolve no-show value, availability text, and colors."""
+    if no_show_available:
+        return no_show, "MLC vs manifest", no_show > 0
+    if flight_closed:
+        return not_checked_in, "Inferred from manifest", not_checked_in > 0
+    return "—", "Needs FINAL/PDC", False
+
+
+def _offloaded_node(pos, offloaded, offloaded_available, flight_closed, ci_not_boarded, na_border, na_text):
+    val, sub, is_alert = _resolve_offloaded(
+        offloaded, offloaded_available, flight_closed, ci_not_boarded)
+    return {
+        "id": "offloaded", **pos,
+        "borderColor": "#e84545" if is_alert else (na_border if isinstance(val, str) else "#2ec27e"),
+        "textColor": "#e84545" if is_alert else (na_text if isinstance(val, str) else "#2ec27e"),
+        "label": "Offloaded", "value": val, "subLabel": sub, "badges": [],
+    }
+
+
+def _no_show_node(pos, no_show, no_show_available, flight_closed, not_checked_in, na_border, na_text):
+    val, sub, is_alert = _resolve_no_show(
+        no_show, no_show_available, flight_closed, not_checked_in)
+    return {
+        "id": "noShow", **pos,
+        "borderColor": "#e84545" if is_alert else (na_border if isinstance(val, str) else "#2ec27e"),
+        "textColor": "#e84545" if is_alert else (na_text if isinstance(val, str) else "#2ec27e"),
+        "label": "No-Show", "value": val, "subLabel": sub, "badges": [],
+    }
+
+
+def _offloaded_card(offloaded, offloaded_available, flight_closed, ci_not_boarded, na_border, na_text):
+    val, sub, is_alert = _resolve_offloaded(
+        offloaded, offloaded_available, flight_closed, ci_not_boarded)
+    return {
+        "id": "offloaded", "label": "Offloaded", "value": val, "subLabel": sub,
+        "borderColor": "#e84545" if is_alert else (na_border if isinstance(val, str) else "#2ec27e"),
+        "textColor": "#e84545" if is_alert else (na_text if isinstance(val, str) else "#2ec27e"),
+    }
+
+
+def _no_show_card(no_show, no_show_available, flight_closed, not_checked_in, na_border, na_text):
+    val, sub, is_alert = _resolve_no_show(
+        no_show, no_show_available, flight_closed, not_checked_in)
+    return {
+        "id": "noShow", "label": "No-Show", "value": val, "subLabel": sub,
+        "borderColor": "#e84545" if is_alert else (na_border if isinstance(val, str) else "#2ec27e"),
+        "textColor": "#e84545" if is_alert else (na_text if isinstance(val, str) else "#2ec27e"),
+    }
+
+
 def _build_tree_payload(analysis, passenger_summary, flight_status=None,
                         offloaded=None, no_show=None,
                         offloaded_available=False, no_show_available=False):
@@ -211,6 +271,12 @@ def _build_tree_payload(analysis, passenger_summary, flight_status=None,
     # ── Unavailable colour ──────────────────────────
     na_border = "#555555"
     na_text = "#777777"
+
+    # Flight closed? (PDC/FINAL → can infer no-show / offloaded from manifest)
+    current_status = ((flight_status or {}).get("status", "")).upper()
+    flight_closed = current_status in ("FINAL", "PDC")
+    ci_not_boarded = (analysis.get("stateBreakdown", {})
+                      .get("checkedIn", {}).get("totalPassengers", 0))
 
     # ── Layout coordinates ──────────────────────────
     # Row 3 leaf nodes (y=420) — placed first, parents centered above
@@ -479,24 +545,10 @@ def _build_tree_payload(analysis, passenger_summary, flight_status=None,
             "subLabel": f"{analysis.get('nonRevenue', 0)} non-rev",
             "badges": [],
         },
-        {
-            "id": "offloaded", **positions["offloaded"],
-            "borderColor": "#e84545" if offloaded_available and offloaded else na_border,
-            "textColor": "#e84545" if offloaded_available and offloaded else (na_text if not offloaded_available else "#2ec27e"),
-            "label": "Offloaded",
-            "value": offloaded if offloaded_available else "—",
-            "subLabel": "MLX report" if offloaded_available else "Needs Trip_ReportsRQ",
-            "badges": [],
-        },
-        {
-            "id": "noShow", **positions["noShow"],
-            "borderColor": "#e84545" if no_show_available and no_show else na_border,
-            "textColor": "#e84545" if no_show_available and no_show else (na_text if not no_show_available else "#2ec27e"),
-            "label": "No-Show",
-            "value": no_show if no_show_available else "—",
-            "subLabel": "MLC vs manifest" if no_show_available else "Needs FINAL/PDC",
-            "badges": [],
-        },
+        _offloaded_node(positions["offloaded"], offloaded, offloaded_available,
+                        flight_closed, ci_not_boarded, na_border, na_text),
+        _no_show_node(positions["noShow"], no_show, no_show_available, flight_closed, analysis.get(
+            "notCheckedIn", 0), na_border, na_text),
     ]
 
     edges = [
@@ -542,16 +594,10 @@ def _build_tree_payload(analysis, passenger_summary, flight_status=None,
             {"id": "revenue", "label": "Revenue", "value": analysis.get("revenue", 0),
              "subLabel": f"{analysis.get('nonRevenue', 0)} non-rev",
              "borderColor": "#35c0c0", "textColor": "#35c0c0"},
-            {"id": "offloaded", "label": "Offloaded",
-             "value": offloaded if offloaded_available else "—",
-             "subLabel": "MLX report" if offloaded_available else "Needs Trip_ReportsRQ",
-             "borderColor": "#e84545" if offloaded_available and offloaded else na_border,
-             "textColor": "#e84545" if offloaded_available and offloaded else na_text},
-            {"id": "noShow", "label": "No-Show",
-             "value": no_show if no_show_available else "—",
-             "subLabel": "MLC vs manifest" if no_show_available else "Needs FINAL/PDC",
-             "borderColor": "#e84545" if no_show_available and no_show else na_border,
-             "textColor": "#e84545" if no_show_available and no_show else na_text},
+            _offloaded_card(offloaded, offloaded_available,
+                            flight_closed, ci_not_boarded, na_border, na_text),
+            _no_show_card(no_show, no_show_available, flight_closed,
+                          analysis.get("notCheckedIn", 0), na_border, na_text),
         ],
     }
 
@@ -647,7 +693,17 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
     booked_breakdown = analysis.get("stateBreakdown", {}).get(
         "booked", _empty_state_bucket())
     tracked_changes = sum(change_summary.values())
-    # Compute offloaded / no-show from trip reports
+    current_flight_status = (fs or {}).get("status", "")
+
+    # --- Manifest-derived counts (always available from Sabre data) ---
+    # "Not checked in" = passengers on manifest who never checked in.
+    # On a PDC/FINAL flight these are effective no-shows.
+    not_checked_in = booked_breakdown.get("totalPassengers", 0)
+    # "Checked in, not boarded" = checked in but didn't board.
+    # On a PDC/FINAL flight these could be offloaded or gate-returned.
+    checked_in_not_boarded = checked_in_breakdown.get("totalPassengers", 0)
+
+    # --- Trip-report enrichment (optional, from MLC/MLX Sabre calls) ---
     offloaded = None
     no_show = None
     offloaded_available = False
@@ -661,7 +717,6 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
 
         # MLC report → ever-booked passengers for no-show detection
         mlc = trip_report_doc.get("everBookedPassengers", [])
-        current_flight_status = (fs or {}).get("status", "")
         if mlc is not None and current_flight_status in ("FINAL", "PDC") and pl:
             # No-show = passengers in MLC (ever-booked) who are NOT in current manifest
             current_pnr_names = set()
@@ -724,6 +779,10 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
                 "noShow": no_show,
                 "offloadedAvailable": offloaded_available,
                 "noShowAvailable": no_show_available,
+                # Manifest-derived (always available from Sabre GetPassengerListRS)
+                "notCheckedIn": not_checked_in,
+                "checkedInNotBoarded": checked_in_not_boarded,
+                "flightClosed": current_flight_status in ("FINAL", "PDC"),
             },
         },
         "tree": tree,
@@ -930,10 +989,35 @@ def get_flight_tree(
         pl.pop("_id", None)
         pl.pop("_raw", None)
 
+    # Reservations (for gender cross-reference)
+    res_query = {"flightNumber": flight_number}
+    if origin:
+        res_query["departureAirport"] = origin
+    if date:
+        res_query["departureDate"] = date
+    reservation_doc = db["reservations"].find_one(
+        res_query, sort=[("fetchedAt", -1)])
+    if reservation_doc:
+        reservation_doc.pop("_id", None)
+        reservation_doc.pop("_raw", None)
+
+    # Trip reports (for offloaded / no-show)
+    report_query = {"flightNumber": flight_number}
+    if origin:
+        report_query["origin"] = origin
+    if date:
+        report_query["departureDate"] = date
+    trip_report_doc = db["trip_reports"].find_one(
+        report_query, sort=[("fetchedAt", -1)])
+    if trip_report_doc:
+        trip_report_doc.pop("_id", None)
+        trip_report_doc.pop("_raw", None)
+
     if not fs and not pl:
         raise HTTPException(status_code=404, detail="Flight not found")
 
-    payload = _build_dashboard_payload(fs, pl, origin, date, {})
+    payload = _build_dashboard_payload(fs, pl, origin, date, {},
+                                       reservation_doc, trip_report_doc)
     return payload.get("tree") or {
         "title": "Aircraft Humans Breakdown Tree",
         "badge": "Sabre Live",

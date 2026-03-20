@@ -1,17 +1,22 @@
 "use client";
 
-import { startTransition, useDeferredValue, useMemo, useState } from "react";
+import { startTransition, useDeferredValue, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, useIsMutating } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
   ArrowRight,
+  BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronsLeft,
+  ChevronsRight,
   CloudDownload,
   Database,
   Filter,
+  History,
   Info,
+  LayoutDashboard,
   Loader2,
   Menu,
   Network,
@@ -20,6 +25,8 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  Timer,
+  UserCheck,
   Users,
   Clock,
   Briefcase,
@@ -41,7 +48,7 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
 import { StatePanels } from "@/components/dashboard/state-panels";
 import type { StateCardKey } from "@/components/dashboard/state-panels";
 import { BottomDetailPanel } from "@/components/dashboard/bottom-detail-panel";
@@ -83,6 +90,10 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [detailPnr, setDetailPnr] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [bottomView, setBottomView] = useState<DetailView | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "passengers" | "standby" | "changes" | "history" | "reservations">("overview");
+  const [navCollapsed, setNavCollapsed] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sidebarPanelRef = useRef<any>(null);
 
   const { data: flights, isLoading: flightsLoading, error: flightsError, refetch: refetchFlights, isFetching: flightsFetching } = useQuery({
     queryKey: ["flights"],
@@ -503,7 +514,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       {/* Main Content Area */}
       <PanelGroup orientation="horizontal" className="flex flex-1 overflow-hidden">
         {/* Sidebar Flights List */}
-        <Panel defaultSize="20" minSize="15" maxSize="30" className="hidden lg:flex flex-col h-full border-r bg-muted/30">
+        <Panel defaultSize="14" minSize="10" maxSize="22" collapsible collapsedSize="0%" panelRef={sidebarPanelRef} className="hidden lg:flex flex-col h-full border-r bg-muted/30">
           <div className="p-4 border-b space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Flights</span>
@@ -515,6 +526,15 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                 disabled={flightsFetching}
               >
                 <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", flightsFetching && "animate-spin")} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => sidebarPanelRef.current?.collapse()}
+                title="Collapse sidebar"
+              >
+                <ChevronsLeft className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </div>
             <div className="relative">
@@ -684,7 +704,55 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           </div>
         </Panel>
 
-        <PanelResizeHandle className="w-1 border-r bg-border/50 hover:bg-primary/50 cursor-col-resize transition-all" />
+        <PanelResizeHandle className="relative w-1.5 border-r bg-border/50 hover:bg-primary/50 cursor-col-resize transition-all group/handle">
+          <button
+            onClick={() => sidebarPanelRef.current?.isCollapsed() ? sidebarPanelRef.current?.expand() : sidebarPanelRef.current?.collapse()}
+            className="absolute top-1/2 -translate-y-1/2 -left-1.5 z-10 flex h-6 w-3 items-center justify-center rounded-sm bg-border hover:bg-primary text-muted-foreground hover:text-primary-foreground opacity-0 group-hover/handle:opacity-100 transition-opacity"
+            title="Toggle sidebar"
+          >
+            <ChevronsLeft className="h-3 w-3" />
+          </button>
+        </PanelResizeHandle>
+
+        {/* Vertical Navigation Rail */}
+        <div className={cn(
+          "hidden lg:flex flex-col border-r bg-muted/20 py-3 gap-0.5 shrink-0 transition-all duration-200",
+          navCollapsed ? "w-12 items-center" : "w-36"
+        )}>
+          {([
+            { key: "overview", icon: LayoutDashboard, label: "Overview" },
+            { key: "passengers", icon: Users, label: "Passengers" },
+            { key: "standby", icon: Timer, label: "Standby" },
+            { key: "changes", icon: Activity, label: "Changes" },
+            { key: "history", icon: History, label: "History" },
+            { key: "reservations", icon: BookOpen, label: "Reservations" },
+          ] as const).map(({ key, icon: Icon, label }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={cn(
+                "flex items-center gap-2 w-full px-3 py-2 rounded-md transition-all text-xs",
+                navCollapsed && "justify-center px-2",
+                activeTab === key
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+              title={label}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {!navCollapsed && <span className="truncate">{label}</span>}
+            </button>
+          ))}
+          <div className="mt-auto pt-2">
+            <button
+              onClick={() => setNavCollapsed(!navCollapsed)}
+              className="flex items-center justify-center w-full px-3 py-2 rounded-md text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all"
+              title={navCollapsed ? "Expand navigation" : "Collapse navigation"}
+            >
+              {navCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
 
         {/* Console Workspace */}
         <Panel minSize="40">
@@ -776,30 +844,30 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         {/* Prominent souls on board */}
                         <button
                           className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 hover:ring-1 hover:ring-emerald-400 transition-all cursor-pointer"
-                          title="Souls on board (passengers + infants aboard)"
+                          title="Souls on Board — boarded passengers + their lap infants"
                           onClick={() => setBottomView(bottomView === "sob" ? null : "sob")}
                         >
                           <Users className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                           <span className="font-bold text-emerald-700 dark:text-emerald-300">{dashboard.overview.soulsOnBoard}</span>
-                          <span className="text-emerald-600 dark:text-emerald-400">SOB</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">Souls on Board</span>
                         </button>
                         <button
                           className="flex items-center gap-1.5 hover:bg-muted/50 rounded px-1 py-0.5 transition-colors cursor-pointer"
-                          title="Total souls on manifest"
+                          title="Souls on Manifest — all passengers + infants on the manifest"
                           onClick={() => setBottomView(bottomView === "souls" ? null : "souls")}
                         >
                           <Users className="h-3.5 w-3.5 text-muted-foreground" />
                           <span className="font-semibold">{dashboard.overview.totalSouls}</span>
-                          <span className="text-muted-foreground">souls</span>
+                          <span className="text-muted-foreground">Souls on Manifest</span>
                         </button>
                         <button
                           className="flex items-center gap-1.5 hover:bg-muted/50 rounded px-1 py-0.5 transition-colors cursor-pointer"
-                          title="Manifest records (seated passengers)"
+                          title="Manifest Records — seated passengers on Sabre manifest"
                           onClick={() => setBottomView(bottomView === "records" ? null : "records")}
                         >
                           <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
                           <span className="font-semibold">{dashboard.overview.manifestRecords}</span>
-                          <span className="text-muted-foreground">records</span>
+                          <span className="text-muted-foreground">Manifest Records</span>
                         </button>
                         <div className="flex items-center gap-1.5" title="Change updates">
                           <Activity className="h-3.5 w-3.5 text-muted-foreground" />
@@ -836,19 +904,11 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                     </div>
                   </div>
 
-                  {/* Tab Navigation */}
-                  <Tabs defaultValue="overview">
-                    <TabsList>
-                      <TabsTrigger value="overview">Overview</TabsTrigger>
-                      <TabsTrigger value="passengers">Passengers</TabsTrigger>
-                      <TabsTrigger value="standby">Standby</TabsTrigger>
-                      <TabsTrigger value="changes">Changes</TabsTrigger>
-                      <TabsTrigger value="history">History</TabsTrigger>
-                      <TabsTrigger value="reservations">Reservations</TabsTrigger>
-                    </TabsList>
-
+                  {/* Tab Navigation — now handled by vertical nav rail */}
+                  <div>
                     {/* Overview Tab — compact executive dashboard */}
-                    <TabsContent value="overview" className="mt-3 space-y-3">
+                    {activeTab === "overview" && (
+                      <div className="mt-1 space-y-3">
                       <StatePanels
                         stateSummary={dashboard.stateSummary}
                         onInfoClick={openInfo}
@@ -1033,10 +1093,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           }}
                         />
                       )}
-                    </TabsContent>
+                    </div>
+                    )}
 
                     {/* Passengers Tab */}
-                    <TabsContent value="passengers" className="mt-3">
+                    {activeTab === "passengers" && (
+                      <div className="mt-1">
                       <PassengerTable
                         flightNumber={effectiveSelected.flightNumber}
                         origin={effectiveSelected.origin}
@@ -1046,44 +1108,53 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           setDetailOpen(true);
                         }}
                       />
-                    </TabsContent>
+                      </div>
+                    )}
 
                     {/* Standby Tab */}
-                    <TabsContent value="standby" className="mt-3">
+                    {activeTab === "standby" && (
+                      <div className="mt-1">
                       <StandbyPanel
                         flightNumber={effectiveSelected.flightNumber}
                         origin={effectiveSelected.origin}
                         date={effectiveSelected.date}
                       />
-                    </TabsContent>
+                      </div>
+                    )}
 
                     {/* Changes Tab */}
-                    <TabsContent value="changes" className="mt-3">
+                    {activeTab === "changes" && (
+                      <div className="mt-1">
                       <ChangeTimeline
                         flightNumber={effectiveSelected.flightNumber}
                         origin={effectiveSelected.origin}
                         date={effectiveSelected.date}
                       />
-                    </TabsContent>
+                      </div>
+                    )}
 
                     {/* History Tab */}
-                    <TabsContent value="history" className="mt-3">
+                    {activeTab === "history" && (
+                      <div className="mt-1">
                       <StatusHistory
                         flightNumber={effectiveSelected.flightNumber}
                         origin={effectiveSelected.origin}
                         date={effectiveSelected.date}
                       />
-                    </TabsContent>
+                      </div>
+                    )}
 
                     {/* Reservations Tab */}
-                    <TabsContent value="reservations" className="mt-3">
+                    {activeTab === "reservations" && (
+                      <div className="mt-1">
                       <ReservationView
                         flightNumber={effectiveSelected.flightNumber}
                         origin={effectiveSelected.origin}
                         date={effectiveSelected.date}
                       />
-                    </TabsContent>
-                  </Tabs>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Passenger Detail Sheet */}
                   <PassengerDetailSheet
@@ -1104,7 +1175,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           <>
             <PanelResizeHandle className="relative flex w-px items-center justify-center bg-border focus-visible:outline-none data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full transition-colors hover:bg-primary" />
             
-            <Panel defaultSize="35" minSize="25" maxSize="60">
+            <Panel defaultSize="35" minSize="25" maxSize="60" collapsible collapsedSize="0%">
               <aside className="flex h-full flex-col bg-background shadow-2xl border-l relative overflow-hidden">
                 {treeOpen && (
                   <>

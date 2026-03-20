@@ -89,6 +89,57 @@ function BookedInfo() {
         <strong>not yet boarded</strong>. These are passengers in the earliest stage of the journey lifecycle.
       </p>
 
+      <Section title="What This Number Means — Plain Language" icon={<Info className="h-4 w-4 text-blue-500" />}>
+        <div className="space-y-3">
+          <p className="leading-relaxed">
+            <strong>The &ldquo;Booked&rdquo; count</strong> shows passengers whose names appear on the Sabre manifest
+            (GetPassengerListRS) but who have <strong>not checked in</strong> at any counter, kiosk, or online channel,
+            and have <strong>not scanned their boarding pass</strong> at the gate.
+          </p>
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">Example — GF2057 with 1 Booked:</p>
+            <p className="text-blue-700 dark:text-blue-400 text-xs leading-relaxed">
+              78 passengers are on the manifest. 77 have checked in and boarded. 1 passenger (e.g. THAKKAR NISCHAL)
+              still has a reservation but never arrived at the check-in counter. He appears as <strong>&ldquo;1&rdquo; in the Booked tile</strong>.
+            </p>
+          </div>
+          <Separator className="my-2" />
+          <p className="font-medium">Why does this same number appear in other places?</p>
+          <div className="space-y-2 mt-1">
+            <div className="flex gap-2">
+              <Badge variant="outline" className="shrink-0">Booked card</Badge>
+              <span className="text-muted-foreground text-xs">
+                Shows the count with full cabin &amp; demographic breakdown (Business, Economy, Adults, Children, Infants).
+                This is the <strong>primary view</strong> — it answers &ldquo;how many passengers haven&apos;t started their journey?&rdquo;
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Badge variant="outline" className="shrink-0">Checked-In card</Badge>
+              <span className="text-muted-foreground text-xs">
+                Shows &ldquo;Not Checked In&rdquo; as a <strong>related metric</strong> — it answers &ldquo;of all manifest passengers,
+                how many are still missing from check-in?&rdquo; Same number, different perspective.
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Badge variant="outline" className="shrink-0">Others card</Badge>
+              <span className="text-muted-foreground text-xs">
+                Shows &ldquo;Not Checked In&rdquo; (open flights) or &ldquo;No Show&rdquo; (closed flights) as an
+                <strong> operational alert</strong> — it answers &ldquo;are there any passengers we need to worry about?&rdquo;
+                On a closed flight (PDC/FINAL), these passengers are confirmed no-shows whose bags must be offloaded.
+              </span>
+            </div>
+          </div>
+          <Separator className="my-2" />
+          <p className="font-medium">When does the meaning change?</p>
+          <div className="space-y-1 mt-1 text-xs text-muted-foreground">
+            <p>During <strong>OPENCI</strong> (check-in open): These passengers may still arrive. Label shows &ldquo;Not Checked In.&rdquo;</p>
+            <p>During <strong>BOARDING</strong>: Check-in is closing. These passengers are at risk of missing the flight.</p>
+            <p>After <strong>PDC / FINAL</strong> (post-departure): These passengers are <strong>confirmed no-shows</strong>. The label
+              changes to &ldquo;No Show&rdquo; in the Others card. Their bags (if any) must be offloaded per ICAO Annex 17 security requirements.</p>
+          </div>
+        </div>
+      </Section>
+
       <Section title="API Endpoint" icon={<Server className="h-4 w-4 text-blue-500" />}>
         <KV label="Method">GET</KV>
         <KV label="URL"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">/flights/&#123;flight_number&#125;/dashboard?origin=&#123;origin&#125;&amp;date=&#123;date&#125;</code></KV>
@@ -235,6 +286,29 @@ function CheckedInInfo() {
         Shows passengers who have <strong>completed check-in</strong> but have <strong>not yet boarded</strong> the aircraft.
         These passengers are in the intermediate stage — past the counter, but still in the terminal.
       </p>
+
+      <Section title={'"Not Checked In" Row — Explained'} icon={<Info className="h-4 w-4 text-amber-500" />}>
+        <div className="space-y-3">
+          <p className="leading-relaxed">
+            The <strong>&ldquo;Not Checked In&rdquo;</strong> row inside this tile shows the count of passengers who are on the
+            Sabre manifest but have <strong>never completed check-in</strong>. This is the same number as the Booked tile&apos;s
+            headline — shown here for quick comparison so you can see the full check-in picture at a glance.
+          </p>
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+            <p className="font-medium text-amber-800 dark:text-amber-300 mb-1">How to read this tile together:</p>
+            <p className="text-amber-700 dark:text-amber-400 text-xs leading-relaxed">
+              <strong>Total Checked-in: 0</strong> = passengers who checked in but haven&apos;t boarded yet (transient state).<br />
+              <strong>Not Checked In: 1</strong> = passengers who never checked in at all (same as Booked headline).<br />
+              Together these tell you: &ldquo;Nobody is waiting to board, but 1 person never showed up to check-in.&rdquo;
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            <strong>Why is &ldquo;Total Checked-In&rdquo; often zero?</strong> Because checked-in passengers typically board quickly.
+            Once they scan at the gate, they move from &ldquo;Checked-In&rdquo; to &ldquo;Boarded&rdquo;. This bucket empties as boarding
+            progresses — it&apos;s a transient state that empties naturally.
+          </p>
+        </div>
+      </Section>
 
       <Section title="API Endpoint" icon={<Server className="h-4 w-4 text-blue-500" />}>
         <KV label="Method">GET</KV>
@@ -430,6 +504,67 @@ function OthersInfo() {
         Shows non-standard passenger categories that don&apos;t fit into the Booked → Checked-In → Boarded lifecycle.
         These are sourced from different fields and collections.
       </p>
+
+      <Section title={'"Not Checked In" vs "No Show" — Explained'} icon={<Info className="h-4 w-4 text-orange-500" />}>
+        <div className="space-y-3">
+          <p className="leading-relaxed">
+            This row shows the <strong>operational significance</strong> of passengers who never checked in.
+            The label and meaning change depending on the flight&apos;s status:
+          </p>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/60">
+                  <th className="text-left px-3 py-2 font-medium">Flight Status</th>
+                  <th className="text-left px-3 py-2 font-medium">Label</th>
+                  <th className="text-left px-3 py-2 font-medium">What It Means</th>
+                  <th className="text-left px-3 py-2 font-medium">Action Required</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t">
+                  <td className="px-3 py-2"><Badge variant="outline">OPENCI</Badge></td>
+                  <td className="px-3 py-2 text-orange-500 font-medium">Not Checked In</td>
+                  <td className="px-3 py-2 text-muted-foreground">Passengers on manifest who haven&apos;t arrived at check-in yet. They may still show up.</td>
+                  <td className="px-3 py-2 text-muted-foreground">Monitor — passenger may still arrive</td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-3 py-2"><Badge variant="outline">BOARDING</Badge></td>
+                  <td className="px-3 py-2 text-orange-500 font-medium">Not Checked In</td>
+                  <td className="px-3 py-2 text-muted-foreground">Passengers at risk of missing the flight. Check-in is closing.</td>
+                  <td className="px-3 py-2 text-muted-foreground">Alert gate / paging system</td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-3 py-2"><Badge variant="destructive">PDC / FINAL</Badge></td>
+                  <td className="px-3 py-2 text-orange-500 font-medium">No Show</td>
+                  <td className="px-3 py-2 text-muted-foreground">Confirmed no-shows. Flight has departed. These passengers never checked in.</td>
+                  <td className="px-3 py-2 text-muted-foreground">Offload bags (ICAO Annex 17), report for revenue accounting</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <Separator className="my-2" />
+          <p className="font-medium">How does this relate to the Booked tile?</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            The <strong>Booked tile</strong> shows the same passengers with their full breakdown (cabin class, adults/children/infants).
+            It answers: &ldquo;Who are these passengers and where are they sitting?&rdquo;<br />
+            The <strong>Others card</strong> shows just the count as an operational alert.
+            It answers: &ldquo;Do I need to take any action for missing passengers?&rdquo;<br />
+            The <strong>Checked-In card</strong> shows it for check-in awareness.
+            It answers: &ldquo;How complete is our check-in process?&rdquo;
+          </p>
+          <Separator className="my-2" />
+          <p className="font-medium">Data source and the ~ indicator</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This count comes directly from the Sabre manifest (GetPassengerListRS) — it counts passengers
+            where <code className="text-xs bg-muted px-1 rounded">isCheckedIn = false</code>.
+            The <strong>~</strong> symbol indicates the value is <strong>inferred from manifest data</strong> (always available),
+            as opposed to coming from Sabre Trip Reports (MLC/MLX) which require a separate API call.
+            When Trip Report data is available, the &ldquo;No Show&rdquo; count may differ as it cross-references the
+            &ldquo;ever-booked&rdquo; list against the current manifest — this is more authoritative but not always available.
+          </p>
+        </div>
+      </Section>
 
       <Section title="API Endpoint" icon={<Server className="h-4 w-4 text-blue-500" />}>
         <KV label="Response field"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">stateSummary.others</code></KV>

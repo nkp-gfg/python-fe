@@ -1,7 +1,11 @@
 "use client";
 
+import { useState } from "react";
+import { Network, Table2 } from "lucide-react";
 import type { FlightTree } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface Props {
   tree: FlightTree;
@@ -15,6 +19,8 @@ interface TreeNode {
 }
 
 export function PassengerTree({ tree }: Props) {
+  const [view, setView] = useState<"tree" | "matrix">("tree");
+
   const nodes = Object.fromEntries(
     tree.nodes.map((node) => [
       node.id,
@@ -146,50 +152,188 @@ export function PassengerTree({ tree }: Props) {
     );
   }
 
+  // ── Helper: extract node value by id ──
+  function nv(id: string): number | string {
+    const n = tree.nodes.find((n) => n.id === id);
+    return n?.value ?? 0;
+  }
+
   return (
     <Card className="shadow-none border-transparent bg-transparent">
       <CardContent className="p-0">
-        <div className="flex items-center justify-center gap-3 mb-6">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {tree.title}
-          </h3>
-          {tree.badge && (
-            <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-500">
-              {tree.badge}
-            </span>
-          )}
-        </div>
-
-        <div className="overflow-auto flex justify-center pb-4">
-          <svg
-            viewBox={`0 0 ${tree.width} ${tree.height}`}
-            className="w-full h-auto font-sans"
-            preserveAspectRatio="xMidYMin meet"
-            role="img"
-            aria-label="Passenger breakdown tree diagram"
+        {/* View Toggle */}
+        <div className="flex items-center justify-center gap-1 mb-3">
+          <Button
+            variant={view === "tree" ? "default" : "outline"}
+            size="sm"
+            className="h-7 gap-1.5 text-xs"
+            onClick={() => setView("tree")}
           >
-            {/* Connections */}
-            {tree.edges.map((edge) => {
-              const from = nodes[edge.from];
-              const to = nodes[edge.to];
-              if (!from || !to) return null;
-              return conn(from, to);
-            })}
-
-            {tree.nodes.map((node) =>
-              nodeBox(
-                nodes[node.id],
-                node.borderColor,
-                node.textColor,
-                node.label,
-                node.value,
-                node.subLabel,
-                node.badges,
-              ),
-            )}
-          </svg>
+            <Network className="h-3.5 w-3.5" />
+            Tree
+          </Button>
+          <Button
+            variant={view === "matrix" ? "default" : "outline"}
+            size="sm"
+            className="h-7 gap-1.5 text-xs"
+            onClick={() => setView("matrix")}
+          >
+            <Table2 className="h-3.5 w-3.5" />
+            Matrix
+          </Button>
         </div>
+
+        {view === "tree" ? (
+          <div className="overflow-auto flex justify-center pb-4">
+            <svg
+              viewBox={`0 0 ${tree.width} ${tree.height}`}
+              className="w-full h-auto font-sans"
+              preserveAspectRatio="xMidYMin meet"
+              role="img"
+              aria-label="Passenger breakdown tree diagram"
+            >
+              {tree.edges.map((edge) => {
+                const from = nodes[edge.from];
+                const to = nodes[edge.to];
+                if (!from || !to) return null;
+                return conn(from, to);
+              })}
+              {tree.nodes.map((node) =>
+                nodeBox(
+                  nodes[node.id],
+                  node.borderColor,
+                  node.textColor,
+                  node.label,
+                  node.value,
+                  node.subLabel,
+                  node.badges,
+                ),
+              )}
+            </svg>
+          </div>
+        ) : (
+          <MatrixView tree={tree} nv={nv} />
+        )}
       </CardContent>
     </Card>
   );
+}
+
+/* ── Matrix / Table View ────────────────────────── */
+
+function MatrixView({ tree, nv }: { tree: FlightTree; nv: (id: string) => number | string }) {
+  const cellBase = "px-2 py-1 text-xs";
+  const headerCell = cn(cellBase, "font-semibold text-muted-foreground bg-muted/40 text-left");
+  const valCell = cn(cellBase, "text-right font-medium tabular-nums");
+  const sectionLabel = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider bg-muted/20 text-muted-foreground";
+
+  return (
+    <div className="space-y-2">
+      {/* Passengers + Staff combined table */}
+      <div className="rounded-lg border overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b">
+              <th className={headerCell}></th>
+              <th className={cn(headerCell, "text-right")}>Total</th>
+              <th className={cn(headerCell, "text-right")}>Pax</th>
+              <th className={cn(headerCell, "text-right")}>Staff</th>
+              <th className={cn(headerCell, "text-right")}>M</th>
+              <th className={cn(headerCell, "text-right")}>F</th>
+              <th className={cn(headerCell, "text-right")}>CHD</th>
+              <th className={cn(headerCell, "text-right")}>INF</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b hover:bg-muted/20">
+              <td className={cn(cellBase, "font-medium")}>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Economy
+                </span>
+              </td>
+              <td className={cn(valCell, "text-emerald-500 font-bold")}>{nv("economy")}</td>
+              <td className={valCell}>{nv("econPassengers")}</td>
+              <td className={valCell}>{nv("econStaff")}</td>
+              <td className={valCell}>{nv("econPaxMale")}</td>
+              <td className={valCell}>{nv("econPaxFemale")}</td>
+              <td className={cn(valCell, "text-amber-500")}>{nv("econPaxChildren")}</td>
+              <td className={cn(valCell, "text-orange-500")}>{nv("econPaxInfants")}</td>
+            </tr>
+            <tr className="border-b hover:bg-muted/20">
+              <td className={cn(cellBase, "font-medium")}>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Business
+                </span>
+              </td>
+              <td className={cn(valCell, "text-amber-500 font-bold")}>{nv("business")}</td>
+              <td className={valCell}>{nv("bizPassengers")}</td>
+              <td className={valCell}>{nv("bizStaff")}</td>
+              <td className={valCell}>{nv("bizPaxMale")}</td>
+              <td className={valCell}>{nv("bizPaxFemale")}</td>
+              <td className={cn(valCell, "text-amber-500")}>{nv("bizPaxChildren")}</td>
+              <td className={cn(valCell, "text-orange-500")}>{nv("bizPaxInfants")}</td>
+            </tr>
+            <tr className="bg-muted/30">
+              <td className={cn(cellBase, "font-semibold")}>Total</td>
+              <td className={cn(valCell, "font-bold")}>{nv("root")}</td>
+              <td className={valCell}>{add(nv("econPassengers"), nv("bizPassengers"))}</td>
+              <td className={valCell}>{add(nv("econStaff"), nv("bizStaff"))}</td>
+              <td className={valCell}>{add(nv("econPaxMale"), nv("bizPaxMale"))}</td>
+              <td className={valCell}>{add(nv("econPaxFemale"), nv("bizPaxFemale"))}</td>
+              <td className={cn(valCell, "text-amber-500")}>{add(nv("econPaxChildren"), nv("bizPaxChildren"))}</td>
+              <td className={cn(valCell, "text-orange-500")}>{add(nv("econPaxInfants"), nv("bizPaxInfants"))}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Crew */}
+      <div className="rounded-lg border overflow-hidden">
+        <div className={sectionLabel}>Crew</div>
+        <table className="w-full">
+          <tbody>
+            <tr className="border-b hover:bg-muted/20">
+              <td className={cn(cellBase, "font-medium text-muted-foreground")}>Cabin Crew</td>
+              <td className={cn(valCell, "text-muted-foreground")}>{nv("cabinCrew")}</td>
+              <td className={cn(valCell, "text-muted-foreground")}>{nv("cabinCrewMale")}</td>
+              <td className={cn(valCell, "text-muted-foreground")}>{nv("cabinCrewFemale")}</td>
+            </tr>
+            <tr className="hover:bg-muted/20">
+              <td className={cn(cellBase, "font-medium text-muted-foreground")}>Flight Crew</td>
+              <td className={cn(valCell, "text-muted-foreground")}>{nv("flightCrew")}</td>
+              <td className={cn(valCell, "text-muted-foreground")}>{nv("flightCrewMale")}</td>
+              <td className={cn(valCell, "text-muted-foreground")}>{nv("flightCrewFemale")}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Operational Status */}
+      {tree.statusCards.length > 0 && (
+        <div className="rounded-lg border overflow-hidden">
+          <div className={sectionLabel}>Status</div>
+          <div className="grid grid-cols-5 divide-x">
+            {tree.statusCards.map((card) => (
+              <div key={card.id} className="px-2 py-1.5 text-center">
+                <div className="text-[10px] text-muted-foreground leading-tight">{card.label}</div>
+                <div className="text-base font-bold leading-snug" style={{ color: card.textColor }}>
+                  {card.value}
+                </div>
+                {card.subLabel && (
+                  <div className="text-[9px] text-muted-foreground leading-tight">{card.subLabel}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function add(a: number | string, b: number | string): number | string {
+  if (typeof a === "string" || typeof b === "string") return "—";
+  return a + b;
 }

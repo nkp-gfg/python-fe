@@ -46,11 +46,10 @@ export function StatePanels({ stateSummary, onInfoClick, onCardClick, activeCard
           rows={[
             { label: "Total Checked-in", value: checkedIn.totalPassengers },
             {
-              label: "No Show",
-              value: others.noShow,
-              unavailable: !others.noShowAvailable,
-              labelClass: "text-orange-500 dark:text-orange-400",
-              valueClass: (others.noShow ?? 0) > 0 ? "text-orange-500 dark:text-orange-400 font-semibold" : "text-foreground",
+              label: others.flightClosed ? "No Show" : "Not Checked In",
+              value: others.notCheckedIn,
+              labelClass: others.notCheckedIn > 0 ? "text-orange-500 dark:text-orange-400" : undefined,
+              valueClass: others.notCheckedIn > 0 ? "text-orange-500 dark:text-orange-400 font-semibold" : "text-foreground",
             },
             { label: "Business", value: checkedIn.business },
             { label: "Economy", value: checkedIn.economy },
@@ -110,20 +109,22 @@ export function StatePanels({ stateSummary, onInfoClick, onCardClick, activeCard
                 <Row label="Non-Revenue" value={others.nonRevenue} />
                 <Row
                   label="Offloaded"
-                  value={others.offloaded}
-                  unavailable={!others.offloadedAvailable}
-                  valueClass={(others.offloaded ?? 0) > 0 ? "text-rose-500 font-semibold" : undefined}
+                  value={others.offloadedAvailable ? others.offloaded : others.checkedInNotBoarded}
+                  valueClass={(others.offloadedAvailable ? (others.offloaded ?? 0) : others.checkedInNotBoarded) > 0 ? "text-rose-500 font-semibold" : undefined}
+                  inferred={!others.offloadedAvailable}
                 />
                 <Row
-                  label="No Show"
-                  value={others.noShow}
-                  unavailable={!others.noShowAvailable}
-                  valueClass={(others.noShow ?? 0) > 0 ? "text-orange-500 dark:text-orange-400 font-semibold" : undefined}
+                  label={others.flightClosed ? "No Show" : "Not Checked In"}
+                  value={others.noShowAvailable ? others.noShow : others.notCheckedIn}
+                  valueClass={(others.noShowAvailable ? (others.noShow ?? 0) : others.notCheckedIn) > 0 ? "text-orange-500 dark:text-orange-400 font-semibold" : undefined}
+                  inferred={!others.noShowAvailable}
                 />
               </div>
             </div>
             <div className="mt-2 border-t pt-2 text-[10px] text-muted-foreground">
-              Live database response
+              {others.noShowAvailable || others.offloadedAvailable
+                ? "Sabre manifest + trip reports"
+                : "Sabre manifest (GetPassengerListRS)"}
             </div>
           </CardContent>
         </Card>
@@ -212,18 +213,21 @@ function Row({
   labelClass,
   valueClass,
   unavailable,
+  inferred,
 }: {
   label: string;
   value: number | null;
   labelClass?: string;
   valueClass?: string;
   unavailable?: boolean;
+  inferred?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between text-xs">
       <span className={labelClass ?? "text-muted-foreground"}>{label}</span>
       <span className={`font-medium ${valueClass ?? "text-foreground"}`}>
         {unavailable ? "N/A" : (value ?? 0)}
+        {inferred && <span className="text-[9px] text-muted-foreground ml-1" title="Inferred from manifest data">~</span>}
       </span>
     </div>
   );

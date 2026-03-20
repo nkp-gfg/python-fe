@@ -136,6 +136,12 @@ export interface OthersSummary {
   noShow: number | null;
   offloadedAvailable: boolean;
   noShowAvailable: boolean;
+  /** Passengers on manifest who never checked in (from Sabre GetPassengerListRS) */
+  notCheckedIn: number;
+  /** Passengers checked in but not boarded (from Sabre GetPassengerListRS) */
+  checkedInNotBoarded: number;
+  /** Whether the flight is FINAL or PDC (boarding is closed) */
+  flightClosed: boolean;
 }
 
 export interface OverviewSummary {
