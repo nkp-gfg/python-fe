@@ -1,0 +1,135 @@
+meta {
+  name: v2-Session Create
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/{{cpaid}}
+  body: xml
+  auth: inherit
+}
+
+headers {
+  Content-Type: text/xml; charset=utf-8
+  SOAPAction: "SessionCreateRQ"
+}
+
+docs {
+  # SessionCreateRQ
+  
+  Authenticates with Sabre and obtains a BinarySecurityToken for subsequent API calls.
+  
+  ## WSDL Reference
+  - No standalone WSDL — session create is part of Sabre's core authentication
+  - Uses ebXML MessageHeader + WSSE UsernameToken
+  
+  ## Key Points
+  - **mustUnderstand="1"** is required on the MessageHeader for session operations
+  - Token is returned in the response `<wsse:BinarySecurityToken>` element
+  - Token expires after ~15 minutes of inactivity
+  - Use the token in all subsequent API calls until you close the session
+  
+  ## Credentials (from environment / .env)
+  - Username: SABRE_USERNAME
+  - Password: SABRE_PASSWORD
+  - Organization: typically the airline code (e.g., GF)
+  - Domain: typically the airline code (e.g., GF)
+  - PseudoCityCode: airline's PCC
+  
+  ## Post-response Script
+  Automatically extracts the BinarySecurityToken and saves it as `sessionToken`
+  for use in all subsequent requests.
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:xlink="http://www.w3.org/1999/xlink"
+                    xmlns:xsd="http://www.w3.org/1999/XMLSchema">
+      <soapenv:Header>
+          <eb:MessageHeader soapenv:mustUnderstand="1" eb:version="2.0.0">
+              <eb:From>
+                  <eb:PartyId/>
+              </eb:From>
+              <eb:To>
+                  <eb:PartyId/>
+              </eb:To>
+              <eb:CPAId>{{cpaid}}</eb:CPAId>
+              <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+              <eb:Service>SessionCreateRQ</eb:Service>
+              <eb:Action>SessionCreateRQ</eb:Action>
+              <eb:MessageData>
+                  <eb:MessageId>{{messageId}}</eb:MessageId>
+                  <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+              </eb:MessageData>
+          </eb:MessageHeader>
+          <wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                         xmlns:wsu="http://schemas.xmlsoap.org/ws/2002/12/utility">
+              <wsse:UsernameToken>
+                  <wsse:Username>{{process.env.SABRE_USERNAME}}</wsse:Username>
+                  <wsse:Password>{{process.env.SABRE_PASSWORD}}</wsse:Password>
+                  <Organization>{{organization}}</Organization>
+                  <Domain>{{domain}}</Domain>
+              </wsse:UsernameToken>
+          </wsse:Security>
+      </soapenv:Header>
+      <soapenv:Body>
+          <SessionCreateRQ xmlns="http://webservices.sabre.com" Version="1.0.0">
+              <POS>
+                  <Source PseudoCityCode="{{pseudoCityCode}}"/>
+              </POS>
+          </SessionCreateRQ>
+      </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+script:pre-request {
+  // Generate UUID v4 without external dependencies
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  // Generate fresh IDs for each session
+  const conversationId = `uuid-${generateUUID()}`;
+  const messageId = `mid:${generateUUID()}@clientofsabre.com`;
+  const timestamp = new Date().toISOString();
+  
+  bru.setVar("conversationId", conversationId);
+  bru.setVar("messageId", messageId);
+  bru.setVar("timestamp", timestamp);
+  
+  console.log("Generated new conversationId:", conversationId);
+}
+
+script:post-response {
+  const responseText = res.getBody();
+  
+  // Extract BinarySecurityToken from SOAP response
+  const tokenMatch = responseText.match(/<wsse:BinarySecurityToken[^>]*>([^<]+)<\/wsse:BinarySecurityToken>/i);
+  
+  if (tokenMatch && tokenMatch[1]) {
+    const sessionToken = tokenMatch[1].trim();
+    bru.setVar("sessionToken", sessionToken);
+    console.log("Session token saved:", sessionToken.substring(0, 20) + "...");
+  } else {
+    console.error("Failed to extract BinarySecurityToken from response.");
+    console.error("Response (first 800 chars):", responseText.substring(0, 800));
+  }
+  
+  // Extract ConversationId from response header (for debugging)
+  const convMatch = responseText.match(/<eb:ConversationId>([^<]+)<\/eb:ConversationId>/i);
+  if (convMatch) {
+    console.log("Server ConversationId:", convMatch[1]);
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

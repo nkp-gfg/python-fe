@@ -1,0 +1,203 @@
+meta {
+  name: v2-Get Passenger List
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/{{cpaid}}
+  body: xml
+  auth: inherit
+}
+
+headers {
+  Content-Type: text/xml; charset=utf-8
+  SOAPAction: "GetPassengerListRQ"
+}
+
+docs {
+  # GetPassengerListRQ v4.0.0 — Full Field Version
+  
+  Returns the passenger manifest for a flight. This is the enriched version
+  with ALL fields from the WSDL/XSD documented.
+  
+  ## WSDL: GetPassengerListRQ_v4.wsdl
+  ## XSD:  GetPassengerListRQRS_v4.xsd
+  
+  ---
+  
+  ## Request Attributes (on root element)
+  | Attribute       | Required | Values                    | Notes                                |
+  |-----------------|----------|---------------------------|--------------------------------------|
+  | version         | Yes      | "4.0.0"                   | Schema version                       |
+  | timeStamp       | Yes      | xsd:dateTime              | ISO 8601 format                      |
+  | messageID       | Yes      | string                    | Tracking ID                          |
+  | serviceOption   | No       | Stateless / Stateful      | Default: Stateful. Use Stateless.    |
+  
+  ## Itinerary Fields
+  | Field           | Required | Type                      | Notes                                |
+  |-----------------|----------|---------------------------|--------------------------------------|
+  | Airline         | Yes      | 2-char IATA code          | e.g., GF                             |
+  | Flight          | Yes      | Flight number             | e.g., 2006                           |
+  | DepartureDate   | No       | YYYY-MM-DD                | Omit for today's flight              |
+  | Origin          | Yes      | 3-char airport code       | e.g., LHR, DMM                       |
+  | Destination     | No       | 3-char airport code       | Filter by arrival airport            |
+  | ClassOfService  | No       | 1-char uppercase          | Filter by booking class (Y, J, etc.) |
+  
+  ## Request Choice: DisplayCodeRequest OR AncillaryCodeRequest
+  
+  ### DisplayCodeRequest (most common)
+  | Field           | Notes                                                          |
+  |-----------------|----------------------------------------------------------------|
+  | DisplayCodes    | Up to 20 codes, with condition="AND" or "OR"                  |
+  | SortSequence    | Name / Seat / Sequence / Group Number (default: Name)          |
+  
+  #### Common Display Codes (from Sabre F*FMH/G*L):
+  | Code | Meaning                              |
+  |------|--------------------------------------|
+  | RV   | Revenue passengers                   |
+  | XRV  | Non-revenue passengers               |
+  | BP   | Boarding pass issued                 |
+  | BT   | Bag tag list (includes cancelled pax with bags) |
+  | NB   | Not boarded                          |
+  | NS   | No-show                              |
+  | SB   | Standby                              |
+  | SA   | Seat assigned                        |
+  | WL   | Waitlisted                           |
+  | CH   | Checked in                           |
+  | BD   | Boarded                              |
+  | AE   | All edit codes                       |
+  
+  ### AncillaryCodeRequest (alternative)
+  | Field     | Notes                                         |
+  |-----------|-----------------------------------------------|
+  | GroupCode | BG=Bags, PT=Pet, ML=Meal, SA=Seat             |
+  | Status    | Optional: UNP=Unpaid, etc.                    |
+  
+  ## Optional: Transaction_Details
+  | Field       | Values                            |
+  |-------------|-----------------------------------|
+  | Client      | USG (default) / TerminalGateway   |
+  | RequestType | WebService / SDS / GreenScreen    |
+  
+  ---
+  
+  ## Response Key Fields (PassengerInfo)
+  | Field            | Description                                           |
+  |------------------|-------------------------------------------------------|
+  | Name_Details     | LastName, FirstName                                   |
+  | PNRLocator       | Booking reference (with nameAssociationID attribute)  |
+  | PassengerID      | Unique passenger identifier                           |
+  | BookingClass     | Booking class of service                              |
+  | Cabin            | Cabin class (e.g., Y=Economy, J/C=Business)           |
+  | Seat             | Assigned seat number                                  |
+  | PassengerType    | ACS type (full fare, employee, etc.)                  |
+  | BagCount         | Number of checked bags                                |
+  | Indicators       | Boarded/NotBoarded/Revenue/NonRevenue/CheckedIn       |
+  | CheckIn_Info     | CheckInNumber, CheckInDate, CheckInTime, CheckInStatus|
+  | Boarding_Info    | BoardDate, BoardTime, BoardStatus (true/false)        |
+  | EditCodeList     | Edit codes: INF=has lap infant, ET=e-ticket, etc.     |
+  | BaggageRouteList | Baggage routing details                               |
+  | VCR_Info         | E-ticket/coupon data                                  |
+  | MissingBagList   | Missing bag details (airline, tag number, comments)   |
+  | FreeTextInfoList | Free text annotations                                 |
+  
+  ## Important: INF Edit Code
+  A passenger with "INF" in their EditCodeList is carrying a lap infant.
+  The infant is NOT a separate PassengerInfo record — it only appears as
+  an edit code on the parent. Count INF edit codes to get infant count.
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                    xmlns:v4="http://services.sabre.com/checkin/getPassengerList/v4">
+    <soapenv:Header>
+      <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
+        <eb:From><eb:PartyId/></eb:From>
+        <eb:To><eb:PartyId/></eb:To>
+        <eb:CPAId>{{cpaid}}</eb:CPAId>
+        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+        <eb:Service>GetPassengerListRQ</eb:Service>
+        <eb:Action>GetPassengerListRQ</eb:Action>
+        <eb:MessageData>
+          <eb:MessageId>{{messageId}}</eb:MessageId>
+          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+        </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security soapenv:mustUnderstand="0">
+        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+      </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+      <v4:GetPassengerListRQ version="4.0.0"
+                             timeStamp="{{timestamp}}"
+                             messageID="MSG-000001"
+                             serviceOption="Stateless">
+        <v4:Itinerary>
+          <v4:Airline>{{airlineCode}}</v4:Airline>
+          <v4:Flight>{{flightNumber}}</v4:Flight>
+          <v4:DepartureDate>{{departureDate}}</v4:DepartureDate>
+          <v4:Origin>{{origin}}</v4:Origin>
+          <!-- NOTE: Destination and ClassOfService are FILTERS — they reduce results -->
+          <!-- <v4:Destination>BAH</v4:Destination> -->        <!-- filter by arrival airport -->
+          <!-- <v4:ClassOfService>Y</v4:ClassOfService> -->    <!-- filter by booking class -->
+        </v4:Itinerary>
+  
+        <!-- DisplayCodeRequest: condition="OR" means return pax matching ANY code -->
+        <!-- Using all codes together gives the most complete passenger list -->
+        <v4:DisplayCodeRequest>
+          <v4:DisplayCodes condition="OR">
+            <v4:DisplayCode>RV</v4:DisplayCode>     <!-- Revenue passengers (confirmed paying pax) -->
+            <v4:DisplayCode>XRV</v4:DisplayCode>    <!-- Non-revenue passengers (staff, complimentary) -->
+            <v4:DisplayCode>BP</v4:DisplayCode>     <!-- Boarding pass issued (checked-in pax with BP) -->
+            <v4:DisplayCode>BT</v4:DisplayCode>     <!-- Bag tag list (includes cancelled pax who still have bags) -->
+            <v4:DisplayCode>NB</v4:DisplayCode>     <!-- Not boarded (checked-in but didn't board) -->
+            <v4:DisplayCode>NS</v4:DisplayCode>     <!-- No-show (didn't check in at all) -->
+            <v4:DisplayCode>SB</v4:DisplayCode>     <!-- Standby passengers (waiting for seat) -->
+            <v4:DisplayCode>SA</v4:DisplayCode>     <!-- Seat assigned (pax with seat, not yet checked in) -->
+            <v4:DisplayCode>WL</v4:DisplayCode>     <!-- Waitlisted (on waitlist, not confirmed) -->
+            <v4:DisplayCode>CH</v4:DisplayCode>     <!-- Checked in (completed check-in process) -->
+            <v4:DisplayCode>BD</v4:DisplayCode>     <!-- Boarded (scanned at gate, on aircraft) -->
+            <v4:DisplayCode>AE</v4:DisplayCode>     <!-- All edit codes (pax with any edit code like INF, ET) -->
+          </v4:DisplayCodes>
+          <v4:SortSequence>Name</v4:SortSequence>   <!-- Options: Name / Seat / Sequence / Group Number -->
+        </v4:DisplayCodeRequest>
+  
+        <!-- ALTERNATIVE: AncillaryCodeRequest — use INSTEAD of DisplayCodeRequest (not both) -->
+        <!-- <v4:AncillaryCodeRequest> -->
+        <!--   <v4:GroupCode>BG</v4:GroupCode> -->   <!-- BG=Bags, PT=Pet, ML=Meal, SA=Seat -->
+        <!--   <v4:Status>UNP</v4:Status> -->        <!-- UNP=Unpaid ancillaries -->
+        <!-- </v4:AncillaryCodeRequest> -->
+
+      </v4:GetPassengerListRQ>
+    </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+vars:pre-request {
+  flightNumber: 2057
+  departureDate: 2026-03-20
+  origin: BOM
+  airlineCode: GF
+}
+
+script:pre-request {
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

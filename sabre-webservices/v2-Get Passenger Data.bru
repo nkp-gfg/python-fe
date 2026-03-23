@@ -1,0 +1,213 @@
+meta {
+  name: v2-Get Passenger Data
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/{{cpaid}}
+  body: xml
+  auth: inherit
+}
+
+headers {
+  Content-Type: text/xml; charset=utf-8
+  SOAPAction: "GetPassengerDataRQ"
+}
+
+docs {
+  # GetPassengerDataRQ v4.0.4 — Full Field Version
+  
+  Returns detailed passenger data for a specific passenger on a flight.
+  Supports 3 lookup modes: by PNR, by Itinerary+Passenger, or by BagTag.
+  
+  ## WSDL: GetPassengerDataRQ_v4-0-0.wsdl
+  ## XSD:  GetPassengerDataRQRS_v4-0-0.xsd
+  
+  ---
+  
+  ## Request Attributes (on root element)
+  | Attribute                    | Required | Values                             |
+  |------------------------------|----------|------------------------------------|
+  | version                      | Yes      | "4.0.4"                            |
+  | timeStamp                    | Yes      | xsd:dateTime                       |
+  | messageID                    | Yes      | string                             |
+  | serviceOption                | No       | Stateless / Stateful               |
+  | validateCheckInRequirements  | No       | true / false (check-in readiness)  |
+  | includeTimaticInfo           | No       | true / false (travel doc info)     |
+  
+  ## Lookup Mode (choose ONE):
+  
+  ### Mode 1: PNRLocator only (simplest)
+  Just provide `<PNRLocator>ABC123</PNRLocator>` — returns all pax in the PNR.
+  
+  ### Mode 2: Itinerary + PassengerList (most common)
+  Provide Itinerary (Airline, Flight, DepartureDate, Origin) plus
+  PassengerList with up to 15 Passenger entries.
+  
+  ### Mode 3: BagTagNumber
+  Look up passenger by bag tag: `<BagTagNumber>1234567890</BagTagNumber>`
+  
+  ## Itinerary Fields (for Mode 2)
+  | Field          | Required | Type               | Notes                    |
+  |----------------|----------|--------------------|--------------------------|
+  | Airline        | Yes      | 2-char IATA code   | e.g., GF                 |
+  | Flight         | Yes      | Flight number      | e.g., 2057               |
+  | DepartureDate  | No       | YYYY-MM-DD         | Omit for today           |
+  | Origin         | Yes      | 3-char airport code| e.g., BOM                |
+  
+  ## PassengerList (for Mode 2, max 15 passengers)
+  | Field       | Required | Notes                                    |
+  |-------------|----------|------------------------------------------|
+  | LastName    | Yes      | Last name (case-insensitive in practice) |
+  | FirstName   | No       | First name                               |
+  | PassengerID | No       | Unique passenger identifier              |
+  | PNRLocator  | No       | Booking reference                        |
+  | VCRNumber   | No       | E-ticket number                          |
+  
+  ## Optional: Seat element
+  Seat number to look up passenger by seat assignment.
+  
+  ## Optional: GroupCode
+  Group booking code.
+  
+  ## Optional: AncillaryInfoList
+  Request ancillary service details.
+  | Value         | Meaning                                    |
+  |---------------|--------------------------------------------|
+  | ALLGroupCodes | All ancillary groups                       |
+  | GroupCode BG  | Baggage                                    |
+  | GroupCode ML  | Meals                                      |
+  | GroupCode PT  | Pet in cabin                               |
+  | GroupCode SA  | Seat assignment                            |
+  Each GroupCode can have a `category` attribute for finer filtering.
+  
+  ## Optional: Client
+  | Value              | Meaning                              |
+  |--------------------|--------------------------------------|
+  | KIOSK              | Kiosk client                         |
+  | WEB                | Web client                           |
+  | MOBILE             | Mobile client                        |
+  | INTERACT_CHECKIN   | Interactive check-in                 |
+  | INTERACT_REFRESH   | Interactive refresh                  |
+  
+  ---
+  
+  ## Response Key Fields
+  | Field                | Description                                     |
+  |----------------------|-------------------------------------------------|
+  | PassengerInfo        | Full passenger record (name, type, status)      |
+  | CheckIn_Info         | Check-in status/date/time/number                |
+  | Boarding_Info        | Board status/date/time                          |
+  | Seat                 | Current seat assignment                         |
+  | BaggageRouteList     | Bag routing details                             |
+  | EditCodeList         | Edit codes (INF, ET, etc.)                      |
+  | VCR_Info             | E-ticket/coupon information                     |
+  | AncillaryInfoList    | SSR, meal, bag, seat ancillary details          |
+  | TimaticInfo          | Travel document/visa requirements (if requested)|
+  | CheckInRequirements  | Check-in readiness details (if requested)       |
+  | FreeTextInfoList     | Free text annotations                           |
+  | ContactInfo          | Passenger contact information                   |
+  | FrequentFlyer        | FF program info                                 |
+  | PassportInfo         | Passport/APIS data                              |
+  | SpecialServiceList   | SSR list                                        |
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                    xmlns:v4="http://services.sabre.com/checkin/getPassengerData/v4">
+    <soapenv:Header>
+      <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
+        <eb:From><eb:PartyId/></eb:From>
+        <eb:To><eb:PartyId/></eb:To>
+        <eb:CPAId>{{cpaid}}</eb:CPAId>
+        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+        <eb:Service>GetPassengerDataRQ</eb:Service>
+        <eb:Action>GetPassengerDataRQ</eb:Action>
+        <eb:MessageData>
+          <eb:MessageId>{{messageId}}</eb:MessageId>
+          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+        </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security soapenv:mustUnderstand="0">
+        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+      </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+      <v4:GetPassengerDataRQ version="4.0.4"
+                             validateCheckInRequirements="true"
+                             includeTimaticInfo="true"
+                             timeStamp="{{timestamp}}"
+                             messageID="MSG-000001"
+                             serviceOption="Stateless">
+
+        <!-- ===================================================================== -->
+        <!-- ACTIVE MODE: Itinerary + PassengerList (lookup by flight + passenger)  -->
+        <!-- ===================================================================== -->
+        <v4:Itinerary>
+          <v4:Airline>{{airlineCode}}</v4:Airline>        <!-- 2-char IATA airline code -->
+          <v4:Flight>{{flightNumber}}</v4:Flight>         <!-- flight number -->
+          <v4:DepartureDate>{{departureDate}}</v4:DepartureDate>  <!-- YYYY-MM-DD -->
+          <v4:Origin>{{origin}}</v4:Origin>               <!-- 3-char departure airport -->
+        </v4:Itinerary>
+        <v4:PassengerList>
+          <!-- Up to 15 Passenger entries allowed in one request -->
+          <v4:Passenger>
+            <v4:LastName>{{lastName}}</v4:LastName>        <!-- required: passenger last name -->
+            <v4:FirstName>{{firstName}}</v4:FirstName>     <!-- narrows match when multiple same last name -->
+            <v4:PNRLocator>{{pnr}}</v4:PNRLocator>        <!-- 6-char booking reference -->
+          </v4:Passenger>
+        </v4:PassengerList>
+
+        <!-- Request ALL ancillary data (bags, meals, pets, seats, etc.) -->
+        <v4:AncillaryInfoList>
+          <v4:ALLGroupCodes/>  <!-- returns every ancillary group: BG=Bags, ML=Meals, PT=Pets, SA=Seats -->
+        </v4:AncillaryInfoList>
+
+        <!-- Client type — identifies the calling application -->
+        <v4:Client>WEB</v4:Client>  <!-- WEB / KIOSK / MOBILE / INTERACT_CHECKIN / INTERACT_REFRESH -->
+
+        <!-- ===================================================================== -->
+        <!-- ALTERNATIVE MODE 1: PNR-only lookup (returns all pax in the PNR)      -->
+        <!-- Use INSTEAD of Itinerary+PassengerList above                          -->
+        <!-- <v4:PNRLocator>ABC123</v4:PNRLocator> -->
+        <!-- ===================================================================== -->
+        <!-- ALTERNATIVE MODE 2: BagTag lookup (finds pax by bag tag number)       -->
+        <!-- <v4:BagTagNumber>1234567890</v4:BagTagNumber> -->
+        <!-- ===================================================================== -->
+
+      </v4:GetPassengerDataRQ>
+    </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+vars:pre-request {
+  flightNumber: 2057
+  departureDate: 2026-03-20
+  origin: BOM
+  airlineCode: GF
+  lastName: SMITH
+  firstName: JOHN
+  pnr: ABC123
+}
+
+script:pre-request {
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

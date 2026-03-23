@@ -1,0 +1,243 @@
+meta {
+  name: v2-Get Reservation
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/{{cpaid}}
+  body: xml
+  auth: inherit
+}
+
+headers {
+  Content-Type: text/xml; charset=utf-8
+  SOAPAction: "Trip_SearchRQ"
+}
+
+docs {
+  # Trip_SearchRQ v4.5.0 — Full Field Version
+  
+  Searches for PNRs/reservations by flight, date, name, locator, or
+  other criteria. Returns up to 800 PNRs per request.
+  
+  ## WSDL: Trip_SearchRQ_4.5.0.wsdl
+  ## XSD:  Trip_SearchRQ_2.11.0.xsd + Common types
+  
+  ---
+  
+  ## Request Attributes (on root element)
+  | Attribute | Required | Values    | Notes                |
+  |-----------|----------|-----------|----------------------|
+  | Version   | Yes      | "4.5.0"   | Schema version       |
+  
+  ## Search Criteria (all optional, combine as needed)
+  
+  ### LocatorCriteria
+  Search by one or more PNR locators directly.
+  
+  ### FlightCriteria → Flight
+  | Field                | Required | Notes                                              |
+  |----------------------|----------|----------------------------------------------------|
+  | FlightNumber         | Yes*     | Flight number (e.g., 2057)                         |
+  | DepartureAirport     | Yes*     | 3-char airport code                                |
+  | DepartureDateTime    | Yes*     | Use Is/After/Before attributes for matching        |
+  | AirlineCode          | Yes*     | 2-char IATA code                                   |
+  | ArrivalAirport       | No       | Arrival airport filter                             |
+  | ArrivalDateTime      | No       | With Is/After/Before attributes                    |
+  | FlightStatus         | No       | Filter by flight status                            |
+  | ClassOfService       | No       | Booking class filter                               |
+  | OperatingFlightNumber| No       | For codeshare flights                              |
+  | OperatingAirlineCode | No       | For codeshare flights                              |
+  | ActionCode           | No       | Booking action code                                |
+  | PreviousStatusCode   | No       | Previous booking status                            |
+  | NumberInParty        | No       | Party size filter                                  |
+  
+  *Required when using FlightCriteria
+  
+  ### DepartureDateTime Matching
+  | Attribute | Example                                  | Notes                     |
+  |-----------|------------------------------------------|---------------------------|
+  | Is        | `<DepartureDateTime Is="2026-03-20T00:00:00"/>`    | Exact date match |
+  | After     | `<DepartureDateTime After="2026-03-19T00:00:00"/>` | After this date  |
+  | Before    | `<DepartureDateTime Before="2026-03-21T00:00:00"/>` | Before this date |
+  
+  ### NameCriteria
+  Search by passenger name.
+  
+  ### DateCriteria
+  Search by creation/modification dates.
+  
+  ### PosCriteria
+  | Attribute   | Notes                                       |
+  |-------------|---------------------------------------------|
+  | AirlineCode | Airline point-of-sale filter (e.g., GF)     |
+  
+  ## ReturnOptions
+  | Field          | Required | Values / Notes                               |
+  |----------------|----------|----------------------------------------------|
+  | ViewName       | Yes      | TripSearchBasic / TripSearchBlob             |
+  | ResponseFormat | No       | STL (default), XML                           |
+  | SearchType     | No       | ACTIVE (default) / INACTIVE / BOTH           |
+  | MaxItemsReturned| No      | Max PNRs (up to 800)                         |
+  | PageSize       | No       | Results per page                             |
+  | CustomTimeout  | No       | 1–20000 ms                                   |
+  
+  ### ViewName Differences
+  - **TripSearchBasic**: Returns structured fields per SubjectArea
+  - **TripSearchBlob**: Returns the full PNR blob (more data, larger response)
+  
+  ## SubjectAreas (for TripSearchBasic or TripSearchBlob)
+  Default for TripSearchBasic if none specified: HEADER, NAME, PHONE, PASSENGERDETAILS
+  
+  | SubjectArea        | Description                                      |
+  |--------------------|--------------------------------------------------|
+  | HEADER             | PNR header (locator, create date, status)        |
+  | NAME               | Passenger names                                  |
+  | PHONE              | Phone/contact info                               |
+  | PASSENGERDETAILS   | Passenger type, docs, etc.                       |
+  | PRERESERVEDSEAT    | Pre-reserved seat assignments                    |
+  | TICKETS            | Ticket numbers and status                        |
+  | ITINERARY          | Flight segments/itinerary                        |
+  | LOYALTY            | Loyalty program info                             |
+  | FQTV               | Frequent traveler data                           |
+  | EXT_FQTV           | Extended frequent traveler data                  |
+  | REMARKS            | PNR remarks                                      |
+  | SSR                | Special service requests                         |
+  | OSI                | Other service information                        |
+  | ADDRESS            | Billing/mailing address                          |
+  | EMAIL              | Email addresses                                  |
+  | DELIVERY_ADDRESS   | Ticket delivery address                          |
+  | GROUP              | Group booking info                               |
+  | RECEIVED_FROM      | Agency/agent info                                |
+  | ACCOUNTING         | Accounting data                                  |
+  | GENERAL_FACTS      | General facts                                    |
+  | HISTORY            | PNR history                                      |
+  | PROFILE_INDEX      | Profile references                               |
+  | OPTION_QUEUE       | Option/queue details                             |
+  | QUEUE_PLACE        | Queue placement info                             |
+  | SERVICE_INFORMATION| Service info                                     |
+  | DIVIDE             | Divide-in-party details                          |
+  | ASSOCIATED_CONTENT | Associated content references                    |
+  | ANCILLARY_SERVICES | Ancillary service bookings (bags, meals, etc.)   |
+  | ALL                | All subject areas                                |
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+    <soapenv:Header>
+      <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
+        <eb:From><eb:PartyId/></eb:From>
+        <eb:To><eb:PartyId/></eb:To>
+        <eb:CPAId>{{cpaid}}</eb:CPAId>
+        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+        <eb:Service>Trip_SearchRQ</eb:Service>
+        <eb:Action>Trip_SearchRQ</eb:Action>
+        <eb:MessageData>
+          <eb:MessageId>{{messageId}}</eb:MessageId>
+          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+        </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security soapenv:mustUnderstand="0">
+        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+      </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+      <Trip_SearchRQ Version="4.5.0"
+                     xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07"
+                     xmlns="http://webservices.sabre.com/triprecord">
+        <ReadRequests>
+          <ReservationReadRequest>
+
+            <!-- Search by Flight — primary search mode -->
+            <FlightCriteria>
+              <Flight>
+                <FlightNumber>{{flightNumber}}</FlightNumber>        <!-- flight number e.g. 2057 -->
+                <DepartureAirport>{{departureAirport}}</DepartureAirport>  <!-- 3-char airport code -->
+                <DepartureDateTime Is="{{departureDateTime}}"/>      <!-- exact date match -->
+                <!-- ALTERNATIVE date matching (use one at a time): -->
+                <!-- <DepartureDateTime After="2026-03-19T00:00:00"/> -->   <!-- all flights after this date -->
+                <!-- <DepartureDateTime Before="2026-03-21T00:00:00"/> -->  <!-- all flights before this date -->
+                <AirlineCode>{{airlineCode}}</AirlineCode>           <!-- 2-char IATA airline code -->
+              </Flight>
+            </FlightCriteria>
+
+            <!-- ALTERNATIVE: Search by PNR locator (use INSTEAD of FlightCriteria) -->
+            <!-- <LocatorCriteria> -->
+            <!--   <Locator>ABC123</Locator> -->
+            <!-- </LocatorCriteria> -->
+
+            <PosCriteria AirlineCode="{{airlineCode}}"/>  <!-- point-of-sale airline filter -->
+
+            <!-- TripSearchBlob = full PNR blob (most data), STL = structured format -->
+            <!-- SearchType: ACTIVE = current bookings, INACTIVE = cancelled, BOTH = all -->
+            <ReturnOptions ViewName="TripSearchBlob"
+                           ResponseFormat="STL"
+                           SearchType="ACTIVE"
+                           MaxItemsReturned="800">
+              <!-- Request ALL subject areas for maximum data -->
+              <SubjectAreas>
+                <SubjectArea>HEADER</SubjectArea>              <!-- PNR locator, create date, status -->
+                <SubjectArea>NAME</SubjectArea>                <!-- passenger names -->
+                <SubjectArea>PASSENGERDETAILS</SubjectArea>    <!-- pax type, gender, DOB, nationality -->
+                <SubjectArea>PRERESERVEDSEAT</SubjectArea>     <!-- pre-reserved seat assignments -->
+                <SubjectArea>TICKETS</SubjectArea>             <!-- ticket numbers, status, coupons -->
+                <SubjectArea>ITINERARY</SubjectArea>           <!-- flight segments, routing -->
+                <SubjectArea>LOYALTY</SubjectArea>             <!-- loyalty program info -->
+                <SubjectArea>FQTV</SubjectArea>                <!-- frequent traveler data -->
+                <SubjectArea>EXT_FQTV</SubjectArea>            <!-- extended frequent traveler -->
+                <SubjectArea>SSR</SubjectArea>                 <!-- special service requests (WCHR, MEAL, etc.) -->
+                <SubjectArea>OSI</SubjectArea>                 <!-- other service information -->
+                <SubjectArea>REMARKS</SubjectArea>             <!-- PNR remarks / annotations -->
+                <SubjectArea>ADDRESS</SubjectArea>             <!-- billing / mailing address -->
+                <SubjectArea>EMAIL</SubjectArea>               <!-- email addresses -->
+                <SubjectArea>PHONE</SubjectArea>               <!-- phone / contact numbers -->
+                <SubjectArea>GROUP</SubjectArea>               <!-- group booking info -->
+                <SubjectArea>RECEIVED_FROM</SubjectArea>       <!-- agency / agent who made booking -->
+                <SubjectArea>ACCOUNTING</SubjectArea>          <!-- accounting / payment data -->
+                <SubjectArea>GENERAL_FACTS</SubjectArea>       <!-- general facts -->
+                <SubjectArea>HISTORY</SubjectArea>             <!-- PNR change history -->
+                <SubjectArea>PROFILE_INDEX</SubjectArea>       <!-- profile references -->
+                <SubjectArea>OPTION_QUEUE</SubjectArea>        <!-- option / queue details -->
+                <SubjectArea>QUEUE_PLACE</SubjectArea>         <!-- queue placement info -->
+                <SubjectArea>SERVICE_INFORMATION</SubjectArea>  <!-- service info -->
+                <SubjectArea>DIVIDE</SubjectArea>              <!-- divide-in-party (split PNR) details -->
+                <SubjectArea>ASSOCIATED_CONTENT</SubjectArea>  <!-- associated content references -->
+                <SubjectArea>ANCILLARY_SERVICES</SubjectArea>  <!-- ancillary bookings: bags, meals, seats -->
+                <SubjectArea>DELIVERY_ADDRESS</SubjectArea>    <!-- ticket delivery address -->
+              </SubjectAreas>
+            </ReturnOptions>
+          </ReservationReadRequest>
+        </ReadRequests>
+      </Trip_SearchRQ>
+    </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+vars:pre-request {
+  flightNumber: 2057
+  departureAirport: BOM
+  departureDateTime: 2026-03-20T00:00:00
+  airlineCode: GF
+}
+
+script:pre-request {
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -1,8 +1,11 @@
 {
   "version": "1",
-  "name": "Python FE Sabre APIs",
+  "name": "PyReact - Python FE Sabre APIs",
   "type": "collection",
-  "ignore": ["node_modules", ".git"],
+  "ignore": [
+    "node_modules",
+    ".git"
+  ],
   "scripts": {
     "moduleWhitelist": [],
     "filesystemAccess": {

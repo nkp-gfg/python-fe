@@ -1,0 +1,92 @@
+meta {
+  name: v2-Session Close
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/{{cpaid}}
+  body: xml
+  auth: inherit
+}
+
+headers {
+  Content-Type: text/xml; charset=utf-8
+  SOAPAction: "SessionCloseRQ"
+}
+
+docs {
+  # SessionCloseRQ
+  
+  Closes an active Sabre session and invalidates the BinarySecurityToken.
+  
+  ## Key Points
+  - Always close sessions when done to free Sabre resources
+  - Safe to call even if session is already expired (will return a fault but no harm)
+  - **mustUnderstand="1"** is required on both MessageHeader and Security
+  - Post-response script clears local session variables
+  
+  ## WSSE Security
+  Uses `BinarySecurityToken` (not UsernameToken) since we're already authenticated.
+  
+  ## Cleanup
+  After closing, the script clears `sessionToken` and `conversationId` variables
+  to prevent accidental reuse.
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+      <soapenv:Header>
+          <eb:MessageHeader soapenv:mustUnderstand="1" eb:version="2.0.0">
+              <eb:From>
+                  <eb:PartyId/>
+              </eb:From>
+              <eb:To>
+                  <eb:PartyId/>
+              </eb:To>
+              <eb:CPAId>{{cpaid}}</eb:CPAId>
+              <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+              <eb:Service>SessionCloseRQ</eb:Service>
+              <eb:Action>SessionCloseRQ</eb:Action>
+              <eb:MessageData>
+                  <eb:MessageId>{{messageId}}</eb:MessageId>
+                  <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+              </eb:MessageData>
+          </eb:MessageHeader>
+          <wsse:Security soapenv:mustUnderstand="1">
+              <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+          </wsse:Security>
+      </soapenv:Header>
+      <soapenv:Body>
+          <SessionCloseRQ xmlns="http://webservices.sabre.com" Version="1.0.0"/>
+      </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+script:pre-request {
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
+script:post-response {
+  // Clear session variables after closing
+  bru.setVar("sessionToken", "");
+  bru.setVar("conversationId", "");
+  console.log("Session closed. Token and conversationId cleared.");
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

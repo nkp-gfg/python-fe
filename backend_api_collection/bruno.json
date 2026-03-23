@@ -1,6 +1,9 @@
 {
   "version": "1",
-  "name": "FalconEye Python FastAPI",
+  "name": "PyReact - FalconEye Python FastAPI",
   "type": "collection",
-  "ignore": ["node_modules", ".git"]
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
 }

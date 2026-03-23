@@ -1,0 +1,203 @@
+meta {
+  name: v2-Flight Status
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/{{cpaid}}
+  body: xml
+  auth: inherit
+}
+
+headers {
+  Content-Type: text/xml; charset=utf-8
+  SOAPAction: "ACS_FlightDetailRQ"
+}
+
+docs {
+  # ACS_FlightDetailRQ v3.2.0 — Full Field Version
+  
+  Returns flight schedule, gate, aircraft, passenger counts per cabin,
+  leg info, and jump seat data.
+  
+  ## WSDL: ACS_FlightDetailRQ_v3-0-0.wsdl
+  ## XSD:  ACS_FlightDetailRQRS_v3-0-0.xsd
+  
+  ---
+  
+  ## Request Attributes (on root element)
+  | Attribute | Required | Values                      | Notes                          |
+  |-----------|----------|-----------------------------|--------------------------------|
+  | Version   | Yes      | "3.0.0" / "3.1.0" / "3.2.0"| Use 3.2.0 for full features    |
+  
+  ## FlightInfo Fields
+  | Field         | Required | Type               | Notes                       |
+  |---------------|----------|--------------------|-----------------------------|
+  | Airline       | Yes      | 2-char IATA code   | e.g., GF                    |
+  | Flight        | Yes      | Flight number      | e.g., 2006                  |
+  | DepartureDate | No       | YYYY-MM-DD         | Omit for today's flight     |
+  | Origin        | Yes      | 3-char airport code| e.g., LHR                   |
+  
+  ## Optional: Display Element
+  | Type | Meaning                              |
+  |------|--------------------------------------|
+  | R    | Remarks                              |
+  | O    | Oversale information                 |
+  | F    | Flight check-in messages             |
+  | B    | Baggage data                         |
+  | P    | Pricing information                  |
+  | U    | Cancelled itinerary data             |
+  
+  ## Optional: APIS Element
+  Returns APIS (Advance Passenger Information) data.
+  Can include `PNRLocator` attribute to filter by booking.
+  
+  ## Optional: Client Element
+  | Value  | Meaning                              |
+  |--------|--------------------------------------|
+  | KIOSK  | Kiosk client                         |
+  | WEB    | Web client                           |
+  | MOBILE | Mobile client                        |
+  
+  ---
+  
+  ## Response Key Fields
+  
+  ### ItineraryInfoResponse (schedule/aircraft)
+  | Field                     | Description                                  |
+  |---------------------------|----------------------------------------------|
+  | Airline, Flight, Origin   | Identifying info                             |
+  | DepartureDate/Time        | Actual departure                             |
+  | ScheduledDepartureDate/Time| Scheduled departure                         |
+  | EstimatedDepartureDate/Time| Estimated departure                         |
+  | DepartureGate             | Gate number                                  |
+  | DepartureTerminal         | Terminal number                              |
+  | BoardingTime              | Boarding start (boardingIndicator: BDG)      |
+  | ArrivalDate/Time          | Actual arrival                               |
+  | ScheduledArrivalTime      | Scheduled arrival                            |
+  | EstimatedArrivalDate/Time | Estimated arrival                            |
+  | FlightDurationInMinutes   | Total flight time                            |
+  | TimeToDepartureInMinutes  | Countdown to departure (when applicable)     |
+  | AircraftType              | IATA aircraft code (789=B787-9, 321=A321)    |
+  | FlightStatus              | OPENCI / BOARDING / FINAL / PDC / CLOSED     |
+  | AircraftConfigNumber      | Configuration ID (maps to seat layout)       |
+  | AircraftRegistration      | Tail number (e.g., A9CXA)                    |
+  | CheckinRuleNumber         | Check-in rule applied                        |
+  | SeatConfig                | Business/Economy seats (e.g., 26/256)        |
+  | BagCheckInOption          | PW / etc.                                    |
+  | AutoOn                    | ON / OFF (auto check-in feature)             |
+  
+  ### PassengerCounts (per classOfService: Y, J, C, etc.)
+  | Field                  | Description                                  |
+  |------------------------|----------------------------------------------|
+  | Authorized             | Total seats in cabin                         |
+  | Booked                 | Confirmed bookings                           |
+  | Available              | Remaining seats                              |
+  | Thru                   | Thru (connecting) passengers                 |
+  | Local                  | Local (originating) passengers               |
+  | NonRevenueLocal        | Non-revenue local passengers                 |
+  | NonRevenueThru         | Non-revenue thru passengers                  |
+  | PaperTicket            | Passengers with paper tickets                |
+  | ElectronicTicket       | Passengers with e-tickets                    |
+  | Kiosk                  | Kiosk check-in count                         |
+  | StandbyRestriction     | Standby restriction code                     |
+  | LocalOnBoard           | Local passengers boarded                     |
+  | TotalOnBoard           | Total passengers boarded                     |
+  | TotalBoardingPassIssued| Total boarding passes issued                 |
+  | Meals                  | Meal count (optional)                        |
+  
+  ### LegInfo
+  | Field            | Description                                  |
+  |------------------|----------------------------------------------|
+  | LegCity          | Airport (origin/destination)                 |
+  | ControllingCityInd| ! = controlling city                        |
+  | LegStatus        | OPENCI / FINAL / etc.                        |
+  | LegDate          | Date for this leg                            |
+  | LegDepartureTime | Departure time for this leg                  |
+  | LegArrivalTime   | Arrival time for this leg                    |
+  | LegApp           | Y/N applicability                            |
+  
+  ### JumpSeat
+  | Field    | Attributes     | Description                   |
+  |----------|----------------|-------------------------------|
+  | Cockpit  | inUse="true/false" | Available cockpit jump seats |
+  | Cabin    | inUse="true/false" | Available cabin jump seats   |
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                    xmlns:v3="http://services.sabre.com/ACS/BSO/flightDetail/v3">
+    <soapenv:Header>
+      <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
+        <eb:From><eb:PartyId/></eb:From>
+        <eb:To><eb:PartyId/></eb:To>
+        <eb:CPAId>{{cpaid}}</eb:CPAId>
+        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+        <eb:Service>ACS_FlightDetailRQ</eb:Service>
+        <eb:Action>ACS_FlightDetailRQ</eb:Action>
+        <eb:MessageData>
+          <eb:MessageId>{{messageId}}</eb:MessageId>
+          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+        </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security soapenv:mustUnderstand="0">
+        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+      </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+      <v3:ACS_FlightDetailRQ Version="3.2.0">
+        <!-- Flight identification — required fields -->
+        <FlightInfo>
+          <Airline>{{airlineCode}}</Airline>       <!-- 2-char IATA airline code -->
+          <Flight>{{flightNumber}}</Flight>        <!-- flight number -->
+          <DepartureDate>{{departureDate}}</DepartureDate>  <!-- YYYY-MM-DD, omit for today -->
+          <Origin>{{origin}}</Origin>              <!-- 3-char departure airport -->
+        </FlightInfo>
+  
+        <!-- Display elements — each Type requests an additional data section in the response -->
+        <Display Type="R"/>  <!-- R = Remarks (flight-level remarks/notes) -->
+        <Display Type="O"/>  <!-- O = Oversale data (overbooking info) -->
+        <Display Type="F"/>  <!-- F = Flight check-in messages (operational msgs) -->
+        <Display Type="B"/>  <!-- B = Baggage data (bag counts, belt info) -->
+        <Display Type="P"/>  <!-- P = Pricing information -->
+        <Display Type="U"/>  <!-- U = Cancelled itinerary data (removed segments) -->
+  
+        <!-- APIS = Advance Passenger Information System data (passport/visa docs) -->
+        <APIS/>
+  
+        <!-- Client type — identifies the calling application -->
+        <Client>WEB</Client>  <!-- WEB / KIOSK / MOBILE -->
+
+      </v3:ACS_FlightDetailRQ>
+    </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+vars:pre-request {
+  flightNumber: 2057
+  departureDate: 2026-03-20
+  origin: BOM
+  airlineCode: GF
+}
+
+script:pre-request {
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
