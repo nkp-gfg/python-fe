@@ -2,21 +2,22 @@
 
 ## Current State (as of 2026-03-21)
 
-| Layer | Current | Recommended |
-|-------|---------|-------------|
-| HTTP Client | `requests` (sync) | `httpx.AsyncClient` (async) |
-| XML Parsing | `xmltodict` + hand-crafted XML templates | Zeep `AsyncClient` for SOAP |
-| Config | `python-dotenv` + `os.environ` | `pydantic-settings` (`BaseSettings`) |
-| Models | Pydantic only in `ingestion.py` | Pydantic v2 everywhere |
-| JSON | default FastAPI encoder | `orjson` via `ORJSONResponse` |
-| Logging | stdlib `logging` | `structlog` (structured) |
-| Linting | none configured | `ruff` + `black` + `mypy` |
-| Retries | none | `tenacity` with exponential backoff |
-| Type Hints | partial | full (`from __future__ import annotations`) |
+| Layer       | Current                                  | Recommended                                 |
+| ----------- | ---------------------------------------- | ------------------------------------------- |
+| HTTP Client | `requests` (sync)                        | `httpx.AsyncClient` (async)                 |
+| XML Parsing | `xmltodict` + hand-crafted XML templates | Zeep `AsyncClient` for SOAP                 |
+| Config      | `python-dotenv` + `os.environ`           | `pydantic-settings` (`BaseSettings`)        |
+| Models      | Pydantic only in `ingestion.py`          | Pydantic v2 everywhere                      |
+| JSON        | default FastAPI encoder                  | `orjson` via `ORJSONResponse`               |
+| Logging     | stdlib `logging`                         | `structlog` (structured)                    |
+| Linting     | none configured                          | `ruff` + `black` + `mypy`                   |
+| Retries     | none                                     | `tenacity` with exponential backoff         |
+| Type Hints  | partial                                  | full (`from __future__ import annotations`) |
 
 ## Migration Priority
 
 ### Phase 1 — Foundation (no Sabre changes)
+
 1. Switch to `pydantic-settings` for config management
 2. Add `structlog` for structured logging
 3. Add `orjson` for faster JSON responses
@@ -25,6 +26,7 @@
 6. Pin exact dependency versions
 
 ### Phase 2 — Async HTTP + Zeep
+
 1. Replace `requests` with `httpx.AsyncClient`
 2. Install `zeep[async]` with `AsyncTransport`
 3. Create Zeep client in FastAPI lifespan (single instance)
@@ -39,6 +41,7 @@
 6. Use `serialize_object()` instead of `xmltodict.parse()`
 
 ### Phase 3 — Production Hardening
+
 1. Add `tenacity` retries with backoff + jitter
 2. Add rate limiting (`slowapi`)
 3. Add Prometheus metrics for Sabre call latency
@@ -47,6 +50,7 @@
 6. Integration tests against Sabre cert environment
 
 ### Phase 4 — REST API Migration (where available)
+
 1. Evaluate Sabre REST APIs at https://developer.sabre.com
 2. Use `httpx.AsyncClient` + Pydantic directly (no Zeep)
 3. OAuth 2.0 authentication flow

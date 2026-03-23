@@ -1,7 +1,7 @@
 meta {
   name: v2-Get Passenger List
   type: http
-  seq: 13
+  seq: 3
 }
 
 post {
@@ -142,34 +142,37 @@ body:xml {
           <v4:DepartureDate>{{departureDate}}</v4:DepartureDate>
           <v4:Origin>{{origin}}</v4:Origin>
           <!-- NOTE: Destination and ClassOfService are FILTERS — they reduce results -->
-          <!-- <v4:Destination>BAH</v4:Destination> -->        <!-- filter by arrival airport -->
-          <!-- <v4:ClassOfService>Y</v4:ClassOfService> -->    <!-- filter by booking class -->
+          <!-- filter by arrival airport -->
+          <!-- <v4:Destination>BAH</v4:Destination> -->
+          <!-- filter by booking class -->
+          <!-- <v4:ClassOfService>Y</v4:ClassOfService> -->
         </v4:Itinerary>
   
         <!-- DisplayCodeRequest: condition="OR" means return pax matching ANY code -->
         <!-- Using all codes together gives the most complete passenger list -->
         <v4:DisplayCodeRequest>
           <v4:DisplayCodes condition="OR">
-            <v4:DisplayCode>RV</v4:DisplayCode>     <!-- Revenue passengers (confirmed paying pax) -->
-            <v4:DisplayCode>XRV</v4:DisplayCode>    <!-- Non-revenue passengers (staff, complimentary) -->
-            <v4:DisplayCode>BP</v4:DisplayCode>     <!-- Boarding pass issued (checked-in pax with BP) -->
-            <v4:DisplayCode>BT</v4:DisplayCode>     <!-- Bag tag list (includes cancelled pax who still have bags) -->
-            <v4:DisplayCode>NB</v4:DisplayCode>     <!-- Not boarded (checked-in but didn't board) -->
-            <v4:DisplayCode>NS</v4:DisplayCode>     <!-- No-show (didn't check in at all) -->
-            <v4:DisplayCode>SB</v4:DisplayCode>     <!-- Standby passengers (waiting for seat) -->
-            <v4:DisplayCode>SA</v4:DisplayCode>     <!-- Seat assigned (pax with seat, not yet checked in) -->
-            <v4:DisplayCode>WL</v4:DisplayCode>     <!-- Waitlisted (on waitlist, not confirmed) -->
-            <v4:DisplayCode>CH</v4:DisplayCode>     <!-- Checked in (completed check-in process) -->
-            <v4:DisplayCode>BD</v4:DisplayCode>     <!-- Boarded (scanned at gate, on aircraft) -->
-            <v4:DisplayCode>AE</v4:DisplayCode>     <!-- All edit codes (pax with any edit code like INF, ET) -->
+            <!-- Revenue passengers (confirmed paying pax) -->
+            <v4:DisplayCode>RV</v4:DisplayCode>
+            <!-- Non-revenue passengers (staff, complimentary) -->
+            <v4:DisplayCode>XRV</v4:DisplayCode>
+            <!-- Boarding pass issued (checked-in pax with BP) -->
+            <v4:DisplayCode>BP</v4:DisplayCode>
+            <!-- NOTE: The following codes are NOT configured for GF and will cause error 655:
+                 NB (Not Boarded), NS (No-show), SB (Standby), SA (Seat assigned),
+                 WL (Waitlisted), CH (Checked in), BD (Boarded), BT (Bag tag), AE (All edit codes)
+                 Re-enable individually after verifying with Sabre which codes GF supports. -->
           </v4:DisplayCodes>
-          <v4:SortSequence>Name</v4:SortSequence>   <!-- Options: Name / Seat / Sequence / Group Number -->
+          <!-- Options: Name / Seat / Sequence / Group Number -->
+          <v4:SortSequence>Name</v4:SortSequence>
         </v4:DisplayCodeRequest>
   
         <!-- ALTERNATIVE: AncillaryCodeRequest — use INSTEAD of DisplayCodeRequest (not both) -->
         <!-- <v4:AncillaryCodeRequest> -->
-        <!--   <v4:GroupCode>BG</v4:GroupCode> -->   <!-- BG=Bags, PT=Pet, ML=Meal, SA=Seat -->
-        <!--   <v4:Status>UNP</v4:Status> -->        <!-- UNP=Unpaid ancillaries -->
+        <!--   BG=Bags, PT=Pet, ML=Meal, SA=Seat -->
+        <!--   <v4:GroupCode>BG</v4:GroupCode> -->
+        <!--   UNP=Unpaid ancillaries -->
+        <!--   <v4:Status>UNP</v4:Status> -->
         <!-- </v4:AncillaryCodeRequest> -->
 
       </v4:GetPassengerListRQ>
@@ -178,9 +181,9 @@ body:xml {
 }
 
 vars:pre-request {
-  flightNumber: 2057
+  flightNumber: 2068
   departureDate: 2026-03-20
-  origin: BOM
+  origin: DMM
   airlineCode: GF
 }
 

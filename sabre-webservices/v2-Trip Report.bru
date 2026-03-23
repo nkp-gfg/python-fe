@@ -1,7 +1,7 @@
 meta {
   name: v2-Trip Report
   type: http
-  seq: 17
+  seq: 6
 }
 
 post {
@@ -108,53 +108,30 @@ body:xml {
       </wsse:Security>
     </soapenv:Header>
     <soapenv:Body>
-      <v1:Trip_ReportsRQ Version="1.3.0"
-                         timeStamp="{{timestamp}}"
-                         messageID="MSG-000001">
-
-        <!-- Flight identification — all fields required for trip reports -->
-        <v1:FlightInfo>
-          <v1:Airline>{{airlineCode}}</v1:Airline>               <!-- 2-char IATA airline code -->
-          <v1:FlightNumber>{{flightNumber}}</v1:FlightNumber>    <!-- flight number -->
-          <v1:DepartureDate>{{departureDate}}</v1:DepartureDate> <!-- YYYY-MM-DD -->
-          <v1:DepartureAirport>{{origin}}</v1:DepartureAirport>  <!-- 3-char departure airport -->
-        </v1:FlightInfo>
-        <!-- ReportType controls what data is returned:                              -->
-        <!--   MLX  = cancelled/removed passengers (were booked, then cancelled)     -->
-        <!--   MLC  = ever-booked passengers (everyone who was EVER on this flight)  -->
-        <!--   ML   = current passenger manifest (active bookings only)              -->
-        <!--   MLP  = positive space passenger list                                  -->
-        <!--   MLP1 = positive space list variant                                    -->
-        <v1:ReportType>{{reportType}}</v1:ReportType>
-
-        <!-- ALTERNATIVE: Advanced report with criteria filters                      -->
-        <!-- Use INSTEAD of FlightInfo+ReportType above for complex queries          -->
-        <!-- <v1:Report> -->
-        <!--   <v1:ReportName>CustomReport</v1:ReportName> -->
-        <!--   <v1:Criteria> -->
-        <!--     <v1:FlightCriteria> -->
-        <!--       <v1:Flight> -->
-        <!--         <v1:FlightNumber>2057</v1:FlightNumber> -->
-        <!--         <v1:DepartureAirport>BOM</v1:DepartureAirport> -->
-        <!--         <v1:DepartureDateTime Is="2026-03-20T00:00:00"/> -->
-        <!--         <v1:AirlineCode>GF</v1:AirlineCode> -->
-        <!--       </v1:Flight> -->
-        <!--     </v1:FlightCriteria> -->
-        <!--     <v1:NameCriteria><v1:LastName>SMITH</v1:LastName></v1:NameCriteria> -->
-        <!--     <v1:PosCriteria AirlineCode="GF"/> -->
-        <!--     <v1:SSRCriteria><v1:SSRCode>WCHR</v1:SSRCode></v1:SSRCriteria> -->
-        <!--   </v1:Criteria> -->
-        <!-- </v1:Report> -->
-
-      </v1:Trip_ReportsRQ>
+      <Trip_ReportsRQ Version="1.3.0"
+                      xmlns="http://webservices.sabre.com/triprecord">
+        <Report>
+          <ReportName>{{reportType}}</ReportName>
+          <ReportFormat>X</ReportFormat>
+          <Criteria>
+            <FlightCriteria>
+              <AirlineCode>{{airlineCode}}</AirlineCode>
+              <FlightNumber>{{flightNumber}}</FlightNumber>
+              <DepartureAirport>{{origin}}</DepartureAirport>
+              <DepartureDateTime>{{departureDate}}</DepartureDateTime>
+            </FlightCriteria>
+            <PosCriteria>{{airlineCode}}</PosCriteria>
+          </Criteria>
+        </Report>
+      </Trip_ReportsRQ>
     </soapenv:Body>
   </soapenv:Envelope>
 }
 
 vars:pre-request {
-  flightNumber: 2057
+  flightNumber: 2068
   departureDate: 2026-03-20
-  origin: BOM
+  origin: DMM
   airlineCode: GF
   reportType: MLX
 }

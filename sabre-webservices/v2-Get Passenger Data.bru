@@ -1,7 +1,7 @@
 meta {
   name: v2-Get Passenger Data
   type: http
-  seq: 15
+  seq: 4
 }
 
 post {
@@ -139,45 +139,32 @@ body:xml {
     <soapenv:Body>
       <v4:GetPassengerDataRQ version="4.0.4"
                              validateCheckInRequirements="true"
-                             includeTimaticInfo="true"
-                             timeStamp="{{timestamp}}"
-                             messageID="MSG-000001"
-                             serviceOption="Stateless">
+                             includeTimaticInfo="true">
 
-        <!-- ===================================================================== -->
-        <!-- ACTIVE MODE: Itinerary + PassengerList (lookup by flight + passenger)  -->
-        <!-- ===================================================================== -->
-        <v4:Itinerary>
-          <v4:Airline>{{airlineCode}}</v4:Airline>        <!-- 2-char IATA airline code -->
-          <v4:Flight>{{flightNumber}}</v4:Flight>         <!-- flight number -->
-          <v4:DepartureDate>{{departureDate}}</v4:DepartureDate>  <!-- YYYY-MM-DD -->
-          <v4:Origin>{{origin}}</v4:Origin>               <!-- 3-char departure airport -->
-        </v4:Itinerary>
-        <v4:PassengerList>
-          <!-- Up to 15 Passenger entries allowed in one request -->
-          <v4:Passenger>
-            <v4:LastName>{{lastName}}</v4:LastName>        <!-- required: passenger last name -->
-            <v4:FirstName>{{firstName}}</v4:FirstName>     <!-- narrows match when multiple same last name -->
-            <v4:PNRLocator>{{pnr}}</v4:PNRLocator>        <!-- 6-char booking reference -->
-          </v4:Passenger>
-        </v4:PassengerList>
+        <!-- Itinerary + PassengerList wrapped in ItineraryAndPassengerInfo -->
+        <!-- Child elements must be unqualified (no v4: prefix) per XSD -->
+        <ItineraryAndPassengerInfo>
+          <Itinerary>
+            <Airline>{{airlineCode}}</Airline>
+            <Flight>{{flightNumber}}</Flight>
+            <DepartureDate>{{departureDate}}</DepartureDate>
+            <Origin>{{origin}}</Origin>
+          </Itinerary>
+          <PassengerList>
+            <Passenger>
+              <LastName>{{lastName}}</LastName>
+              <FirstName>{{firstName}}</FirstName>
+              <PNRLocator>{{pnr}}</PNRLocator>
+            </Passenger>
+          </PassengerList>
+        </ItineraryAndPassengerInfo>
 
-        <!-- Request ALL ancillary data (bags, meals, pets, seats, etc.) -->
-        <v4:AncillaryInfoList>
-          <v4:ALLGroupCodes/>  <!-- returns every ancillary group: BG=Bags, ML=Meals, PT=Pets, SA=Seats -->
-        </v4:AncillaryInfoList>
+        <!-- Request ALL ancillary data -->
+        <AncillaryInfoList>
+          <ALLGroupCodes/>
+        </AncillaryInfoList>
 
-        <!-- Client type — identifies the calling application -->
-        <v4:Client>WEB</v4:Client>  <!-- WEB / KIOSK / MOBILE / INTERACT_CHECKIN / INTERACT_REFRESH -->
-
-        <!-- ===================================================================== -->
-        <!-- ALTERNATIVE MODE 1: PNR-only lookup (returns all pax in the PNR)      -->
-        <!-- Use INSTEAD of Itinerary+PassengerList above                          -->
-        <!-- <v4:PNRLocator>ABC123</v4:PNRLocator> -->
-        <!-- ===================================================================== -->
-        <!-- ALTERNATIVE MODE 2: BagTag lookup (finds pax by bag tag number)       -->
-        <!-- <v4:BagTagNumber>1234567890</v4:BagTagNumber> -->
-        <!-- ===================================================================== -->
+        <Client>WEB</Client>
 
       </v4:GetPassengerDataRQ>
     </soapenv:Body>
@@ -185,13 +172,13 @@ body:xml {
 }
 
 vars:pre-request {
-  flightNumber: 2057
+  flightNumber: 2068
   departureDate: 2026-03-20
-  origin: BOM
+  origin: DMM
   airlineCode: GF
-  lastName: SMITH
-  firstName: JOHN
-  pnr: ABC123
+  lastName: ACHARI RAMANUJAM
+  firstName: NARAYAN
+  pnr: OYBWMM
 }
 
 script:pre-request {

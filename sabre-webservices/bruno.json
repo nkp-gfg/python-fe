@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "name": "PyReact - Python FE Sabre APIs",
+  "name": "Grafana - Sabre Py FE Zeep Grafana Docker",
   "type": "collection",
   "ignore": [
     "node_modules",

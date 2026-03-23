@@ -1,7 +1,7 @@
 meta {
   name: v2-Get Reservation
   type: http
-  seq: 16
+  seq: 5
 }
 
 post {
@@ -155,13 +155,19 @@ body:xml {
             <!-- Search by Flight — primary search mode -->
             <FlightCriteria>
               <Flight>
-                <FlightNumber>{{flightNumber}}</FlightNumber>        <!-- flight number e.g. 2057 -->
-                <DepartureAirport>{{departureAirport}}</DepartureAirport>  <!-- 3-char airport code -->
-                <DepartureDateTime Is="{{departureDateTime}}"/>      <!-- exact date match -->
+                <!-- flight number e.g. 2057 -->
+                <FlightNumber>{{flightNumber}}</FlightNumber>
+                <!-- 3-char airport code -->
+                <DepartureAirport>{{departureAirport}}</DepartureAirport>
+                <!-- exact date match -->
+                <DepartureDateTime Is="{{departureDateTime}}"/>
                 <!-- ALTERNATIVE date matching (use one at a time): -->
-                <!-- <DepartureDateTime After="2026-03-19T00:00:00"/> -->   <!-- all flights after this date -->
-                <!-- <DepartureDateTime Before="2026-03-21T00:00:00"/> -->  <!-- all flights before this date -->
-                <AirlineCode>{{airlineCode}}</AirlineCode>           <!-- 2-char IATA airline code -->
+                <!-- all flights after this date -->
+                <!-- <DepartureDateTime After="2026-03-19T00:00:00"/> -->
+                <!-- all flights before this date -->
+                <!-- <DepartureDateTime Before="2026-03-21T00:00:00"/> -->
+                <!-- 2-char IATA airline code -->
+                <AirlineCode>{{airlineCode}}</AirlineCode>
               </Flight>
             </FlightCriteria>
 
@@ -170,7 +176,8 @@ body:xml {
             <!--   <Locator>ABC123</Locator> -->
             <!-- </LocatorCriteria> -->
 
-            <PosCriteria AirlineCode="{{airlineCode}}"/>  <!-- point-of-sale airline filter -->
+            <!-- point-of-sale airline filter -->
+            <PosCriteria AirlineCode="{{airlineCode}}"/>
 
             <!-- TripSearchBlob = full PNR blob (most data), STL = structured format -->
             <!-- SearchType: ACTIVE = current bookings, INACTIVE = cancelled, BOTH = all -->
@@ -180,34 +187,62 @@ body:xml {
                            MaxItemsReturned="800">
               <!-- Request ALL subject areas for maximum data -->
               <SubjectAreas>
-                <SubjectArea>HEADER</SubjectArea>              <!-- PNR locator, create date, status -->
-                <SubjectArea>NAME</SubjectArea>                <!-- passenger names -->
-                <SubjectArea>PASSENGERDETAILS</SubjectArea>    <!-- pax type, gender, DOB, nationality -->
-                <SubjectArea>PRERESERVEDSEAT</SubjectArea>     <!-- pre-reserved seat assignments -->
-                <SubjectArea>TICKETS</SubjectArea>             <!-- ticket numbers, status, coupons -->
-                <SubjectArea>ITINERARY</SubjectArea>           <!-- flight segments, routing -->
-                <SubjectArea>LOYALTY</SubjectArea>             <!-- loyalty program info -->
-                <SubjectArea>FQTV</SubjectArea>                <!-- frequent traveler data -->
-                <SubjectArea>EXT_FQTV</SubjectArea>            <!-- extended frequent traveler -->
-                <SubjectArea>SSR</SubjectArea>                 <!-- special service requests (WCHR, MEAL, etc.) -->
-                <SubjectArea>OSI</SubjectArea>                 <!-- other service information -->
-                <SubjectArea>REMARKS</SubjectArea>             <!-- PNR remarks / annotations -->
-                <SubjectArea>ADDRESS</SubjectArea>             <!-- billing / mailing address -->
-                <SubjectArea>EMAIL</SubjectArea>               <!-- email addresses -->
-                <SubjectArea>PHONE</SubjectArea>               <!-- phone / contact numbers -->
-                <SubjectArea>GROUP</SubjectArea>               <!-- group booking info -->
-                <SubjectArea>RECEIVED_FROM</SubjectArea>       <!-- agency / agent who made booking -->
-                <SubjectArea>ACCOUNTING</SubjectArea>          <!-- accounting / payment data -->
-                <SubjectArea>GENERAL_FACTS</SubjectArea>       <!-- general facts -->
-                <SubjectArea>HISTORY</SubjectArea>             <!-- PNR change history -->
-                <SubjectArea>PROFILE_INDEX</SubjectArea>       <!-- profile references -->
-                <SubjectArea>OPTION_QUEUE</SubjectArea>        <!-- option / queue details -->
-                <SubjectArea>QUEUE_PLACE</SubjectArea>         <!-- queue placement info -->
-                <SubjectArea>SERVICE_INFORMATION</SubjectArea>  <!-- service info -->
-                <SubjectArea>DIVIDE</SubjectArea>              <!-- divide-in-party (split PNR) details -->
-                <SubjectArea>ASSOCIATED_CONTENT</SubjectArea>  <!-- associated content references -->
-                <SubjectArea>ANCILLARY_SERVICES</SubjectArea>  <!-- ancillary bookings: bags, meals, seats -->
-                <SubjectArea>DELIVERY_ADDRESS</SubjectArea>    <!-- ticket delivery address -->
+                <!-- PNR locator, create date, status -->
+                <SubjectArea>HEADER</SubjectArea>
+                <!-- passenger names -->
+                <SubjectArea>NAME</SubjectArea>
+                <!-- pax type, gender, DOB, nationality -->
+                <SubjectArea>PASSENGERDETAILS</SubjectArea>
+                <!-- pre-reserved seat assignments -->
+                <SubjectArea>PRERESERVEDSEAT</SubjectArea>
+                <!-- ticket numbers, status, coupons -->
+                <SubjectArea>TICKETS</SubjectArea>
+                <!-- flight segments, routing -->
+                <SubjectArea>ITINERARY</SubjectArea>
+                <!-- loyalty program info -->
+                <SubjectArea>LOYALTY</SubjectArea>
+                <!-- frequent traveler data -->
+                <SubjectArea>FQTV</SubjectArea>
+                <!-- extended frequent traveler -->
+                <SubjectArea>EXT_FQTV</SubjectArea>
+                <!-- special service requests (WCHR, MEAL, etc.) -->
+                <SubjectArea>SSR</SubjectArea>
+                <!-- other service information -->
+                <SubjectArea>OSI</SubjectArea>
+                <!-- PNR remarks / annotations -->
+                <SubjectArea>REMARKS</SubjectArea>
+                <!-- billing / mailing address -->
+                <SubjectArea>ADDRESS</SubjectArea>
+                <!-- email addresses -->
+                <SubjectArea>EMAIL</SubjectArea>
+                <!-- phone / contact numbers -->
+                <SubjectArea>PHONE</SubjectArea>
+                <!-- group booking info -->
+                <SubjectArea>GROUP</SubjectArea>
+                <!-- agency / agent who made booking -->
+                <SubjectArea>RECEIVED_FROM</SubjectArea>
+                <!-- accounting / payment data -->
+                <SubjectArea>ACCOUNTING</SubjectArea>
+                <!-- general facts -->
+                <SubjectArea>GENERAL_FACTS</SubjectArea>
+                <!-- PNR change history -->
+                <SubjectArea>HISTORY</SubjectArea>
+                <!-- profile references -->
+                <SubjectArea>PROFILE_INDEX</SubjectArea>
+                <!-- option / queue details -->
+                <SubjectArea>OPTION_QUEUE</SubjectArea>
+                <!-- queue placement info -->
+                <SubjectArea>QUEUE_PLACE</SubjectArea>
+                <!-- service info -->
+                <SubjectArea>SERVICE_INFORMATION</SubjectArea>
+                <!-- divide-in-party (split PNR) details -->
+                <SubjectArea>DIVIDE</SubjectArea>
+                <!-- associated content references -->
+                <SubjectArea>ASSOCIATED_CONTENT</SubjectArea>
+                <!-- ancillary bookings: bags, meals, seats -->
+                <SubjectArea>ANCILLARY_SERVICES</SubjectArea>
+                <!-- ticket delivery address -->
+                <SubjectArea>DELIVERY_ADDRESS</SubjectArea>
               </SubjectAreas>
             </ReturnOptions>
           </ReservationReadRequest>
@@ -218,8 +253,8 @@ body:xml {
 }
 
 vars:pre-request {
-  flightNumber: 2057
-  departureAirport: BOM
+  flightNumber: 2068
+  departureAirport: DMM
   departureDateTime: 2026-03-20T00:00:00
   airlineCode: GF
 }

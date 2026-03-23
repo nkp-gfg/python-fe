@@ -1,7 +1,7 @@
 meta {
   name: v2-Flight Status
   type: http
-  seq: 14
+  seq: 2
 }
 
 post {
@@ -13,6 +13,82 @@ post {
 headers {
   Content-Type: text/xml; charset=utf-8
   SOAPAction: "ACS_FlightDetailRQ"
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                    xmlns:v3="http://services.sabre.com/ACS/BSO/flightDetail/v3">
+    <soapenv:Header>
+      <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
+        <eb:From><eb:PartyId/></eb:From>
+        <eb:To><eb:PartyId/></eb:To>
+        <eb:CPAId>{{cpaid}}</eb:CPAId>
+        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+        <eb:Service>ACS_FlightDetailRQ</eb:Service>
+        <eb:Action>ACS_FlightDetailRQ</eb:Action>
+        <eb:MessageData>
+          <eb:MessageId>{{messageId}}</eb:MessageId>
+          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+        </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security soapenv:mustUnderstand="0">
+        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+      </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+      <v3:ACS_FlightDetailRQ Version="3.2.0">
+        <!-- Flight identification — required fields -->
+        <FlightInfo>
+          <!-- 2-char IATA airline code -->
+          <Airline>{{airlineCode}}</Airline>
+          <!-- flight number -->
+          <Flight>{{flightNumber}}</Flight>
+          <!-- YYYY-MM-DD, omit for today -->
+          <DepartureDate>{{departureDate}}</DepartureDate>
+          <!-- 3-char departure airport -->
+          <Origin>{{origin}}</Origin>
+        </FlightInfo>
+  
+        <!-- Display element — Type is a child element, not an attribute -->
+        <!-- Only one Display element allowed (choice with APIS) -->
+        <!-- R=Remarks, O=Oversale, F=Flight msgs, B=Baggage, P=Pricing, U=Cancelled -->
+        <Display><Type>R</Type></Display>
+  
+        <!-- Client type — identifies the calling application -->
+        <!-- WEB / KIOSK / MOBILE -->
+        <Client>WEB</Client>
+  
+      </v3:ACS_FlightDetailRQ>
+    </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+vars:pre-request {
+  flightNumber: 2068
+  departureDate: 2026-03-20
+  origin: DMM
+  airlineCode: GF
+}
+
+script:pre-request {
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
 }
 
 docs {
@@ -123,81 +199,4 @@ docs {
   |----------|----------------|-------------------------------|
   | Cockpit  | inUse="true/false" | Available cockpit jump seats |
   | Cabin    | inUse="true/false" | Available cabin jump seats   |
-}
-
-body:xml {
-  <?xml version="1.0" encoding="UTF-8"?>
-  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
-                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
-                    xmlns:v3="http://services.sabre.com/ACS/BSO/flightDetail/v3">
-    <soapenv:Header>
-      <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
-        <eb:From><eb:PartyId/></eb:From>
-        <eb:To><eb:PartyId/></eb:To>
-        <eb:CPAId>{{cpaid}}</eb:CPAId>
-        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
-        <eb:Service>ACS_FlightDetailRQ</eb:Service>
-        <eb:Action>ACS_FlightDetailRQ</eb:Action>
-        <eb:MessageData>
-          <eb:MessageId>{{messageId}}</eb:MessageId>
-          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
-        </eb:MessageData>
-      </eb:MessageHeader>
-      <wsse:Security soapenv:mustUnderstand="0">
-        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
-      </wsse:Security>
-    </soapenv:Header>
-    <soapenv:Body>
-      <v3:ACS_FlightDetailRQ Version="3.2.0">
-        <!-- Flight identification — required fields -->
-        <FlightInfo>
-          <Airline>{{airlineCode}}</Airline>       <!-- 2-char IATA airline code -->
-          <Flight>{{flightNumber}}</Flight>        <!-- flight number -->
-          <DepartureDate>{{departureDate}}</DepartureDate>  <!-- YYYY-MM-DD, omit for today -->
-          <Origin>{{origin}}</Origin>              <!-- 3-char departure airport -->
-        </FlightInfo>
-  
-        <!-- Display elements — each Type requests an additional data section in the response -->
-        <Display Type="R"/>  <!-- R = Remarks (flight-level remarks/notes) -->
-        <Display Type="O"/>  <!-- O = Oversale data (overbooking info) -->
-        <Display Type="F"/>  <!-- F = Flight check-in messages (operational msgs) -->
-        <Display Type="B"/>  <!-- B = Baggage data (bag counts, belt info) -->
-        <Display Type="P"/>  <!-- P = Pricing information -->
-        <Display Type="U"/>  <!-- U = Cancelled itinerary data (removed segments) -->
-  
-        <!-- APIS = Advance Passenger Information System data (passport/visa docs) -->
-        <APIS/>
-  
-        <!-- Client type — identifies the calling application -->
-        <Client>WEB</Client>  <!-- WEB / KIOSK / MOBILE -->
-
-      </v3:ACS_FlightDetailRQ>
-    </soapenv:Body>
-  </soapenv:Envelope>
-}
-
-vars:pre-request {
-  flightNumber: 2057
-  departureDate: 2026-03-20
-  origin: BOM
-  airlineCode: GF
-}
-
-script:pre-request {
-  function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-  
-  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
-  bru.setVar("timestamp", new Date().toISOString());
-}
-
-settings {
-  encodeUrl: true
-  timeout: 0
 }
