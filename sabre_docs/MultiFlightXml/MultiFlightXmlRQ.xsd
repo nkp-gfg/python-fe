@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="CommonTypes.xsd" />
+
+  <xs:element name="MultiFlightRQ" type="MultiflightRequest">
+    <xs:annotation>
+      <xs:documentation>Root element of request</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+
+  <xs:complexType name="RequestSegmentTypeStl">
+    <xs:attribute name="origin" type="AirportCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>Origin</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="destination" type="AirportCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>Destination</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="carrierCode" type="AirlineCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>Segment's Carrier</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marketingCarrier" type="AirlineCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Segment's Marketing Carrier</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="departureTime" type="TimeHHMMType" use="required">
+      <xs:annotation>
+        <xs:documentation>Segment's Departure Time</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="arrivalTime" type="TimeHHMMType" use="required">
+      <xs:annotation>
+        <xs:documentation>Segment's Arrival Time</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="flightNumber" type="xs:positiveInteger" use="required">
+      <xs:annotation>
+        <xs:documentation>Segment's Flight Number</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marketingFlightNumber" type="xs:positiveInteger" use="optional">
+      <xs:annotation>
+        <xs:documentation>Segment's Marketing Flight Number</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="departureDate" type="DateYYYYMMDDType" use="required">
+      <xs:annotation>
+        <xs:documentation>Exact Departure Date, Year to Day</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="arrivalDate" type="DateYYYYMMDDType" use="required">
+      <xs:annotation>
+        <xs:documentation>Exact Arrival Date, Year to Day</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="segmentId" type="xs:unsignedShort" use="required">
+      <xs:annotation>
+        <xs:documentation>Segment id</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="classCodes" type="ClassCodeCollectionType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Requested Class Codes</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="resolveIndicator" type="BoolYNType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Polling indicator</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="RequestItineraryType">
+    <xs:sequence>
+      <xs:element name="Segment" type="RequestSegmentTypeStl" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="RequestOriginDestinationItemTypeStl">
+    <xs:sequence>
+      <xs:element name="Itinerary" type="RequestItineraryType" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="origin" type="AirportCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Segment's Origin</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="destination" type="AirportCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Segment's Destination</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="PointOfCommencementTypeStl">
+    <xs:attribute name="cityCode" type="AirportCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>POC origin airport</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="departureDate" type="DateYYYYMMDDType" use="optional">
+      <xs:annotation>
+        <xs:documentation>POC departure date</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="departureTime" type="TimeHHMMType" use="optional">
+      <xs:annotation>
+        <xs:documentation>POC departure time</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="AgentInfoType">
+    <xs:attribute name="agentCityCode" type="AirportCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>Agent City Code</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="agencyPcc" type="PseudoCityCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>Travel Agency PCC</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="mainAgencyPcc" type="PseudoCityCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Main Travel Agency PCC</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="agencyIata" type="ARCNumberType" use="optional">
+      <xs:annotation>
+        <xs:documentation>ARC/IATA Travel Agency Registration Number</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="homeAgencyIata" type="ARCNumberType" use="optional">
+      <xs:annotation>
+        <xs:documentation>ARC/IATA Travel Agency Registration Number</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="crsPartitionCode" type="AirlineCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>CRS Partition Code</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="agentDepartmentCode" type="AgentDepartmentCodeType">
+      <xs:annotation>
+        <xs:documentation>Airline Dept Code</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="agentDutyCode" type="AnyCharType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Agent duty code</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="currencyCode" type="CurrencyCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Currency code for the agent</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="agentCountry" type="CountryCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>Owner/Creator Country</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="accountingCity" type="PseudoCityCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>City code part of Office Accounting Code</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="accountingCode" type="AccountCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Accounting Code part of Office Accounting Code</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="accountingOfficeCode" type="OfficeCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Office Code part of Office Accounting Code</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="RequestAssociateItemTypeStl">
+    <xs:attribute name="carrierCode" type="AirlineCodeType" />
+  </xs:complexType>
+
+  <xs:complexType name="MultiflightRequest">
+    <xs:annotation>
+      <xs:documentation>DCA Request Type - root type</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="OriginDestination" type="RequestOriginDestinationItemTypeStl" maxOccurs="unbounded" />
+      <xs:element name="AgentInfo" type="AgentInfoType" />
+      <xs:element name="PointOfCommencement" type="PointOfCommencementTypeStl" minOccurs="0" maxOccurs="1" />
+      <xs:element name="AssociateItem" type="RequestAssociateItemTypeStl" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="version" type="VersionType" use="required">
+      <xs:annotation>
+        <xs:documentation>Interface Version</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+</xs:schema>

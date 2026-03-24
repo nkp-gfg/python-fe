@@ -1,11 +1,11 @@
 """Change tracking API endpoints."""
 
-import logging
+import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_origin
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["changes"])
 
 

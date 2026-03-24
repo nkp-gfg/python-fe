@@ -1,0 +1,12 @@
+<Trip_SearchRQ Version="4.5.0" xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" xmlns="http://webservices.sabre.com/triprecord">
+<ReadRequests>
+<ReservationReadRequest>
+     <LocatorCriteria>
+     <Locator Id="FZVBDK" Source="TTY"/><!-- in this case TTY is not required, but can be still present -->
+     </LocatorCriteria>
+     <PosCriteria AirlineCode="EY"/>
+     <ReturnOptions ViewName="Default" 
+     MaxItemsReturned="500" ResponseFormat="STL"/>
+</ReservationReadRequest>
+</ReadRequests>
+</Trip_SearchRQ>

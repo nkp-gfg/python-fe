@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns="http://www.sabre.com/ns/SSI/1.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="http://www.sabre.com/ns/SSI/1.0" elementFormDefault="qualified" attributeFormDefault="unqualified" version="4.18.0">
+   <xsd:annotation>
+      <xsd:documentation xml:lang="en">types used in SabreSonic Inventory web services..</xsd:documentation>
+   </xsd:annotation>
+   <!-- TYPES -->
+   <xsd:simpleType name="UpperCaseAlphaLength1">
+      <xsd:annotation>
+         <xsd:documentation>Used for an Alpha String, length 1 to 2 (for letter codes).</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z]{1}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="UpperCaseAlphaLength3">
+      <xsd:annotation>
+         <xsd:documentation>Used for an Alpha String, length 1 to 2 (for letter codes).</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z]{1}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="UpperCaseAlphaLength0to1">
+      <xsd:annotation>
+         <xsd:documentation>Used for an Alpha String, length 1 to 2 (for letter codes).</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z]{0,1}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="StringLength1to8">
+      <xsd:annotation>
+         <xsd:documentation>Used for Character Strings, length 1 to 8.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:minLength value="1"/>
+         <xsd:maxLength value="8"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="StringLength1to6">
+      <xsd:annotation>
+         <xsd:documentation>Used for Character Strings, length 1 to 6.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:minLength value="1"/>
+         <xsd:maxLength value="6"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="StringLength1to16">
+      <xsd:annotation>
+         <xsd:documentation>Used for Character Strings, length 1 to 16.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:minLength value="1"/>
+         <xsd:maxLength value="16"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="StringLength1to32">
+      <xsd:annotation>
+         <xsd:documentation>Used for Character Strings, length 1 to 32.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:minLength value="1"/>
+         <xsd:maxLength value="32"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="StringLength0to128">
+      <xsd:annotation>
+         <xsd:documentation>Used for Character Strings, length 0 to 128.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:minLength value="0"/>
+         <xsd:maxLength value="128"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="UpperCaseAlphaLength1to3">
+      <xsd:annotation>
+         <xsd:documentation>Used for an Alpha String, length 1 to 3 (for letter codes).</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z]{1,3}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="UpperCaseAlphaLength0to5">
+      <xsd:annotation>
+         <xsd:documentation>Used for an Alpha String, length 0 to 5 (for letter codes).</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z]{0,5}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="UpperCaseAlphaLength0to26">
+      <xsd:annotation>
+         <xsd:documentation>Used for an Alpha String, length 0 to 26 (for letter codes).</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z]{0,26}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="UpperCaseAlphaNumericLength3">
+      <xsd:annotation>
+         <xsd:documentation>Used for an Upper Alpha String and Numeric, length 3 to 5.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z0-9]{3}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="UpperCaseAlphaNumericLength1to4">
+      <xsd:annotation>
+         <xsd:documentation>Used for an Upper Alpha String and Numeric, length 1 to 4.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z0-9]{1,4}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="AlphaNumericStringLength1to4">
+      <xsd:annotation>
+         <xsd:documentation>Used forAlpha-Numeric Strings, length 1 to 4.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[0-9a-zA-Z]{1,4}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="UpperCaseAlphaNumericLength3to5">
+      <xsd:annotation>
+         <xsd:documentation>Used for an Upper Alpha String and Numeric, length 3 to 5.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z0-9]{3,5}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="AlphaNumericStringLength1to14">
+      <xsd:annotation>
+         <xsd:documentation>Used forAlpha-Numeric Strings, length 1 to 14.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[0-9a-zA-Z]{1,14}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="Time">
+      <xsd:annotation>
+         <xsd:documentation> Time format: time present in hours:Minutes in 24 hour format. Valid Values: 0000 to 2359</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[0-9]{3,4}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="StringLength1">
+      <xsd:restriction base="xsd:string">
+         <xsd:minLength value="1"/>
+         <xsd:maxLength value="1"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="NonNegativeShort">
+      <xsd:restriction base="xsd:nonNegativeInteger">
+         <xsd:maxInclusive value="32767"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+</xsd:schema>

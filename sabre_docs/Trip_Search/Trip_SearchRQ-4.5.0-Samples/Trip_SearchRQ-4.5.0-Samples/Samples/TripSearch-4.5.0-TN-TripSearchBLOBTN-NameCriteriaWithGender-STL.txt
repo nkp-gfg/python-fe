@@ -1,0 +1,294 @@
+------------------------------
+PNR in native Sabre 
+------------------------------
+
+*A«                                                             
+MZMWIO                                                          
+ 1.1NOWAK/ANNA MS                                               
+ 1 AF1247Y 20NOV W WAWCDG HX1   635A  910A /DCAF*JXH7YV /E      
+TKT/TIME LIMIT                                                  
+  1.T-A                                                         
+PHONES                                                          
+  1.DFW8272728                                                  
+CUSTOMER NUMBER - 817222                                        
+SECURITY INFO EXISTS *P3D OR *P4D TO DISPLAY                    
+AA FACTS                                                        
+  1.SSR ADTK 1S TO AF BY 16NOV 0000 OTHERWISE WILL BE XLD       
+  2.SSR ADTK 1S TO AF BY 19MAY 1000 OTHERWISE WILL BE XLD       
+  3.SSR OTHS 1S AF CANCELLATION DUE TO NO TICKET                
+GENERAL FACTS                                                   
+  1.SSR BLND AF NN1 WAWCDG1247Y20NOV/GUIDE DOG                  
+  2.SSR MAAS AF NN1 WAWCDG1247Y20NOV/STH                        
+  3.SSR MAAS AF NN1 WAWCDG1247Y20NOV/STH                        
+  4.SSR MAAS AF NN1 WAWCDG1247Y20NOV/STH                        
+RECEIVED FROM - AAAL                                           ‡                                                             
+B4T0.HDQ*HM1 0627/17MAY19 MZMWIO H  
+
+------------------------------
+RQ. Search by similar last name and gender. Record locator criteria is optional here. 
+------------------------------
+
+<Trip_SearchRQ Version="4.5.0" xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" xmlns="http://webservices.sabre.com/triprecord">
+<ReadRequests>
+<ReservationReadRequest>
+   <LocatorCriteria>
+      <Locator Id="MZMWIO"/>
+   </LocatorCriteria>
+  <NameCriteria>
+    <Name Gender="F">
+      <LastName MatchMode="SIMILAR">NWAK</LastName>
+    </Name>
+  </NameCriteria>   
+   <PosCriteria AnyBranch="false">
+      <Pcc>B4T0</Pcc>
+   </PosCriteria>
+   <ReturnOptions ResponseFormat="STL" 
+                 ViewName="TripSearchBlobTN"
+                 SearchType="ACTIVE" 
+                 MaxItemsReturned="50">
+     <SubjectAreas>
+       <SubjectArea>NAME</SubjectArea>
+     </SubjectAreas>
+   </ReturnOptions>
+</ReservationReadRequest>
+</ReadRequests>
+</Trip_SearchRQ>
+
+------------------------------
+RQ. Search by similar last name and gender. Record locator criteria is optional here. 
+------------------------------
+
+<Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord" xmlns:ns2="http://services.sabre.com/STL/v01" xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" xmlns:ns3="http://webservices.sabre.com/pnrbuilder" xmlns:ns6="http://tds.sabre.com/itinerary" xmlns:ns5="http://tds.sabre.com/rules" xmlns:ns8="http://services.sabre.com/STL/v02" xmlns:ns7="http://services.sabre.com/res/orr/v0" xmlns:ns13="http://www.sabre.com/eps/schemas" xmlns:tir37="http://services.sabre.com/res/tir/v3_7" xmlns:ns9="http://www.sabre.com/ssg/des/v1" xmlns:ns12="http://opentravel.org/common/v02" xmlns:ns11="http://www.OpenTravel.org/ns/OTA2/AppInfo_v01_00" xmlns:tir39="http://services.sabre.com/res/tir/v3_9" xmlns:ns10="http://services.sabre.com/STL_Header/v02_00" xmlns:stl114="http://webservices.sabre.com/pnrbuilder/v1_14" xmlns:ns15="http://webservices.sabre.com/servicesplatform/orr/rules/1.0.0" xmlns:ns14="http://tds.sabre.com/distribution" xmlns:stl115="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:stl117="http://webservices.sabre.com/pnrbuilder/v1_17" xmlns:or111="http://services.sabre.com/res/or/v1_11" xmlns:or16="http://services.sabre.com/res/or/v1_6" xmlns:or17="http://services.sabre.com/res/or/v1_7" xmlns:or18="http://services.sabre.com/res/or/v1_8" xmlns:or19="http://services.sabre.com/res/or/v1_9" TimeStamp="2019-06-13T02:41:46" Target="Production" Version="4.5.0">
+            <Success>Success</Success>
+            <ReservationsList NumberResults="1" NumberPages="1" TotalResults="1">
+                <Reservations>
+                    <Reservation Locator="MZMWIO">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0">
+                            <stl19:Reservation NumberInSegment="1" numberInParty="1" numberOfInfants="0">
+                                <stl19:BookingDetails>
+                                    <stl19:RecordLocator>MZMWIO</stl19:RecordLocator>
+                                    <stl19:CreationTimestamp>2019-05-17T06:27:00</stl19:CreationTimestamp>
+                                    <stl19:SystemCreationTimestamp>2019-05-17T06:27:00</stl19:SystemCreationTimestamp>
+                                    <stl19:CreationAgentID>HM1</stl19:CreationAgentID>
+                                    <stl19:UpdateTimestamp>2019-05-19T10:47:16</stl19:UpdateTimestamp>
+                                    <stl19:PNRSequence>11</stl19:PNRSequence>
+                                    <stl19:FlightsRange End="2019-11-20T09:10:00" Start="2019-11-20T06:35:00"/>
+                                    <stl19:DivideSplitDetails/>
+                                    <stl19:EstimatedPurgeTimestamp>2019-11-20T00:00:00</stl19:EstimatedPurgeTimestamp>
+                                    <stl19:UpdateToken>805c3f8dd29205dc5598ee75304dc5d0c3ac6bd2ed1b151</stl19:UpdateToken>
+                                </stl19:BookingDetails>
+                                <stl19:POS>
+                                    <stl19:Source AgentDutyCode="*" AgentSine="HM1" AirlineVendorID="AA" BookingSource="B4T0" HomePseudoCityCode="HDQ" ISOCountry="US" PseudoCityCode="B4T0"/>
+                                </stl19:POS>
+                                <stl19:PassengerReservation>
+                                    <stl19:Passengers>
+                                        <stl19:Passenger elementId="pnr-4.1" id="4" nameAssocId="1" nameId="01.01" nameType="S" passengerType="ADT">
+                                            <stl19:LastName>NOWAK</stl19:LastName>
+                                            <stl19:FirstName>ANNA MS</stl19:FirstName>
+                                            <stl19:SpecialRequests>
+                                                <stl19:GenericSpecialRequest id="14" msgType="S" type="G">
+                                                    <stl19:Code>BLND</stl19:Code>
+                                                    <stl19:FreeText>/GUIDE DOG</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>AF</stl19:AirlineCode>
+                                                    <stl19:FullText>BLND AF NN1 WAWCDG1247Y20NOV/GUIDE DOG</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                                <stl19:GenericSpecialRequest id="21" msgType="S" type="G">
+                                                    <stl19:Code>MAAS</stl19:Code>
+                                                    <stl19:FreeText>/STH</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>AF</stl19:AirlineCode>
+                                                    <stl19:FullText>MAAS AF NN1 WAWCDG1247Y20NOV/STH</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                                <stl19:GenericSpecialRequest id="22" msgType="S" type="G">
+                                                    <stl19:Code>MAAS</stl19:Code>
+                                                    <stl19:FreeText>/STH</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>AF</stl19:AirlineCode>
+                                                    <stl19:FullText>MAAS AF NN1 WAWCDG1247Y20NOV/STH</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                                <stl19:GenericSpecialRequest id="23" msgType="S" type="G">
+                                                    <stl19:Code>MAAS</stl19:Code>
+                                                    <stl19:FreeText>/STH</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>AF</stl19:AirlineCode>
+                                                    <stl19:FullText>MAAS AF NN1 WAWCDG1247Y20NOV/STH</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                                <stl19:APISRequest>
+                                                    <stl19:DOCOEntry id="24" type="G">
+                                                        <stl19:FreeText>DOCO AF HK1/CRACOW PL/V/789789/CRACOW PL/14JUN1976/CH</stl19:FreeText>
+                                                        <stl19:ActionCode>HK</stl19:ActionCode>
+                                                        <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    </stl19:DOCOEntry>
+                                                </stl19:APISRequest>
+                                                <stl19:APISRequest>
+                                                    <stl19:DOCOEntry id="25" type="G">
+                                                        <stl19:FreeText>DOCO AF HK1/CRACOW PL/V/789789/CRACOW PL/14JUN1976/CH</stl19:FreeText>
+                                                        <stl19:ActionCode>HK</stl19:ActionCode>
+                                                        <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    </stl19:DOCOEntry>
+                                                </stl19:APISRequest>
+                                                <stl19:APISRequest>
+                                                    <stl19:DOCOEntry id="27" type="G">
+                                                        <stl19:FreeText>DOCO AF HK1/CRACOW PL/V/789789/CRACOW PL/14JUN1976/CH</stl19:FreeText>
+                                                        <stl19:ActionCode>HK</stl19:ActionCode>
+                                                        <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    </stl19:DOCOEntry>
+                                                </stl19:APISRequest>
+                                                <stl19:APISRequest>
+                                                    <stl19:DOCOEntry id="28" type="G">
+                                                        <stl19:FreeText>DOCO AF HK1 WAWCDG1247Y20NOV/LYON FR/V/789789/PARIS FR/14JUN2005/CH</stl19:FreeText>
+                                                        <stl19:ActionCode>HK</stl19:ActionCode>
+                                                        <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    </stl19:DOCOEntry>
+                                                </stl19:APISRequest>
+                                                <stl19:APISRequest>
+                                                    <stl19:DOCSEntry id="29" type="G">
+                                                        <stl19:DocumentType>P</stl19:DocumentType>
+                                                        <stl19:CountryOfIssue>US</stl19:CountryOfIssue>
+                                                        <stl19:DocumentNumber>93845039290293</stl19:DocumentNumber>
+                                                        <stl19:DocumentNationalityCountry>US</stl19:DocumentNationalityCountry>
+                                                        <stl19:DateOfBirth>1974-02-26</stl19:DateOfBirth>
+                                                        <stl19:Gender>M</stl19:Gender>
+                                                        <stl19:DocumentExpirationDate>2020-10-10</stl19:DocumentExpirationDate>
+                                                        <stl19:Surname>ENGLISH</stl19:Surname>
+                                                        <stl19:Forename>MICHAEL</stl19:Forename>
+                                                        <stl19:MiddleName>R</stl19:MiddleName>
+                                                        <stl19:PrimaryHolder>true</stl19:PrimaryHolder>
+                                                        <stl19:FreeText/>
+                                                        <stl19:ActionCode>HK</stl19:ActionCode>
+                                                        <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                        <stl19:VendorCode>AF</stl19:VendorCode>
+                                                    </stl19:DOCSEntry>
+                                                </stl19:APISRequest>
+                                            </stl19:SpecialRequests>
+                                            <stl19:Seats/>
+                                        </stl19:Passenger>
+                                    </stl19:Passengers>
+                                    <stl19:Segments>
+                                        <stl19:Poc>
+                                            <stl19:Airport>WAW</stl19:Airport>
+                                            <stl19:Departure>2019-11-20T06:35:00</stl19:Departure>
+                                        </stl19:Poc>
+                                        <stl19:Air SpecialMeal="false" id="3" isPast="false" segmentAssociationId="2" sequence="1">
+                                            <stl19:DepartureAirport>WAW</stl19:DepartureAirport>
+                                            <stl19:DepartureAirportCodeContext>IATA</stl19:DepartureAirportCodeContext>
+                                            <stl19:ArrivalAirport>CDG</stl19:ArrivalAirport>
+                                            <stl19:ArrivalAirportCodeContext>IATA</stl19:ArrivalAirportCodeContext>
+                                            <stl19:OperatingAirlineCode>AF</stl19:OperatingAirlineCode>
+                                            <stl19:OperatingAirlineShortName>AIR FRANCE</stl19:OperatingAirlineShortName>
+                                            <stl19:OperatingFlightNumber>1247</stl19:OperatingFlightNumber>
+                                            <stl19:EquipmentType>319</stl19:EquipmentType>
+                                            <stl19:MarketingAirlineCode>AF</stl19:MarketingAirlineCode>
+                                            <stl19:MarketingFlightNumber>1247</stl19:MarketingFlightNumber>
+                                            <stl19:OperatingClassOfService>Y</stl19:OperatingClassOfService>
+                                            <stl19:MarketingClassOfService>Y</stl19:MarketingClassOfService>
+                                            <stl19:MarriageGrp>
+                                                <stl19:Ind>0</stl19:Ind>
+                                                <stl19:Group>0</stl19:Group>
+                                                <stl19:Sequence>0</stl19:Sequence>
+                                            </stl19:MarriageGrp>
+                                            <stl19:Seats/>
+                                            <stl19:AirlineRefId>DCAF*JXH7YV</stl19:AirlineRefId>
+                                            <stl19:Eticket>true</stl19:Eticket>
+                                            <stl19:DepartureDateTime>2019-11-20T06:35:00</stl19:DepartureDateTime>
+                                            <stl19:ArrivalDateTime>2019-11-20T09:10:00</stl19:ArrivalDateTime>
+                                            <stl19:FlightNumber>1247</stl19:FlightNumber>
+                                            <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                            <stl19:ActionCode>HX</stl19:ActionCode>
+                                            <stl19:NumberInParty>1</stl19:NumberInParty>
+                                            <stl19:SegmentSpecialRequests>
+                                                <stl19:GenericSpecialRequest id="14" msgType="S" type="G">
+                                                    <stl19:Code>BLND</stl19:Code>
+                                                    <stl19:FreeText>/GUIDE DOG</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>AF</stl19:AirlineCode>
+                                                    <stl19:FullText>BLND AF NN1 WAWCDG1247Y20NOV/GUIDE DOG</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                                <stl19:GenericSpecialRequest id="21" msgType="S" type="G">
+                                                    <stl19:Code>MAAS</stl19:Code>
+                                                    <stl19:FreeText>/STH</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>AF</stl19:AirlineCode>
+                                                    <stl19:FullText>MAAS AF NN1 WAWCDG1247Y20NOV/STH</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                                <stl19:GenericSpecialRequest id="22" msgType="S" type="G">
+                                                    <stl19:Code>MAAS</stl19:Code>
+                                                    <stl19:FreeText>/STH</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>AF</stl19:AirlineCode>
+                                                    <stl19:FullText>MAAS AF NN1 WAWCDG1247Y20NOV/STH</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                                <stl19:GenericSpecialRequest id="23" msgType="S" type="G">
+                                                    <stl19:Code>MAAS</stl19:Code>
+                                                    <stl19:FreeText>/STH</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>AF</stl19:AirlineCode>
+                                                    <stl19:FullText>MAAS AF NN1 WAWCDG1247Y20NOV/STH</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                                <stl19:GenericSpecialRequest id="28" msgType="S" type="G">
+                                                    <stl19:Code>DOCO</stl19:Code>
+                                                    <stl19:ActionCode>HK</stl19:ActionCode>
+                                                    <stl19:NumberInParty>1</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>AF</stl19:AirlineCode>
+                                                    <stl19:FullText>DOCO AF HK1 WAWCDG1247Y20NOV/LYON FR/V/789789/PARIS FR/14JUN2005/CH</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                            </stl19:SegmentSpecialRequests>
+                                            <stl19:inboundConnection>false</stl19:inboundConnection>
+                                            <stl19:outboundConnection>false</stl19:outboundConnection>
+                                            <stl19:ScheduleChangeIndicator>false</stl19:ScheduleChangeIndicator>
+                                            <stl19:SegmentBookedDate>2019-05-17T06:27:00</stl19:SegmentBookedDate>
+                                        </stl19:Air>
+                                    </stl19:Segments>
+                                    <stl19:TicketingInfo>
+                                        <stl19:AlreadyTicketed elementId="pnr-9" id="9" index="1">
+                                            <stl19:Code>T-A</stl19:Code>
+                                        </stl19:AlreadyTicketed>
+                                    </stl19:TicketingInfo>
+                                    <stl19:ItineraryPricing/>
+                                </stl19:PassengerReservation>
+                                <stl19:DKNumbers>
+                                    <stl19:DKNumber>817222    </stl19:DKNumber>
+                                </stl19:DKNumbers>
+                                <stl19:ReceivedFrom>
+                                    <stl19:Name>AAAL</stl19:Name>
+                                </stl19:ReceivedFrom>
+                                <stl19:PhoneNumbers>
+                                    <stl19:PhoneNumber elementId="pnr-6" id="6" index="1">
+                                        <stl19:CityCode>DFW</stl19:CityCode>
+                                        <stl19:Number>8272728</stl19:Number>
+                                    </stl19:PhoneNumber>
+                                </stl19:PhoneNumbers>
+                                <stl19:EmailAddresses/>
+                                <stl19:GenericSpecialRequests id="12" msgType="S" type="A">
+                                    <stl19:Code>ADTK</stl19:Code>
+                                    <stl19:FreeText>TO AF BY 16NOV 0000 OTHERWISE WILL BE XLD</stl19:FreeText>
+                                    <stl19:AirlineCode>1S</stl19:AirlineCode>
+                                    <stl19:FullText>ADTK 1S TO AF BY 16NOV 0000 OTHERWISE WILL BE XLD</stl19:FullText>
+                                </stl19:GenericSpecialRequests>
+                                <stl19:GenericSpecialRequests id="19" msgType="S" type="A">
+                                    <stl19:Code>ADTK</stl19:Code>
+                                    <stl19:FreeText>TO AF BY 19MAY 1000 OTHERWISE WILL BE XLD</stl19:FreeText>
+                                    <stl19:AirlineCode>1S</stl19:AirlineCode>
+                                    <stl19:FullText>ADTK 1S TO AF BY 19MAY 1000 OTHERWISE WILL BE XLD</stl19:FullText>
+                                </stl19:GenericSpecialRequests>
+                                <stl19:GenericSpecialRequests id="31" msgType="S" type="A">
+                                    <stl19:Code>OTHS</stl19:Code>
+                                    <stl19:FreeText>AF CANCELLATION DUE TO NO TICKET</stl19:FreeText>
+                                    <stl19:AirlineCode>1S</stl19:AirlineCode>
+                                    <stl19:FullText>OTHS 1S AF CANCELLATION DUE TO NO TICKET</stl19:FullText>
+                                </stl19:GenericSpecialRequests>
+                            </stl19:Reservation>
+                        </stl19:GetReservationRS>
+                    </Reservation>
+                </Reservations>
+            </ReservationsList>
+        </Trip_SearchRS> 

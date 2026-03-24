@@ -1,0 +1,63 @@
+------------------------------
+RQ 
+------------------------------
+<Trip_SearchRQ Version="4.5.0" xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" xmlns="http://webservices.sabre.com/triprecord">
+<ReadRequests>
+<ReservationReadRequest>
+     <LocatorCriteria>
+     <Locator Id="FZVBDK"/>
+     </LocatorCriteria>
+     <PosCriteria AirlineCode="EY"/>
+     <ReturnOptions ViewName="Simple" 
+     MaxItemsReturned="500" ResponseFormat="STL">
+            <SubjectAreas>
+            <SubjectArea>HEADER</SubjectArea>            
+            <SubjectArea>NAME</SubjectArea>
+            <SubjectArea>FQTV</SubjectArea>
+            </SubjectAreas>
+     </ReturnOptions>
+</ReservationReadRequest>
+</ReadRequests>
+</Trip_SearchRQ>
+
+------------------------------
+RS
+------------------------------
+
+ <Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord" xmlns:ns2="http://services.sabre.com/STL/v01" xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" xmlns:ns3="http://webservices.sabre.com/pnrbuilder" xmlns:ns6="http://tds.sabre.com/itinerary" xmlns:ns5="http://tds.sabre.com/rules" xmlns:ns8="http://services.sabre.com/STL/v02" xmlns:ns7="http://services.sabre.com/res/orr/v0" xmlns:ns13="http://www.sabre.com/eps/schemas" xmlns:tir37="http://services.sabre.com/res/tir/v3_7" xmlns:ns9="http://www.sabre.com/ssg/des/v1" xmlns:ns12="http://opentravel.org/common/v02" xmlns:ns11="http://www.OpenTravel.org/ns/OTA2/AppInfo_v01_00" xmlns:tir39="http://services.sabre.com/res/tir/v3_9" xmlns:ns10="http://services.sabre.com/STL_Header/v02_00" xmlns:stl114="http://webservices.sabre.com/pnrbuilder/v1_14" xmlns:ns15="http://webservices.sabre.com/servicesplatform/orr/rules/1.0.0" xmlns:ns14="http://tds.sabre.com/distribution" xmlns:stl115="http://webservices.sabre.com/pnrbuilder/v1_15" xmlns:stl117="http://webservices.sabre.com/pnrbuilder/v1_17" xmlns:stl119="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:or111="http://services.sabre.com/res/or/v1_11" xmlns:or16="http://services.sabre.com/res/or/v1_6" xmlns:or17="http://services.sabre.com/res/or/v1_7" xmlns:or18="http://services.sabre.com/res/or/v1_8" xmlns:or19="http://services.sabre.com/res/or/v1_9" TimeStamp="2019-06-12T08:39:35" Target="Production" Version="4.5.0">
+     <Success>Success</Success>
+     <ReservationsList NumberResults="1" NumberPages="1" TotalResults="1">
+         <Reservations>
+             <Reservation Locator="FZVBDK">
+                 <stl119:GetReservationRS>
+                     <stl119:Reservation numberInParty="1" numberOfInfants="0">
+                         <stl119:BookingDetails>
+                             <stl119:RecordLocator>FZVBDK</stl119:RecordLocator>
+                             <stl119:CreationTimestamp>2019-06-07T19:48:00</stl119:CreationTimestamp>
+                             <stl119:UpdateTimestamp>2019-06-07T19:51:28</stl119:UpdateTimestamp>
+                             <stl119:PNRSequence>4</stl119:PNRSequence>
+                         </stl119:BookingDetails>
+                         <stl119:POS>
+                             <stl119:Source PseudoCityCode="TTY" AirlineVendorID="EY"/>
+                         </stl119:POS>
+                         <stl119:PassengerReservation>
+                             <stl119:Passengers>
+                                 <stl119:Passenger id="5" nameType="S" nameId="01.01">
+                                     <stl119:LastName>SMITH</stl119:LastName>
+                                     <stl119:FirstName>A</stl119:FirstName>
+                                     <stl119:Seats/>
+                                 </stl119:Passenger>
+                             </stl119:Passengers>
+                             <stl119:Segments/>
+                             <stl119:TicketingInfo/>
+                             <stl119:ItineraryPricing/>
+                         </stl119:PassengerReservation>
+                         <stl119:ReceivedFrom/>
+                         <stl119:EmailAddresses/>
+                     </stl119:Reservation>
+                 </stl119:GetReservationRS>
+             </Reservation>
+         </Reservations>
+     </ReservationsList>
+ </Trip_SearchRS>
+

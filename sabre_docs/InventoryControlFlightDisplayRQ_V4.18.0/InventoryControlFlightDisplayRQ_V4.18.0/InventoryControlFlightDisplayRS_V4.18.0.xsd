@@ -1,0 +1,542 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns="http://www.sabre.com/ns/SSI/1.0" xmlns:SSI="http://www.sabre.com/ns/SSI/1.0" xmlns:shdr="http://services.sabre.com/ns/SOTA/Messaging/v1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.sabre.com/ns/SSI/1.0" elementFormDefault="qualified" attributeFormDefault="unqualified" version="4.18.0">
+   <xsd:annotation>
+      <xsd:documentation>
+        Flight Display Transaction - Response for Request InventoryControlFlightDisplayRQ.
+        The transaction displays a specified flight content.
+        As an output all flight components are returned.
+
+        If any error occurred while the transaction is processed an error code is placed in the header part of a request message.
+        Potential error codes:
+          1 "Invalid date"
+        114 "Invalid/Missing Flight Number"
+        245 "Please request on operating carrier" (provided Carrier code is invalid)
+        411 "Flight Does Not Operate on Date Requested" (flight was cancelled)
+        900 "Inactivity Time Out Value Exceeded" (internal communication timeout)
+        901 "Communications Line Unavailable" (internal communication error)
+
+        Physical values of Seats and Ancillary Availability are returned for particular leg.
+      </xsd:documentation>
+   </xsd:annotation>
+   <xsd:import namespace="http://services.sabre.com/ns/SOTA/Messaging/v1" schemaLocation="SOTA-MessagingComponents_V1.0.7.xsd"/>
+   <xsd:include schemaLocation="AirInventory_CSS_CommonTypes_V4.18.0.xsd"/>
+   <xsd:element name="InventoryControlFlightDisplayRS" type="InventoryControlFlightDisplayRS"/>
+   <!-- InventoryControlFlightDisplayRS -->
+   <xsd:complexType name="InventoryControlFlightDisplayRS">
+      <xsd:sequence>
+         <xsd:element name="Header.RS" type="shdr:Header.RS" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type has information if response was generated without errors, or what kind of errors occured.
+                  The field is optional.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="BookingCounts" type="BookingCounts.RS" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in the end of this schema document.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="FlightDisplay" type="FlightDisplay.RS">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in the end of this schema document.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+      </xsd:sequence>
+      <xsd:attribute name="Version" type="xsd:string" use="required">
+         <xsd:annotation>
+            <xsd:documentation>
+               The Version is a version of schema of XML request for the response.
+               For all OTA versioned messages, the Version of the message is indicated by a decimal value.
+            </xsd:documentation>
+         </xsd:annotation>
+      </xsd:attribute>
+      <xsd:attribute name="TimeStamp" type="xsd:string">
+         <xsd:annotation>
+            <xsd:documentation>
+               TimeStamp indicates the creation date and time of the message in server's local time using the following format specified by ISO 8601:
+               YYYY- MM- DDThh:mm:ssZ
+                  YYYY - year in 4 digits
+                  MM   - month number in 2 digits with leading 0 for month January-September
+                  DD   - day of month in 2 digits with leading 0 for days 1-9
+                  T    - separator character
+                  hh   - hour in 24-hours clock in 2 digits with leading 0 for hours 0-9
+                  mm   - minutes in 2 digits with leading 0 for minutes 0-9
+                  ss   - seconds in 2 digits with leading 0 for seconds 0-9
+                  Z    - separator character
+               (e.g. 03 June 2015, 1:59:38 pm UTC becomes 2015-06-03T13:59:38.000).
+            </xsd:documentation>
+         </xsd:annotation>
+      </xsd:attribute>
+   </xsd:complexType>
+   <xsd:complexType name="BookingCounts.RS">
+      <xsd:sequence>
+         <xsd:element name="Trigger" type="xsd:string" maxOccurs="9">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type has information what was the type of update.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="SequenceNumber" type="xsd:long">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type contains a number of milliseconds since the flight was updated.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="FlightDisplay.RS">
+      <xsd:sequence>
+         <xsd:element name="Flight" type="Flight" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The complex type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Segment" type="Segment.RS" minOccurs="0" maxOccurs="66">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in the end of this schema document.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Leg" type="Leg.RS" minOccurs="0" maxOccurs="11">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in the end of this schema document.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="currency" type="StringLength1to8" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The simple type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Comment" type="Comment.RS" minOccurs="0" maxOccurs="unbounded">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in the end of this schema document.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+      </xsd:sequence>
+      <xsd:attribute name="ancillaryInfoNeeded" type="xsd:boolean">
+         <xsd:annotation>
+            <xsd:documentation>
+               Include the Ancillary information in the flight display response if true.
+            </xsd:documentation>
+         </xsd:annotation>
+      </xsd:attribute>
+   </xsd:complexType>
+   <xsd:complexType name="Segment.RS">
+      <xsd:sequence>
+         <xsd:element name="Origin" type="UpperCaseAlphaNumericLength3" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The source city IATA code; for example DCA, ORD.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Destination" type="UpperCaseAlphaNumericLength3" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Destination city 3-letters-short-uppercase code.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Date" type="xsd:date"/>
+         <xsd:element name="FltNum" type="FlightNumber"/>
+         <xsd:element name="NumLegs" type="xsd:short" minOccurs="0"/>
+         <xsd:element name="RestrictionCode" type="UpperCaseAlphaLength1" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type describes traffic restriction code.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="MaxSeats" type="ClassSeatsVector" minOccurs="0"/>
+         <xsd:element name="MaxSeatsType" type="ClassTypeVector" minOccurs="0"/>
+         <xsd:element name="MaxSeatsLoadFactor" type="ClassLoadFactorVector" minOccurs="0"/>
+         <xsd:element name="MinSeats" type="ClassSeatsVector" minOccurs="0"/>
+         <xsd:element name="MinSeatsType" type="ClassTypeVector" minOccurs="0"/>
+         <xsd:element name="MinSeatsLoadFactor" type="ClassLoadFactorVector" minOccurs="0"/>
+         <xsd:element name="SegAvs" type="ClassSeatsVectorAvs" minOccurs="0"/>
+         <xsd:element name="Waitlist" type="ClassSeatsVector" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Seats waitlist counter.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="SeatsSold" type="ClassSeatsVector" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation xml:lang="en">Seats sold counter.</xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="WaitlistClosed" type="UpperCaseAlphaLength0to26" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation xml:lang="en">
+                  Waitlist closed indicator.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="CorporateGroupCounts" type="ClassSeatsVector" minOccurs="0"/>
+         <xsd:element name="LargePartyCounts" type="ClassSeatsVector" minOccurs="0"/>
+         <xsd:element name="TicketedCounts" type="ClassSeatsVector" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The list contains ticketed passengers flown.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="ArrivalDateAdjustment" type="xsd:int" minOccurs="0"/>
+         <xsd:element name="ArrivalTime" type="Time" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation xml:lang="en">Segment arrival time.</xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="DepartureDateAdj" type="xsd:int" minOccurs="0"/>
+         <xsd:element name="DepartureTime" type="Time" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation xml:lang="en">Segment departure time.</xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="FareClassAvlSeq" type="UpperCaseAlphaLength0to26" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type describes fare class availability sequence.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="OperatingCarrier" type="CarrierCode" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type describes operating carrier code (used by avl responses).
+               </xsd:documentation>
+            </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="OperatingFltNum" type="FlightNumber" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in the end of the document.
+               </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="Dominance" type="DominanceType" minOccurs="0">
+           <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in the end of the document.
+               </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+
+        <xsd:element name="SegAuth" type="ClassSeatsVector" minOccurs="0">
+           <xsd:annotation>
+               <xsd:documentation>
+                  Unused. This is a placeholder for future extensions allowing carriers to keep authorization values for segments.
+               </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="ETSeatsSold" type="ClassSeatsVector" minOccurs="0">
+           <xsd:annotation>
+               <xsd:documentation xml:lang="en">End transaction seats sold counter.</xsd:documentation>
+           </xsd:annotation>
+         </xsd:element>
+        <xsd:element name="ETWaitlist" type="ClassSeatsVector" minOccurs="0">
+           <xsd:annotation>
+               <xsd:documentation xml:lang="en">End transaction wait list counter.</xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="FactExist" type="xsd:boolean" minOccurs="0">
+           <xsd:annotation>
+              <xsd:documentation>
+                 true when any DEI is present
+              </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="NonRevenueSeatsSold" type="ClassSeatsVector" minOccurs="0"/>
+        <xsd:element name="CorporateLargePartyCounts" type="ClassSeatsVector" minOccurs="0"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="Leg.RS">
+      <xsd:sequence>
+         <xsd:element name="Origin" type="UpperCaseAlphaNumericLength3" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation xml:lang="en">
+                  The source city IATA code; for example DCA, ORD.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Destination" type="UpperCaseAlphaNumericLength3" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation xml:lang="en">
+                  The destination city IATA code; for example DCA, ORD.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Date" type="xsd:date" minOccurs="0"/>
+         <xsd:element name="DepartureDateAdj" type="xsd:int" minOccurs="0"/>
+         <xsd:element name="DepartureTime" type="Time" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation xml:lang="en">
+                  Leg departure hours present in hours:Minutes in 24 hour format. Valid Values: 0000 to 2359.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="ArrivalTime" type="Time" minOccurs="0"/>
+         <xsd:element name="Configuration" type="AlphaNumericStringLength1to4" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Configuration in a flight display  is simply a configuration identifier.
+                  The configuration component is more extensive: it has an id.
+                  Then an equipment id (like 737, but each carrier has many seating usages of their 737,
+                  so we use config id instead of equip id as main driver.
+                  Then a list of fare classes and then a list of default authorizations and then cabin capacities.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="NestingID" type="NestingID" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  NestingID of the current leg.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Status" type="StringLength0to128" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The status of the leg.
+                  Possible options:
+                    - Landing Canceled
+                    - Closed
+                    - Canceled
+                    - Departure Canceled
+                    - Open
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="AuUpdate" type="xsd:string" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  This type shows status of authorization updates.
+                  Possible Options:
+                     - Inhibited
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Financial" type="xsd:boolean" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The leg may be considered for financial or not.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="BlockClearance" type="xsd:boolean" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type inhibits waitlist clearance.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="NestingOrder" type="CabinClassesVector" minOccurs="0"/>
+         <xsd:element name="Capacities" type="CabinBaseclassVector" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Capacity of cabins.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="CapacityAdjustments" type="CabinVector" minOccurs="0"/>
+         <xsd:element name="SeatsSold" type="ClassSeatsVector" minOccurs="0">
+             <xsd:annotation>
+               <xsd:documentation>
+                  The vector contains number of seats sold for each class.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="LegAuth" type="ClassSeatsVector" minOccurs="0">
+             <xsd:annotation>
+               <xsd:documentation>
+                  The type contains seats of all possible classes of leg control authorization levels.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="LegAvl" type="ClassSeatsVector" minOccurs="0"/>
+         <xsd:element name="LegAvs" type="ClassSeatsVectorAvs" minOccurs="0"/>
+         <xsd:element name="BlockSpace" type="xsd:int" minOccurs="0"/>
+         <xsd:element name="Marketing" type="xsd:boolean" minOccurs="0"/>
+         <xsd:element name="CabinBaseClasses" type="CabinBaseClasses" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The complex type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="BidPriceSource" type="xsd:int" minOccurs="0">
+             <xsd:annotation>
+               <xsd:documentation>
+                  The type consists one of values of type InvControlsSource:
+                        Undefined = 0,
+                        Default = 1,
+                        Rev_mgmt = 2,
+                        Gui = 4,
+                        Bid_price_exchange = 8,
+                        Dacexc_affiliate = 16
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="BidPriceUpdateTime" type="xsd:dateTime" minOccurs="0">
+             <xsd:annotation>
+               <xsd:documentation>
+                  The type consists informations when BidPrice has been updated.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="PartnerFlights" type="PartnerFlights" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The complex type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="CommentIndex" type="xsd:int" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The value points to appropriate comment in vector
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="ExpectedLoadFactors" type="CabinExpectedLoadFactorVector" minOccurs="0"/>
+         <xsd:element name="ExpectedBookings" type="ClassSeatsVector" minOccurs="0"/>
+         <xsd:element name="ExpectedNoShows" type="ClassSeatsVector" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The expected number of people, who don't show in a plane.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Ancillaries" type="AncillariesDisplay" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="ServiceType" type="UpperCaseAlphaLength1" minOccurs="0"/>
+         <xsd:element name="Operating" type="xsd:boolean" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type describes if the flight is operational.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Shared" type="xsd:boolean" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type describes if the flight is shared between many legs.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="BidPricesVector" type="BidPricesVector" minOccurs="0" maxOccurs="12">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="ArrivalDateAdjustment" type="xsd:int" minOccurs="0"/>
+         <xsd:element name="CabinSeatsSold" type="CabinVector" minOccurs="0"/>
+         <xsd:element name="EquipmentID" type="UpperCaseAlphaNumericLength1to4" minOccurs="0"/>
+         <xsd:element name="OperatingCarrier" type="CarrierCode" minOccurs="0"/>
+         <xsd:element name="OperatingFltNum" type="FlightNumber" minOccurs="0"/>
+         <xsd:element name="SequenceNumber" type="xsd:long" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type contains a number of milliseconds since the flight was updated.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Alert" type="Alert" minOccurs="0" maxOccurs="26">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Avsposoption" type="AvsPOSOptionType" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Value of Avs pos option.
+                  The type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Customavspos" type="CityCode" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Value of Custom Avs pos.
+                  The type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="ChangeOfGauge" type="xsd:boolean" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  true when DEI 210 is present
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="CommuterCode" type="CarrierCode" minOccurs="0"/>
+         <xsd:element name="LegJumpSeats" type="JumpSeatsDetails" minOccurs="0"/>
+         <xsd:element name="LegObInhibit" type="UpperCaseAlphaLength0to26" minOccurs="0"/>
+         <xsd:element name="ContinuousPricingOpportunityCost" type="BidPricesVector" minOccurs="0" maxOccurs="6">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Continuous Pricing Opportunity Cost is only used for Dynamic Pricing of Seats.
+                  The type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+               </xsd:documentation>
+            </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="SecureFlightIndicator" type="xsd:boolean" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  true when there is legal requirement to disclose full Secure Flight Passenger Data (SFPD)
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="Comment.RS">
+      <xsd:sequence>
+         <xsd:element name="TimeStamp" type="xsd:dateTime" minOccurs="0"/>
+         <xsd:element name="Value" type="CommentValue"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:simpleType name="DominanceType">
+      <xsd:annotation>
+         <xsd:documentation>
+            Used in OandD evaluation for prioritization segments dominance
+            International takes precedence over domestic.
+         </xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:enumeration value="domestic"/>
+         <xsd:enumeration value="international"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:complexType name="JumpSeatsDetails">
+      <xsd:sequence>
+         <xsd:element name="Authorized" type="xsd:int" minOccurs="0"/>
+         <xsd:element name="Sold" type="xsd:int" minOccurs="0"/>
+      </xsd:sequence>
+   </xsd:complexType>
+</xsd:schema>

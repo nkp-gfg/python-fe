@@ -1,0 +1,608 @@
+===================================================================================
+TRIP_SEARCHRQ API - XML REQUEST AND RESPONSE SAMPLES FOR YOUR USE CASE
+VERSION: 4.5.0
+===================================================================================
+
+SUMMARY OF YOUR REQUIREMENT:
+  Input:  Flight Number, Departure Date/Time, Airline Code (+ optional airport)
+  Output: Passengers with Phone Numbers
+  API:    Trip_SearchRQ v4.5.0 (SOAP-based XML Web Service)
+  View:   TripSearchBasic (recommended for your needs)
+
+===================================================================================
+SAMPLE 1: BASIC REQUEST - Simple Flight Search with All Required Parameters
+===================================================================================
+
+REQUEST DESCRIPTION:
+  Find all active passengers on Etihad Airways flight ET0001 departing 
+  from JFK on 2016-12-20 at 07:00 UTC.
+
+XML REQUEST:
+============
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Trip_SearchRQ Version="4.5.0" 
+               xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+               xmlns="http://webservices.sabre.com/triprecord">
+    <ReadRequests>
+        <ReservationReadRequest>
+            <FlightCriteria>
+                <Flight>
+                    <FlightNumber>0001</FlightNumber>
+                    <DepartureAirport>JFK</DepartureAirport>
+                    <DepartureDateTime Is="2016-12-20T07:00:00"/>
+                    <AirlineCode>ET</AirlineCode>
+                </Flight>
+            </FlightCriteria>
+            <PosCriteria AirlineCode="ET"/>
+            <ReturnOptions ViewName="TripSearchBasic" 
+                          MaxItemsReturned="800" 
+                          ResponseFormat="STL"
+                          SearchType="ACTIVE"/>
+        </ReservationReadRequest>
+    </ReadRequests>
+</Trip_SearchRQ>
+
+EXPECTED RESPONSE BEHAVIOR:
+  - Returns all active PNRs with passengers on this flight
+  - Automatically includes: HEADER, NAME, PHONE, PASSENGERDETAILS
+  - Phone numbers will be in CustomerContact/Phone elements
+  - Each PNR shows passenger details
+
+===================================================================================
+SAMPLE 2: REQUEST WITH TIME RANGE - For Flexible Departure Time Matching
+===================================================================================
+
+REQUEST DESCRIPTION:
+  Find all passengers on American Airlines flight 288 departing from 
+  Frankfurt (FRA) on 2016-12-22 between 12:00 UTC and 13:30 UTC.
+
+XML REQUEST:
+============
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Trip_SearchRQ Version="4.5.0" 
+               xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+               xmlns="http://webservices.sabre.com/triprecord">
+    <ReadRequests>
+        <ReservationReadRequest>
+            <FlightCriteria>
+                <Flight>
+                    <FlightNumber>288</FlightNumber>
+                    <DepartureAirport>FRA</DepartureAirport>
+                    <DepartureDateTime After="2016-12-22T12:00:00" 
+                                       Before="2016-12-22T13:30:00"/>
+                    <AirlineCode>AA</AirlineCode>
+                </Flight>
+            </FlightCriteria>
+            <PosCriteria AirlineCode="AA"/>
+            <ReturnOptions ViewName="TripSearchBasic" 
+                          MaxItemsReturned="800" 
+                          ResponseFormat="STL"
+                          SearchType="ACTIVE"/>
+        </ReservationReadRequest>
+    </ReadRequests>
+</Trip_SearchRQ>
+
+KEY DIFFERENCES:
+  - Uses After/Before instead of Is for time range matching
+  - DepartureDateTime specifies a range instead of exact time
+  - Matches any departure between 12:00 and 13:30
+
+===================================================================================
+SAMPLE 3: REQUEST WITH ARRIVAL CRITERIA - For Multi-leg Flight Matching
+===================================================================================
+
+REQUEST DESCRIPTION:
+  Find passengers on Ethiopian Airlines flight 1 from JFK to AUH departing
+  on 2016-12-20 after 07:00 UTC and arriving before 2016-12-21 10:00 UTC.
+
+XML REQUEST:
+============
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Trip_SearchRQ Version="4.5.0" 
+               xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+               xmlns="http://webservices.sabre.com/triprecord">
+    <ReadRequests>
+        <ReservationReadRequest>
+            <FlightCriteria>
+                <Flight>
+                    <FlightNumber>0001</FlightNumber>
+                    <DepartureAirport>JFK</DepartureAirport>
+                    <ArrivalAirport>AUH</ArrivalAirport>
+                    <DepartureDateTime After="2016-12-20T07:00:00"/>
+                    <ArrivalDateTime Before="2016-12-21T10:00:00"/>
+                    <AirlineCode>ET</AirlineCode>
+                </Flight>
+            </FlightCriteria>
+            <PosCriteria AirlineCode="ET"/>
+            <ReturnOptions ViewName="TripSearchBasic" 
+                          MaxItemsReturned="800" 
+                          ResponseFormat="STL"
+                          SearchType="ACTIVE"/>
+        </ReservationReadRequest>
+    </ReadRequests>
+</Trip_SearchRQ>
+
+KEY DIFFERENCES:
+  - Includes ArrivalAirport for additional matching criteria
+  - Uses ArrivalDateTime to filter by arrival time
+  - More restrictive search criteria (narrows results)
+
+===================================================================================
+SAMPLE 4: REQUEST WITH ADDITIONAL SUBJECT AREAS - For More Details
+===================================================================================
+
+REQUEST DESCRIPTION:
+  Same flight search but explicitly requesting additional data including
+  itinerary details along with basic passenger and phone information.
+
+XML REQUEST:
+============
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Trip_SearchRQ Version="4.5.0" 
+               xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+               xmlns="http://webservices.sabre.com/triprecord">
+    <ReadRequests>
+        <ReservationReadRequest>
+            <FlightCriteria>
+                <Flight>
+                    <FlightNumber>0001</FlightNumber>
+                    <DepartureAirport>JFK</DepartureAirport>
+                    <DepartureDateTime Is="2016-12-20T07:00:00"/>
+                    <AirlineCode>ET</AirlineCode>
+                </Flight>
+            </FlightCriteria>
+            <PosCriteria AirlineCode="ET"/>
+            <ReturnOptions ViewName="TripSearchBlob" 
+                          MaxItemsReturned="800" 
+                          ResponseFormat="STL"
+                          SearchType="ACTIVE">
+                <SubjectAreas>
+                    <SubjectArea>HEADER</SubjectArea>
+                    <SubjectArea>NAME</SubjectArea>
+                    <SubjectArea>PHONE</SubjectArea>
+                    <SubjectArea>PASSENGERDETAILS</SubjectArea>
+                    <SubjectArea>ITINERARY</SubjectArea>
+                    <SubjectArea>FQTV</SubjectArea>
+                </SubjectAreas>
+            </ReturnOptions>
+        </ReservationReadRequest>
+    </ReadRequests>
+</Trip_SearchRQ>
+
+KEY DIFFERENCES FROM SAMPLE 1:
+  - ViewName changed from "TripSearchBasic" to "TripSearchBlob"
+  - Explicitly lists SubjectAreas (these define what data is returned)
+  - Includes ITINERARY and FQTV (Frequent Flyer) data
+  - Response will be larger but more comprehensive
+
+AVAILABLE SUBJECT AREAS:
+  HEADER                = PNR header, record locator, creation date
+  NAME                  = Passenger name (already in TripSearchBasic)
+  PHONE                 = Phone number(s) (already in TripSearchBasic)
+  PASSENGERDETAILS      = Extended passenger info (already in TripSearchBasic)
+  FQTV                  = Frequent Flyer numbers
+  ADDRESS               = Passenger address
+  RECEIVED              = "Received from" information
+  DKNUMBER              = Agency customer number
+  CUST_INSIGHT_PROFILE  = Customer profile data
+  ITINERARY             = Full itinerary details
+  REMARKS               = PNR remarks
+
+===================================================================================
+TYPICAL RESPONSE SAMPLE - Using TripSearchBasic View
+===================================================================================
+
+RESPONSE DESCRIPTION:
+  Response for Sample 1 request - shows structure you'll receive with 
+  2 PNRs matching the flight criteria.
+
+XML RESPONSE:
+=============
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord"
+               xmlns:ns2="http://services.sabre.com/STL/v01"
+               xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07"
+               xmlns:stl119="http://webservices.sabre.com/pnrbuilder/v1_19"
+               TimeStamp="2016-12-20T09:30:45"
+               Target="Production"
+               Version="4.5.0">
+    
+    <!-- SUCCESS INDICATOR -->
+    <Success>Success</Success>
+    
+    <!-- SUMMARY OF RESULTS -->
+    <ReservationsList NumberResults="2" 
+                      NumberPages="1" 
+                      TotalResults="2">
+        <Reservations>
+            
+            <!-- ===== PNR 1 ===== -->
+            <Reservation Locator="FZVBDK">
+                <stl119:GetReservationRS Version="1.19.0">
+                    <stl119:Reservation numberInParty="2" numberOfInfants="0">
+                        
+                        <!-- BOOKING INFORMATION -->
+                        <stl119:BookingDetails>
+                            <stl119:RecordLocator>FZVBDK</stl119:RecordLocator>
+                            <stl119:CreationTimestamp>2016-12-01T10:15:00</stl119:CreationTimestamp>
+                            <stl119:UpdateTimestamp>2016-12-15T14:20:30</stl119:UpdateTimestamp>
+                            <stl119:PNRSequence>3</stl119:PNRSequence>
+                            <stl119:EstimatedPurgeTimestamp>2017-02-10T00:00:00</stl119:EstimatedPurgeTimestamp>
+                        </stl119:BookingDetails>
+                        
+                        <!-- POINT OF SALE -->
+                        <stl119:POS>
+                            <stl119:Source PseudoCityCode="JFK1"
+                                          AirlineVendorID="ET"
+                                          ISOCountry="US"/>
+                        </stl119:POS>
+                        
+                        <!-- PASSENGER AND FLIGHT INFORMATION -->
+                        <stl119:PassengerReservation>
+                            <stl119:Passengers>
+                                <!-- PASSENGER 1 -->
+                                <stl119:Passenger id="1" nameType="S" nameId="01.01">
+                                    <stl119:LastName>SMITH</stl119:LastName>
+                                    <stl119:FirstName>JOHN MR</stl119:FirstName>
+                                    <stl119:Seats>
+                                        <stl119:Seat SeatLocation="12A"/>
+                                    </stl119:Seats>
+                                </stl119:Passenger>
+                                
+                                <!-- PASSENGER 2 -->
+                                <stl119:Passenger id="2" nameType="S" nameId="02.01">
+                                    <stl119:LastName>SMITH</stl119:LastName>
+                                    <stl119:FirstName>JANE MRS</stl119:FirstName>
+                                    <stl119:Seats>
+                                        <stl119:Seat SeatLocation="12B"/>
+                                    </stl119:Seats>
+                                </stl119:Passenger>
+                            </stl119:Passengers>
+                            
+                            <!-- FLIGHT SEGMENT INFORMATION -->
+                            <stl119:Segments>
+                                <stl119:Segment id="A" segmentType="Air">
+                                    <stl119:FlightDetails>
+                                        <stl119:Airline>ET</stl119:Airline>
+                                        <stl119:FlightNumber>0001</stl119:FlightNumber>
+                                        <stl119:DepartureAirport>JFK</stl119:DepartureAirport>
+                                        <stl119:ArrivalAirport>AUH</stl119:ArrivalAirport>
+                                        <stl119:DepartureDateTime>2016-12-20T07:00:00</stl119:DepartureDateTime>
+                                        <stl119:ArrivalDateTime>2016-12-21T03:30:00</stl119:ArrivalDateTime>
+                                        <stl119:ClassOfService>Y</stl119:ClassOfService>
+                                    </stl119:FlightDetails>
+                                </stl119:Segment>
+                            </stl119:Segments>
+                        </stl119:PassengerReservation>
+                        
+                        <!-- PHONE NUMBERS (KEY DATA FOR YOUR USE CASE) -->
+                        <stl119:CustomerContact>
+                            <stl119:Phone>
+                                <stl119:PhoneNumber>2125551234</stl119:PhoneNumber>
+                                <stl119:PhoneType>H</stl119:PhoneType>
+                            </stl119:Phone>
+                            <stl119:Phone>
+                                <stl119:PhoneNumber>9175559999</stl119:PhoneNumber>
+                                <stl119:PhoneType>B</stl119:PhoneType>
+                            </stl119:Phone>
+                        </stl119:CustomerContact>
+                    </stl119:Reservation>
+                </stl119:GetReservationRS>
+            </Reservation>
+            
+            <!-- ===== PNR 2 ===== -->
+            <Reservation Locator="ABC1234">
+                <stl119:GetReservationRS Version="1.19.0">
+                    <stl119:Reservation numberInParty="1" numberOfInfants="0">
+                        
+                        <stl119:BookingDetails>
+                            <stl119:RecordLocator>ABC1234</stl119:RecordLocator>
+                            <stl119:CreationTimestamp>2016-12-05T14:45:00</stl119:CreationTimestamp>
+                            <stl119:UpdateTimestamp>2016-12-05T14:50:15</stl119:UpdateTimestamp>
+                            <stl119:PNRSequence>2</stl119:PNRSequence>
+                            <stl119:EstimatedPurgeTimestamp>2017-01-28T00:00:00</stl119:EstimatedPurgeTimestamp>
+                        </stl119:BookingDetails>
+                        
+                        <stl119:POS>
+                            <stl119:Source PseudoCityCode="LHR2"
+                                          AirlineVendorID="ET"
+                                          ISOCountry="GB"/>
+                        </stl119:POS>
+                        
+                        <stl119:PassengerReservation>
+                            <stl119:Passengers>
+                                <stl119:Passenger id="1" nameType="S" nameId="01.01">
+                                    <stl119:LastName>JOHNSON</stl119:LastName>
+                                    <stl119:FirstName>ROBERT MR</stl119:FirstName>
+                                    <stl119:Seats>
+                                        <stl119:Seat SeatLocation="14C"/>
+                                    </stl119:Seats>
+                                </stl119:Passenger>
+                            </stl119:Passengers>
+                            
+                            <stl119:Segments>
+                                <stl119:Segment id="A" segmentType="Air">
+                                    <stl119:FlightDetails>
+                                        <stl119:Airline>ET</stl119:Airline>
+                                        <stl119:FlightNumber>0001</stl119:FlightNumber>
+                                        <stl119:DepartureAirport>JFK</stl119:DepartureAirport>
+                                        <stl119:ArrivalAirport>AUH</stl119:ArrivalAirport>
+                                        <stl119:DepartureDateTime>2016-12-20T07:00:00</stl119:DepartureDateTime>
+                                        <stl119:ArrivalDateTime>2016-12-21T03:30:00</stl119:ArrivalDateTime>
+                                        <stl119:ClassOfService>J</stl119:ClassOfService>
+                                    </stl119:FlightDetails>
+                                </stl119:Segment>
+                            </stl119:Segments>
+                        </stl119:PassengerReservation>
+                        
+                        <stl119:CustomerContact>
+                            <stl119:Phone>
+                                <stl119:PhoneNumber>4415559876</stl119:PhoneNumber>
+                                <stl119:PhoneType>M</stl119:PhoneType>
+                            </stl119:Phone>
+                        </stl119:CustomerContact>
+                    </stl119:Reservation>
+                </stl119:GetReservationRS>
+            </Reservation>
+        </Reservations>
+    </ReservationsList>
+</Trip_SearchRS>
+
+===================================================================================
+RESPONSE STRUCTURE BREAKDOWN - WHAT EACH ELEMENT MEANS
+===================================================================================
+
+Trip_SearchRS ROOT ELEMENT
+├─ Success = "Success"                              → Request was processed successfully
+├─ ReservationsList
+│  ├─ @NumberResults = "2"                          → 2 PNRs returned in this response
+│  ├─ @TotalResults = "2"                           → 2 total matching PNRs
+│  ├─ @NumberPages = "1"                            → Single page (no pagination needed)
+│  └─ Reservations                                  → Container for all PNRs
+│     └─ Reservation                                → Individual PNR record
+│        ├─ @Locator = "FZVBDK"                     → PNR record locator (6-char code)
+│        └─ stl119:GetReservationRS
+│           └─ stl119:Reservation
+│              ├─ @numberInParty = "2"              → Number of passengers
+│              ├─ @numberOfInfants = "0"            → Number of infant passengers
+│              ├─ BookingDetails
+│              │  ├─ RecordLocator                  → PNR locator code
+│              │  ├─ CreationTimestamp              → When PNR was created
+│              │  ├─ UpdateTimestamp                → Last update time
+│              │  ├─ PNRSequence                    → Version number
+│              │  └─ EstimatedPurgeTimestamp        → When PNR will be deleted
+│              ├─ POS
+│              │  └─ Source
+│              │     ├─ @PseudoCityCode             → Booking office code
+│              │     ├─ @AirlineVendorID            → Airline code
+│              │     └─ @ISOCountry                 → Country code
+│              ├─ PassengerReservation
+│              │  ├─ Passengers
+│              │  │  └─ Passenger
+│              │  │     ├─ @id                      → Internal passenger ID
+│              │  │     ├─ @nameType = "S"          → "S" = Surname
+│              │  │     ├─ @nameId                  → Name identifier
+│              │  │     ├─ LastName                 → Family name
+│              │  │     ├─ FirstName                → Given name + title
+│              │  │     └─ Seats
+│              │  │        └─ Seat
+│              │  │           └─ @SeatLocation      → Seat number/location
+│              │  ├─ Segments
+│              │  │  └─ Segment
+│              │  │     ├─ @id = "A"                → Segment identifier
+│              │  │     ├─ @segmentType = "Air"     → Type of segment
+│              │  │     └─ FlightDetails
+│              │  │        ├─ Airline               → Airline code (ET)
+│              │  │        ├─ FlightNumber          → Flight number (0001)
+│              │  │        ├─ DepartureAirport      → Departure airport (JFK)
+│              │  │        ├─ ArrivalAirport        → Arrival airport (AUH)
+│              │  │        ├─ DepartureDateTime     → Departure date/time
+│              │  │        ├─ ArrivalDateTime       → Arrival date/time
+│              │  │        └─ ClassOfService        → Booking class (Y, J, F, etc.)
+│              └─ CustomerContact
+│                 └─ Phone (repeating)              → Each phone number
+│                    ├─ PhoneNumber                 → The phone number digits
+│                    └─ @PhoneType                  → H=Home, B=Business, M=Mobile, O=Other
+
+===================================================================================
+HOW TO PARSE THE RESPONSE - DATA EXTRACTION EXAMPLE
+===================================================================================
+
+TO EXTRACT PASSENGER DATA WITH PHONE NUMBERS, FOLLOW THIS LOGIC:
+
+PSEUDO-CODE:
+============
+
+List<PassengerInfo> passengers = new List<PassengerInfo>();
+
+foreach (Reservation in Trip_SearchRS.ReservationsList.Reservations)
+{
+    string pnrLocator = Reservation.Locator;
+    
+    var reservation = Reservation.stl119GetReservationRS.stl119Reservation;
+    var phones = new List<string>();
+    
+    // Extract all phone numbers for this PNR
+    if (reservation.CustomerContact != null)
+    {
+        foreach (Phone phone in reservation.CustomerContact.Phone)
+        {
+            phones.Add(new {
+                Number = phone.PhoneNumber,
+                Type = phone.PhoneType  // H, B, M, O
+            });
+        }
+    }
+    
+    // Extract all passengers in this PNR
+    if (reservation.PassengerReservation?.Passengers != null)
+    {
+        foreach (Passenger passenger in reservation.PassengerReservation.Passengers)
+        {
+            string lastName = passenger.LastName;
+            string firstName = passenger.FirstName;  // May include title (e.g., "JOHN MR")
+            string seatLocation = passenger.Seats?.Seat?[0]?.SeatLocation;
+            
+            // Create passenger record with associated phones
+            PassengerInfo p = new PassengerInfo
+            {
+                PNRLocator = pnrLocator,
+                LastName = lastName,
+                FirstName = firstName,
+                Seat = seatLocation,
+                PhoneNumbers = phones,  // All phones for this PNR
+                Airline = "ET",
+                FlightNumber = "0001",
+                DepartureDate = "2016-12-20",
+                DepartureAirport = "JFK",
+                ArrivalAirport = "AUH"
+            };
+            
+            passengers.Add(p);
+        }
+    }
+}
+
+OUTPUT EXAMPLE (for Sample Response above):
+============================================
+
+PNR: FZVBDK
+  Passenger 1:
+    Name: SMITH, JOHN MR
+    Seat: 12A
+    Phones:
+      - 2125551234 (Home)
+      - 9175559999 (Business)
+  
+  Passenger 2:
+    Name: SMITH, JANE MRS
+    Seat: 12B
+    Phones:
+      - 2125551234 (Home)      [inherited from PNR]
+      - 9175559999 (Business)  [inherited from PNR]
+
+PNR: ABC1234
+  Passenger 1:
+    Name: JOHNSON, ROBERT MR
+    Seat: 14C
+    Phones:
+      - 4415559876 (Mobile)
+
+===================================================================================
+COMPLETE END-TO-END EXAMPLE - CODE STRUCTURE IN JSON FORMAT
+===================================================================================
+
+REQUEST/RESPONSE CYCLE:
+
+1. SEND REQUEST:
+   POST /websvc HTTP/1.1
+   Host: usg.sabre.com
+   Content-Type: text/xml; charset=utf-8
+   SOAPAction: "STL"
+   
+   [XML Request Body from Sample 1]
+
+2. RECEIVE RESPONSE:
+   HTTP/1.1 200 OK
+   Content-Type: text/xml; charset=utf-8
+   
+   [XML Response Body as shown above]
+
+3. PARSE RESPONSE AND EXTRACT DATA:
+   
+   Result Dataset:
+   {
+     "SearchCriteria": {
+       "FlightNumber": "0001",
+       "Airline": "ET",
+       "DepartureAirport": "JFK",
+       "DepartureDateTime": "2016-12-20T07:00:00"
+     },
+     "SearchResults": {
+       "TotalResults": 2,
+       "Passengers": [
+         {
+           "PNRLocator": "FZVBDK",
+           "FirstName": "JOHN MR",
+           "LastName": "SMITH",
+           "Seat": "12A",
+           "PhoneNumbers": [
+             {
+               "Number": "2125551234",
+               "Type": "Home"
+             },
+             {
+               "Number": "9175559999",
+               "Type": "Business"
+             }
+           ]
+         },
+         {
+           "PNRLocator": "FZVBDK",
+           "FirstName": "JANE MRS",
+           "LastName": "SMITH",
+           "Seat": "12B",
+           "PhoneNumbers": [
+             {
+               "Number": "2125551234",
+               "Type": "Home"
+             },
+             {
+               "Number": "9175559999",
+               "Type": "Business"
+             }
+           ]
+         },
+         {
+           "PNRLocator": "ABC1234",
+           "FirstName": "ROBERT MR",
+           "LastName": "JOHNSON",
+           "Seat": "14C",
+           "PhoneNumbers": [
+             {
+               "Number": "4415559876",
+               "Type": "Mobile"
+             }
+           ]
+         }
+       ]
+     }
+   }
+
+===================================================================================
+IMPORTANT NOTES ABOUT THE RESPONSE
+===================================================================================
+
+1. PHONE NUMBERS:
+   - Located in: stl119:CustomerContact/stl119:Phone
+   - Only numeric digits are included in the response
+   - PhoneType indicates: H (Home), B (Business), M (Mobile), O (Other)
+   - Typically all passengers in same PNR share same phone contact info
+
+2. PASSENGER NAMES:
+   - FirstName includes title (e.g., "JOHN MR", "JANE MRS")
+   - Parse carefully if you need to separate title from actual name
+   - LastName is separate field
+
+3. SEAT INFORMATION:
+   - SeatLocation shows assigned seat (e.g., "12A", "14C")
+   - May be empty if seats not yet assigned
+
+4. FLIGHT INFORMATION:
+   - Included automatically in Segments section
+   - Shows actual flight operated, not just what was searched for
+   - May contain multiple segments per passenger
+
+5. PAGINATION:
+   - If results > 800, response will contain NumberPages > 1
+   - You'll need to make additional requests to retrieve all results
+   - Use TokenCriteria for pagination (advanced feature)
+
+===================================================================================
+END OF SAMPLES
+===================================================================================

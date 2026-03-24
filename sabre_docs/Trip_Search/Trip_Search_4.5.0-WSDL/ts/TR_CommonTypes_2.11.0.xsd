@@ -1,0 +1,1423 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://webservices.sabre.com/triprecord"
+        xmlns:tns="http://webservices.sabre.com/triprecord" xmlns:pnrb="http://webservices.sabre.com/pnrbuilder/v1_19"
+        targetNamespace="http://webservices.sabre.com/triprecord" elementFormDefault="qualified">
+
+        <xs:import namespace="http://webservices.sabre.com/pnrbuilder/v1_19" schemaLocation="../stl/GetReservationSTLRS_1.19.0.xsd"/>
+
+	<xs:element name="TripUpdate">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="TripID" type="tns:TripIDType" />
+				<xs:element name="Header" type="tns:TripHeaderType"
+					minOccurs="0" />
+				<xs:element name="POS" type="tns:POSInfoType" />
+				<xs:element name="Customer" type="tns:CustomerType"
+					minOccurs="0" maxOccurs="unbounded" />
+				<xs:element name="Component" type="tns:TripComponentType"
+					minOccurs="0" maxOccurs="unbounded" />
+				<xs:element name="ModificationTimestamp" type="tns:ModificationTimestampType" />
+			</xs:sequence>
+			<xs:attributeGroup ref="tns:UpdateAttributes" />
+		</xs:complexType>
+	</xs:element>
+	<xs:complexType name="TripSummaryType">
+		<xs:sequence>
+			<xs:element name="Trip" minOccurs="0" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:complexContent>
+						<xs:extension base="tns:TripIDType">
+							<xs:sequence>
+								<xs:element name="Components" minOccurs="0">
+									<xs:complexType>
+										<xs:sequence>
+											<xs:element name="ComponentID" type="tns:ComponentIDType"
+												maxOccurs="unbounded" />
+										</xs:sequence>
+									</xs:complexType>
+								</xs:element>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="Content">
+				<xs:complexType>
+					<xs:choice>
+						<xs:any processContents="lax" />
+					</xs:choice>
+					<xs:anyAttribute namespace="##local"
+						processContents="lax" />
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="TripHeaderType">
+		<xs:sequence>
+			<xs:element name="BookingSource" type="tns:BookingSourceType"
+				minOccurs="0" />
+			<xs:element name="TripName" type="tns:string1to255"
+				minOccurs="0" />
+			<xs:element name="Memo" type="tns:string1to1024"
+				minOccurs="0" />
+		</xs:sequence>
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+	</xs:complexType>
+	<xs:complexType name="TripShortInfoType">
+		<xs:sequence>
+			<xs:element name="TripID" type="tns:TripIDType" />
+			<xs:element name="TripName" type="tns:string1to255" />
+			<xs:element name="BookingSource" type="tns:BookingSourceType" />
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="TripComponentType">
+		<xs:complexContent>
+			<xs:extension base="tns:TripComponentUpdateType">
+				<xs:sequence>
+					<xs:element name="Content" type="tns:ComponentContentType"
+						minOccurs="0" />
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="TripComponentUpdateType">
+		<xs:sequence>
+			<xs:element name="ComponentID" type="tns:ComponentIDType" />
+		</xs:sequence>
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+	</xs:complexType>
+	<xs:complexType name="POSInfoType">
+		<xs:attribute name="Airline" type="tns:string2to3" use="optional" />
+		<xs:attribute name="AgencyPCC" type="tns:string3to4" use="required" />
+		<xs:attribute name="IATANumber" type="tns:string1to8"
+			use="optional" />
+		<xs:attribute name="Country" type="tns:string2to3" use="optional" />
+		<xs:attribute name="StateProvince" type="tns:string1to8"
+			use="optional" />
+		<xs:attribute name="ClientCode" type="tns:string1to24"
+			use="optional" />
+		<xs:attribute name="ClientContextCode" type="tns:string1to5"
+			use="optional" />
+		<xs:attribute name="DomainId" type="tns:string1to5" use="optional" />
+		<xs:attribute name="DomainGroup" type="tns:string1to5"
+			use="optional" />
+		<xs:attribute name="PrimeHostPartition" type="xs:byte"
+			use="optional" />
+		<xs:attribute name="AccessId" type="tns:string1to20" use="optional" />
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+	</xs:complexType>
+	<xs:complexType name="BookingSourceType">
+		<xs:attribute name="Name" type="xs:string" use="optional" />
+	</xs:complexType>
+	<xs:complexType name="CustomerType">
+		<xs:sequence>
+			<xs:element name="Name" type="tns:PassengerNameType"
+				minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="Email" type="tns:EmailType" minOccurs="0"
+				maxOccurs="unbounded" />
+			<xs:element name="Profile" type="tns:ProfileType"
+				minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="Loyalty" type="tns:LoyaltyType"
+				minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="Phone" type="tns:TelephoneType"
+				minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="Address" type="tns:AddressType"
+				minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="Contact" type="tns:ContactType"
+				minOccurs="0" maxOccurs="unbounded" />
+		</xs:sequence>
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+		<xs:attribute name="ProfileStoredItem" type="xs:boolean"
+			use="optional" default="false" />
+	</xs:complexType>
+	<xs:complexType name="PassengerNameType">
+		<xs:attribute name="NamePrefix" type="tns:string1to100"
+			use="optional" />
+		<xs:attribute name="FirstName" type="tns:string1to100"
+			use="optional" />
+		<xs:attribute name="LastName" type="tns:string1to100"
+			use="optional" />
+		<xs:attribute name="MiddleName" type="tns:string1to100"
+			use="optional" />
+		<xs:attribute name="NameSuffix" type="tns:string1to100"
+			use="optional" />
+		<xs:attribute name="Language" type="tns:string2" use="optional"
+			default="EN" />
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+	</xs:complexType>
+	<xs:complexType name="ParsedPhoneNumberType">
+		<xs:attribute name="CountryCd" type="tns:string1to5" use="optional" />
+		<xs:attribute name="AreaCd" type="tns:string1to20" use="optional" />
+		<xs:attribute name="PhoneNumber" type="tns:string1to32"
+			use="required" />
+		<xs:attribute name="Extension" type="tns:string1to10"
+			use="optional" />
+	</xs:complexType>
+	<xs:complexType name="TelephoneType">
+		<xs:sequence>
+			<xs:choice>
+				<xs:element name="FullPhoneNumber" type="tns:string1to32" />
+				<xs:element name="ParsedPhoneNumber" type="tns:ParsedPhoneNumberType" />
+			</xs:choice>
+		</xs:sequence>
+		<xs:attribute name="DeviceType" type="tns:string2" use="required" />
+		<xs:attribute name="Vendor" type="tns:string1to60" use="optional" />
+		<xs:attribute name="Comment" type="tns:string1to60" use="optional" />
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+		<xs:attribute name="ProfileStoredItem" type="xs:boolean"
+			use="optional" default="false" />
+	</xs:complexType>
+	<xs:complexType name="PhoneType">
+		<xs:attribute name="PhoneNumber" type="xs:string" use="optional" />
+		<xs:attribute name="DeviceType" type="tns:string2" use="optional" />
+	</xs:complexType>
+	<xs:complexType name="EmailType">
+		<xs:attribute name="EmailFormatTypeCode" type="tns:string1to4"
+			use="optional" />
+		<xs:attribute name="EmailAddress" type="tns:string1to120"
+			use="optional" />
+		<xs:attribute name="PrimaryEmail" type="xs:boolean" use="optional"
+			default="false" />
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+		<xs:attribute name="ProfileStoredItem" type="xs:boolean"
+			use="optional" default="false" />
+	</xs:complexType>
+	<xs:complexType name="LoyaltyType">
+		<xs:sequence>
+			<xs:element name="Supplier" type="tns:SupplierType"
+				minOccurs="0" />
+		</xs:sequence>
+		<xs:attribute name="MembershipID" type="tns:string1to32"
+			use="optional" />
+		<xs:attribute name="ProgramType" type="tns:string1to10"
+			use="optional" />
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+		<xs:attribute name="ProfileStoredItem" type="xs:boolean"
+			use="optional" default="false" />
+	</xs:complexType>
+	<xs:complexType name="SupplierType">
+		<xs:attribute name="SupplierCode" type="tns:string1to3"
+			use="optional" />
+		<xs:attribute name="SupplierTypeCode" type="tns:string1to3"
+			use="optional" />
+		<xs:attribute name="ContextName" type="tns:string1to10"
+			use="optional" default="IATA" />
+	</xs:complexType>
+	<xs:complexType name="ProfileType">
+		<xs:attribute name="ProfileID" type="tns:string1to32"
+			use="optional" />
+		<xs:attribute name="ProfileType" type="tns:string2to3"
+			use="optional" />
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+	</xs:complexType>
+	<xs:complexType name="ContactType">
+		<xs:sequence>
+			<xs:element name="Phone" type="tns:TelephoneType"
+				minOccurs="0" />
+			<xs:element name="Address" type="tns:AddressType"
+				minOccurs="0" />
+			<xs:element name="Email" type="tns:EmailType" minOccurs="0" />
+		</xs:sequence>
+		<xs:attribute name="FirstName" type="tns:string1to100"
+			use="optional" />
+		<xs:attribute name="LastName" type="tns:string1to100"
+			use="optional" />
+		<xs:attribute name="Purpose" type="tns:string1to3" use="optional" />
+		<xs:attribute name="MediaType" type="tns:string1to3" use="optional" />
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+	</xs:complexType>
+	<xs:complexType name="HistoryType">
+		<xs:sequence>
+			<xs:element name="Event" type="tns:EventType" minOccurs="0"
+				maxOccurs="unbounded" />
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="EventType">
+		<xs:sequence>
+			<xs:element name="XmlBlob" type="xs:string" minOccurs="0" />
+		</xs:sequence>
+		<xs:attribute name="Date" type="xs:dateTime" use="optional" />
+		<xs:attribute name="Version" type="xs:string" use="optional" />
+	</xs:complexType>
+	<xs:element name="HistoryEvent">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="POS" type="tns:POSInfoType" minOccurs="0" />
+				<xs:element ref="tns:TripUpdate" minOccurs="0" />
+			</xs:sequence>
+			<xs:attribute name="Source" type="xs:string" use="optional" />
+			<xs:attribute name="Event" type="xs:string" use="optional" />
+			<xs:attribute name="Date" type="xs:dateTime" use="optional" />
+			<xs:attribute name="Version" type="xs:string" use="optional" />
+		</xs:complexType>
+	</xs:element>
+	<xs:complexType name="ComponentContentType">
+		<xs:sequence>
+			<xs:element name="XmlBlob" type="xs:string" />
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="ModificationTimestampType">
+		<xs:attribute name="Timestamp" type="xs:dateTime" use="required" />
+	</xs:complexType>
+	<xs:complexType name="ComponentIDType">
+		<xs:attributeGroup ref="tns:ComponentIDAttributes" />
+	</xs:complexType>
+	<xs:complexType name="TripIDType">
+		<xs:attributeGroup ref="tns:TripIDAttributes" />
+	</xs:complexType>
+	<xs:attributeGroup name="ComponentIDAttributes">
+		<xs:attribute name="Locator" type="tns:string1to32" use="required" />
+		<xs:attribute name="Type" type="tns:string1to8" use="required" />
+		<xs:attribute name="CreateDate" type="xs:date" use="optional" />
+	</xs:attributeGroup>
+	<xs:attributeGroup name="TripIDAttributes">
+		<xs:attribute name="Locator" type="tns:string6" use="required" />
+		<xs:attribute name="CreateDate" type="xs:date" use="optional" />
+	</xs:attributeGroup>
+	<xs:attributeGroup name="UpdateAttributes">
+		<xs:attribute name="SequenceNumber" type="xs:int" use="optional" />
+		<xs:attribute name="Action" type="tns:UpdateActions" use="optional"
+			default="None" />
+	</xs:attributeGroup>
+	<xs:simpleType name="UpdateActions">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Add" />
+			<xs:enumeration value="Update" />
+			<xs:enumeration value="Delete" />
+			<xs:enumeration value="None" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="GroupActions">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="DeleteAll" />
+			<xs:enumeration value="ReplaceAll" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="SearchCriteriaType">
+		<xs:sequence>
+			<xs:element name="Criterion" type="tns:SearchCriterionType"
+				maxOccurs="unbounded" />
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="SearchCriterionType">
+		<xs:attribute name="Field" type="tns:GenericFieldType"
+			use="required" />
+		<xs:attribute name="Value" use="required">
+			<xs:simpleType>
+				<xs:restriction base="xs:string">
+					<xs:minLength value="1" />
+				</xs:restriction>
+			</xs:simpleType>
+		</xs:attribute>
+		<xs:attribute name="MatchingOperator" type="tns:MatchingOperatorType"
+			use="optional" default="EQUALS" />
+	</xs:complexType>
+	<xs:simpleType name="GenericFieldType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="FirstName" />
+			<xs:enumeration value="LastName" />
+			<xs:enumeration value="Email" />
+			<xs:enumeration value="ProfileID" />
+			<xs:enumeration value="ProfileDomain" />
+			<xs:enumeration value="ReservationID" />
+			<xs:enumeration value="ReservationDomain" />
+			<xs:enumeration value="FlightNumber" />
+			<xs:enumeration value="DepartureDate" />
+			<xs:enumeration value="ArrivalDate" />
+			<xs:enumeration value="DepartureAirport" />
+			<xs:enumeration value="ArrivalAirport" />
+			<xs:enumeration value="MarketingAirline" />
+			<xs:enumeration value="OperatingAirline" />
+			<xs:enumeration value="LoyaltyID" />
+			<xs:enumeration value="LoyaltyDomain" />
+			<xs:enumeration value="PhoneAreaCityCode" />
+			<xs:enumeration value="PhoneNumber" />
+			<xs:enumeration value="TripName" />
+			<xs:enumeration value="ComponentFirstName" />
+			<xs:enumeration value="ComponentLastName" />
+			<xs:enumeration value="ComponentLoyaltyID" />
+			<xs:enumeration value="ComponentLoyaltyDomain" />
+			<xs:enumeration value="ComponentPhoneAreaCityCode" />
+			<xs:enumeration value="ComponentPhoneNumber" />
+			<xs:enumeration value="ComponentEmail" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="MatchingOperatorType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="EQUALS" />
+			<xs:enumeration value="LIKE" />
+			<xs:enumeration value="GT" />
+			<xs:enumeration value="LT" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="PingServicesType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="PnrConn" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="BaseTripRequest" abstract="true">
+		<xs:sequence>
+			<xs:element name="ClientContext" type="ClientContext" minOccurs="0" />
+		</xs:sequence>
+		<xs:attributeGroup ref="tns:BaseTripAttributes" />
+	</xs:complexType>
+	<xs:complexType name="BaseTripResponse" abstract="true">
+		<xs:sequence>
+			<xs:element name="Success" type="xs:string" minOccurs="0" />
+			<xs:element name="Warnings" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Warning" minOccurs="0" maxOccurs="unbounded">
+							<xs:complexType>
+								<xs:simpleContent>
+									<xs:extension base="xs:string">
+										<xs:attribute name="ShortText" type="xs:string"
+											use="optional" />
+									</xs:extension>
+								</xs:simpleContent>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="Errors" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Error" minOccurs="0" maxOccurs="unbounded">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="ErrorInfo" minOccurs="0">
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="Message" type="xs:string"
+													minOccurs="0" />
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+								<xs:attribute name="ErrorCode" type="xs:string"
+									use="optional" />
+								<xs:attribute name="Severity" type="xs:string" use="optional" />
+								<xs:attribute name="ErrorMessage" type="xs:string"
+									use="optional" />
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attributeGroup ref="tns:BaseTripAttributes" />
+	</xs:complexType>
+	<xs:attributeGroup name="BaseTripAttributes">
+		<xs:attribute name="ConversationId" type="xs:string" use="optional" />
+		<xs:attribute name="Compression" type="xs:boolean" use="optional"
+			default="false" />
+		<xs:attribute name="EchoToken" use="optional">
+			<xs:annotation>
+				<xs:documentation>
+					A sequence number for additional message
+					identification, assigned by
+					the requesting host system.
+					When a
+					request message includes an echo
+					token the corresponding response
+					message MUST include an echo token
+					with an
+					identical value.
+				</xs:documentation>
+			</xs:annotation>
+			<xs:simpleType>
+				<xs:annotation>
+					<xs:documentation xml:lang="en">Used for Character
+						Strings, length 0 to 64</xs:documentation>
+				</xs:annotation>
+				<xs:restriction base="xs:string">
+					<xs:minLength value="0" />
+					<xs:maxLength value="64" />
+				</xs:restriction>
+			</xs:simpleType>
+		</xs:attribute>
+		<xs:attribute name="TimeStamp" type="xs:dateTime" use="optional">
+			<xs:annotation>
+				<xs:documentation>
+					Indicates the creation date and time of the
+					message in UTC using the
+					following format specified by
+					ISO 8601;
+					YYYY- MM- DDThh:mm:ssZ with
+					time values using the 24 hour clock
+					(e.g. 20 November 2003, 1:59:38
+					pm UTC
+					becomes 2003-11-
+					20T13:59:38Z).
+        </xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="Target" type="xs:string" use="optional"
+			default="Production">
+			<xs:annotation>
+				<xs:documentation>Used to indicate whether the request is for
+					the
+					Test or Production system.</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="Version" type="xs:string" use="required">
+			<xs:annotation>
+				<xs:documentation>For all OTA versioned messages, the version of
+					the
+					message is indicated by a decimal value.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="SequenceNmbr" type="xs:nonNegativeInteger"
+			use="optional">
+			<xs:annotation>
+				<xs:documentation>
+					Used to identify the sequence number of the
+					transaction as assigned by
+					the sending system; allows
+					for an
+					application to process messages
+					in
+					a certain order or to request a
+					resynchronization of messages in the
+					event
+					that a system has been
+					off-line and needs to retrieve
+					messages
+					that were missed.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="PrimaryLangID" type="xs:language"
+			use="optional">
+			<xs:annotation>
+				<xs:documentation>
+					Identifies the primary language preference for the
+					form of travel represented
+					in a collection. The
+					human language is
+					identified by ISO 639
+					codes.
+        </xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="AltLangID" type="xs:language" use="optional">
+			<xs:annotation>
+				<xs:documentation>
+					Identifies the primary language preference for the
+					form of travel represented
+					in a collection. The
+					human language is
+					identified by ISO 639
+					codes.
+        </xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="ReturnContent" type="xs:boolean" use="optional"
+			default="false" />
+	</xs:attributeGroup>
+	<xs:simpleType name="OTA_CodeType">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Used for codes in the
+				OTA
+				code tables.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[0-9A-Z]{1,3}" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="UniqueID_Type">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">An identifier used to
+				uniquely reference an object in the system
+			</xs:documentation>
+		</xs:annotation>
+		<xs:attributeGroup ref="tns:UniqueID_Group" />
+	</xs:complexType>
+	<xs:attributeGroup name="UniqueID_Group">
+		<xs:attribute name="ID" use="required">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					A unique identifying
+					value assigned by the creating
+					system. The ID
+					attribute may be used
+					to reference a
+					primary-key value within a database or in a
+					particular implementation.
+				</xs:documentation>
+			</xs:annotation>
+			<xs:simpleType>
+				<xs:restriction base="xs:string">
+					<xs:minLength value="1" />
+					<xs:maxLength value="32" />
+				</xs:restriction>
+			</xs:simpleType>
+		</xs:attribute>
+		<xs:attribute name="Type" use="optional">
+			<xs:simpleType>
+				<xs:restriction base="xs:string">
+					<xs:minLength value="1" />
+					<xs:maxLength value="32" />
+				</xs:restriction>
+			</xs:simpleType>
+		</xs:attribute>
+	</xs:attributeGroup>
+	<xs:attributeGroup name="CustomerLoyaltyGroup">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Program rewarding
+				frequent use by accumulating credits for services
+				provided by
+				vendors.</xs:documentation>
+		</xs:annotation>
+		<xs:attribute name="ProgramID" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">Identifier to
+					indicate
+					the company owner of the loyalty program.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="MembershipID" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">Unique identifier
+					of the
+					member in the program (membership number, account
+					number,
+					etc.).
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="FTStatusCode" type="xs:string" use="optional" />
+	</xs:attributeGroup>
+	<xs:attributeGroup name="ProfileIDGroup">
+		<xs:attribute name="ProfileID" type="xs:string" use="optional" />
+		<xs:attribute name="ProfileType" type="xs:string" use="optional" />
+	</xs:attributeGroup>
+	<xs:attributeGroup name="TelephoneAttributesGroup">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Provides
+				telephone
+				information details.</xs:documentation>
+		</xs:annotation>
+		<xs:attribute name="PhoneNumber" type="xs:string" use="required">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">Telephone
+					number assigned
+					to a single location.</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+	</xs:attributeGroup>
+	<xs:complexType name="AddressType">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Provides address
+				information.</xs:documentation>
+		</xs:annotation>
+		<xs:sequence>
+			<xs:element name="AddressLine" type="tns:string1to60"
+				minOccurs="0" maxOccurs="4">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">When the address is
+						unformatted (FormattedInd="false") these lines will
+						contain free
+						form address details. When the address is formatted and street
+						number and street name must be sent
+						independently, the street
+						number will be sent using StreetNmbr, and the street name will be
+						sent in the first
+						AddressLine occurrence.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="CityName" type="tns:string1to60"
+				minOccurs="0">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">City (e.g.,
+						Dublin),
+						town, or postal station (i.e., a postal service
+						territory,
+						often
+						used in a military address).</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="PostalCd" type="tns:string1to16"
+				minOccurs="0">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">Post Office Code
+						number.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="StateCode" type="tns:string1to8"
+				minOccurs="0">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">State or Province
+						Code
+						based on Postal Information(e.g., TX for Texas).
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="CountryCode" type="tns:string2"
+				minOccurs="0">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">Country name as
+						a Code
+						(e.g., US or USA for United States of America).
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="LocationTypeCode" type="tns:string1to3"
+			use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">Defines the
+					Location of
+					the address (e.g. home, business, other). Refer to
+					Code
+					List
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="AddressUsageTypeCode" type="tns:string1to3"
+			use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">Describes the
+					use of the
+					address (e.g. mailing, delivery, billing, etc.).
+					Refer
+					to
+					OTA Code
+					List Address Use Type (AUT).</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="Attention" type="tns:string1to40"
+			use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">Address Attention
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attributeGroup ref="tns:UpdateAttributes" />
+	</xs:complexType>
+	<xs:simpleType name="string2">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="2" />
+			<xs:maxLength value="2" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string3">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="3" />
+			<xs:maxLength value="3" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string6">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="6" />
+			<xs:maxLength value="6" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to3">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="3" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string2to3">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="2" />
+			<xs:maxLength value="3" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to4">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="4" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string3to4">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="3" />
+			<xs:maxLength value="4" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string8">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="8" />
+			<xs:maxLength value="8" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to8">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="8" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to5">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="5" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to10">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="10" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to16">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="16" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to24">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="24" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to20">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="20" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to32">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="32" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to40">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="40" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to60">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="60" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to100">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="100" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to120">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="120" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to255">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="255" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="string1to1024">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="1024" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="UpperCaseAlphaNumericLength3to5">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="3" />
+			<xs:maxLength value="5" />
+			<xs:pattern value="[A-Z0-9]*" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="UpperCaseAlphaNumericLength2to3">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="2" />
+			<xs:maxLength value="3" />
+			<xs:pattern value="[A-Z0-9]*" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="AlphaLength3">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Za-z]{3}" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="SubjectAreasType">
+		<xs:sequence>
+			<xs:element name="SubjectArea" type="xs:string" maxOccurs="unbounded" />
+		</xs:sequence>
+	</xs:complexType>
+	<xs:simpleType name="StringLength1to5">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Used for Character
+				Strings, length 1 to 5</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1" />
+			<xs:maxLength value="5" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="StringLength2to3">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Used for an Upper
+				Alpha
+				String and Numeric, length 2 to 3.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Z0-9]{2,3}" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="StringLength4">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Used for an Upper
+				Alpha
+				String and Numeric, length 4.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Z0-9]{4}" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="UpperAlphaLength3">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Used for an Upper
+				Alpha
+				String, length 3.</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Z]{3}" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="dateTimeWithMilis">
+		<xs:restriction base="xs:dateTime" />
+	</xs:simpleType>
+
+	<xs:complexType name="MessageLogType">
+		<xs:sequence>
+			<xs:element name="Flight" type="tns:FlightType" minOccurs="0" />
+			<xs:element name="MsgType" type="xs:string" minOccurs="0" />
+			<xs:element name="SendMsgTimestamp" type="tns:dateTimeWithMilis"
+				minOccurs="0" />
+			<xs:element name="Note" type="xs:string" minOccurs="0" />
+			<xs:element name="MessageInfo" type="xs:string" minOccurs="0" />
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="PnrPushMessageLogType">
+		<xs:complexContent>
+			<xs:extension base="tns:MessageLogType">
+				<xs:sequence>
+					<xs:element name="MessageDestination" type="xs:string"
+						minOccurs="0" />
+					<xs:element name="MessageId" type="xs:string" minOccurs="0" />
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+
+	<xs:complexType name="PnrPushMessageLogTypeV2">
+		<xs:complexContent>
+			<xs:extension base="tns:PnrPushMessageLogType">
+				<xs:sequence>
+					<!--<xs:element name="MessageDestination" type="xs:string"-->
+								<!--minOccurs="0" />-->
+					<!--<xs:element name="MessageId" type="xs:string" minOccurs="0" />-->
+					<xs:element name="IncrementalIndicator" type="xs:string" minOccurs="0" />
+					<xs:element name="MessageSource" type="xs:string" minOccurs="0" />
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="FlightType">
+		<xs:sequence>
+			<xs:element name="AirlineCode" type="tns:StringLength2to3">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">The IATA assigned
+						airline code.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="FlightNumber" type="tns:StringLength1to5">
+				<xs:annotation>
+					<xs:documentation> The number of the flight.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="DepartureAirport" type="tns:UpperAlphaLength3">
+				<xs:annotation>
+					<xs:documentation>Departure point of flight segment.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="ArrivalAirport" type="tns:UpperAlphaLength3" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Arrival point of flight segment.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="DepartureDateTime" type="xs:dateTime" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Departure data for given flight. It uses
+						the
+						following format specified by ISO 8601;
+						YYYY-MM-DDThh:mm:ssZ
+						with
+						time values using the 24 hour clock (e.g. 20 November 2009,
+						1:59:38 pm UTC becomes
+						2009-11-20T13:59:38Z).
+				</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="DataSet">
+		<xs:sequence>
+			<xs:element name="RuleSet" type="xs:string" />
+			<xs:element name="DataSet" type="xs:string" />
+			<xs:element name="DomainId" type="xs:string" minOccurs="0" />
+			<xs:element name="GroupId" type="xs:string" minOccurs="0" />
+			<xs:element name="Timestamp" type="xs:dateTime" minOccurs="0" />
+			<xs:element name="Content" minOccurs="0">
+				<xs:complexType>
+					<xs:choice>
+						<xs:any processContents="lax" />
+					</xs:choice>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="Configuration">
+		<xs:sequence>
+			<xs:element name="RuleSet" type="xs:string" />
+			<xs:element name="DataSet" type="xs:string" />
+			<xs:element name="DomainId" type="xs:string" minOccurs="0" />
+			<xs:element name="GroupId" type="xs:string" minOccurs="0" />
+			<xs:element name="Timestamp" type="xs:dateTime" minOccurs="0" />
+			<xs:element name="Content" type="xs:string" minOccurs="0" />
+			<xs:element name="Version" type="xs:string" minOccurs="0" />
+			<xs:element name="AnyContent" type="xs:anyType" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="Reservations">
+		<xs:sequence>
+					<xs:element name="Reservation" minOccurs="0" maxOccurs="unbounded">
+							<xs:complexType>
+									<xs:choice>
+											<xs:element ref="pnrb:GetReservationRS" minOccurs="0" maxOccurs="1" />
+									</xs:choice>
+									<xs:attribute name="Locator" type="xs:string" use="optional"></xs:attribute>
+									<xs:attribute name="Error" type="xs:string" use="optional"></xs:attribute>
+									<xs:anyAttribute namespace="##local" processContents="lax" />
+							</xs:complexType>
+					</xs:element>
+			<xs:element name="ResultActionResponse" type="ResultActionResponse"
+				minOccurs="0" />
+		</xs:sequence>
+		<xs:anyAttribute namespace="##local" processContents="lax" />
+	</xs:complexType>
+	<xs:complexType name="ActionType">
+		<xs:sequence>
+			<xs:element name="RuleSet" type="xs:string" minOccurs="0" />
+			<xs:element name="Rule" type="xs:string" minOccurs="0" />
+			<xs:element name="UniqueId" type="xs:string" minOccurs="0" />
+			<xs:element name="TargetMethod" type="xs:string"
+				minOccurs="0" />
+			<xs:element name="Target" type="xs:string" minOccurs="0" />
+			<xs:element name="TripActionData" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:any processContents="lax" minOccurs="0" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="ActionDue" type="xs:dateTime" use="optional" />
+		<xs:attribute name="ActionDone" type="xs:dateTime" use="optional" />
+	</xs:complexType>
+	<xs:complexType name="Reservation">
+		<xs:sequence>
+			<xs:sequence>
+				<xs:element name="Locator" type="xs:string" minOccurs="0" />
+				<xs:element name="CreateDate" type="xs:date" minOccurs="0" />
+				<xs:element name="RequestType" type="xs:string"
+					minOccurs="0" />
+			</xs:sequence>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="CarbonEmissions">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="Segments">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Segment" maxOccurs="unbounded">
+								<xs:complexType>
+									<xs:sequence>
+										<xs:choice>
+											<xs:element name="Flight" minOccurs="0">
+												<xs:complexType>
+													<xs:sequence>
+														<xs:element name="DepartureAirport" type="xs:string" />
+														<xs:element name="ArrivalAirport" type="xs:string" />
+														<xs:element name="AirlineCode" type="xs:string" />
+														<xs:element name="EquipmentType" type="xs:string"
+															minOccurs="0" />
+														<xs:element name="EquipmentId" type="xs:short"
+															minOccurs="0" />
+														<xs:element name="ClassOfService" type="xs:string"
+															minOccurs="0" />
+														<xs:element name="NumberInParty" type="xs:positiveInteger"
+															minOccurs="0" />
+													</xs:sequence>
+												</xs:complexType>
+											</xs:element>
+											<xs:element name="Hotel" minOccurs="0">
+												<xs:complexType>
+													<xs:sequence>
+														<xs:element name="NumberOfDays" type="xs:positiveInteger" />
+														<xs:element name="CountryCode" type="xs:string"
+															minOccurs="0" />
+														<xs:element name="NumberInParty" type="xs:positiveInteger"
+															minOccurs="0" />
+													</xs:sequence>
+												</xs:complexType>
+											</xs:element>
+											<xs:element name="Car" minOccurs="0">
+												<xs:complexType>
+													<xs:sequence>
+														<xs:element name="NumberOfDays" type="xs:positiveInteger" />
+														<xs:element name="NumberInParty" type="xs:positiveInteger"
+															minOccurs="0" />
+														<xs:element name="NumberOfUnitsBooked" type="xs:positiveInteger"
+															minOccurs="0" />
+														<xs:element name="CarClassificationCode" type="xs:string"
+															minOccurs="0" />
+														<xs:element name="CarTypeCode" type="xs:string"
+															minOccurs="0" />
+														<xs:element name="CarTransmissionTypeCode"
+															type="xs:string" minOccurs="0" />
+														<xs:element name="CarAirConditioningCode" type="xs:string"
+															minOccurs="0" />
+														<xs:element name="CountryCode" type="xs:string"
+															minOccurs="0" />
+														<xs:element name="MapRegion" type="xs:string"
+															minOccurs="0" />
+													</xs:sequence>
+												</xs:complexType>
+											</xs:element>
+										</xs:choice>
+										<xs:element name="CO2Value" type="tns:CO2Value" />
+									</xs:sequence>
+									<xs:attribute name="Sequence" type="xs:short" use="optional" />
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="CO2TotalValue" type="tns:CO2Value" />
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:complexType name="CO2Value">
+		<xs:attribute name="PerSegment" type="xs:long" />
+		<xs:attribute name="PerParty" type="xs:long" />
+		<xs:attribute name="PerPassenger" type="xs:long" />
+		<xs:attribute name="DistanceInMiles" type="xs:int" />
+	</xs:complexType>
+	<xs:element name="RuleSelector">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="RuleSet" type="xs:string" minOccurs="0" />
+				<xs:element name="Rule" type="xs:string" minOccurs="0" />
+				<xs:element name="Partition" type="xs:string" minOccurs="0" />
+				<xs:element name="PCC" type="xs:string" minOccurs="0" />
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="RulesSet">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="Rule" maxOccurs="unbounded">
+					<xs:complexType>
+						<xs:attribute name="Name" type="xs:string" use="optional" />
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+			<xs:attribute name="Name" type="xs:string" />
+		</xs:complexType>
+	</xs:element>
+
+	<xs:complexType name="QueuePlacement">
+		<xs:sequence>
+			<xs:element name="QueueName" type="xs:string" minOccurs="0" />
+			<xs:element name="QueueNumber" type="xs:string" minOccurs="0" />
+			<xs:element name="CityCode" type="xs:string" minOccurs="0" />
+			<xs:element name="PitCode" type="xs:string" minOccurs="0" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="ResultAction">
+		<xs:choice minOccurs="0">
+			<xs:element name="QueuePlaceAction" minOccurs="0"
+				maxOccurs="1">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="QueuePlacement" type="QueuePlacement"
+							minOccurs="1" maxOccurs="unbounded" />
+					</xs:sequence>
+					<xs:attribute name="includeSearchResults" type="xs:boolean"
+						use="optional" default="false" />
+				</xs:complexType>
+			</xs:element>
+		</xs:choice>
+	</xs:complexType>
+
+	<xs:complexType name="ResultActionResponse">
+		<xs:choice minOccurs="0">
+			<xs:element name="QueuePlaceActionResponse" minOccurs="0"
+				maxOccurs="1">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Result" type="ActionResult"
+							minOccurs="0" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:choice>
+	</xs:complexType>
+
+	<xs:complexType name="ActionResult">
+		<xs:sequence>
+			<xs:element name="result" type="xs:string" minOccurs="1"
+				default="OK" />
+			<xs:element name="Message" type="xs:string" minOccurs="0" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:simpleType name='listOfStrings'>
+		<xs:list itemType="xs:string" />
+	</xs:simpleType>
+
+
+	<xs:complexType name="PartnershipTable">
+		<xs:sequence>
+			<xs:element name="DomainId" type="xs:string" minOccurs="1"
+				maxOccurs="1" />
+			<xs:element name="PartnershipRecord" type="PartnershipRecord"
+				minOccurs="0" maxOccurs="unbounded" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="PartnershipRecord">
+		<xs:sequence>
+			<xs:element name="AirlineCode" type="xs:string" minOccurs="1"
+				maxOccurs="1" />
+			<xs:element name="PartnershipAirlineCode" minOccurs="0"
+				maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:simpleContent>
+						<xs:extension base="xs:string">
+							<xs:attribute name="type" type="PartnershipType" />
+							<xs:attribute name="segmentAssociationAllowed" type="xs:boolean"
+								default="false" />
+						</xs:extension>
+					</xs:simpleContent>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="SegmentAssociationAllowed" type="xs:boolean"
+			use="optional" default="false" />
+	</xs:complexType>
+
+
+	<xs:simpleType name="PartnershipType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="PARTNER" />
+			<xs:enumeration value="SERVICE" />
+		</xs:restriction>
+	</xs:simpleType>
+	
+	<xs:complexType name="Pcc">
+		<xs:sequence>
+			<xs:element name="Ind" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+		</xs:sequence>
+		<xs:attribute name="Value" type="xs:string" use="required" />
+		<xs:attribute name="DefaultAll" type="xs:boolean" default="false"/>
+	</xs:complexType>
+	
+	<xs:simpleType name="AsOrTnType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="AS" />
+			<xs:enumeration value="TN" />
+		</xs:restriction>
+	</xs:simpleType>
+	
+	<xs:complexType name="ClientContext">
+		<xs:sequence>
+                <xs:element name="Name" type="xs:string" />
+		</xs:sequence>
+	</xs:complexType>
+
+
+	<xs:element name="RetryRecord">
+		<xs:complexType>
+			<xs:sequence>
+
+				<xs:element name="RequestType" type="RetryRecordRequestType"
+							minOccurs="1" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>Type of request, for example SPANISH
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+
+				<xs:element name="ServiceLocation" type="RetryRecordServiceLocation"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Location of service (TRIP, S2,..)
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="RequestData" type="xs:string" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Payload of request that need to be retried.
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="LastRetryAttempt" type="xs:dateTime"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Timestamp of last retry attempt
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="TotalNumberOfRetryAttempts" type="xs:int"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>This field may be also calculated basing on
+							values FrequencyOfRetries and EndOfRetry.
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="CurrentNumberOfRetryAttempt" type="xs:int"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Value of CurrentNumberOfRetryAttempt is
+							incremented after each retry execution
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="RetryDueTime" type="xs:dateTime"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Timestamp of next retry execution
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="FrequencyOfRetries" type="xs:int"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Frequency of retries in minutes
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="EndOfRetry" type="xs:dateTime"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Timestamp of scheduled end of retry execution.
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="Status" type="RetryRecordStatus"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Status of retry execution. Currently supported
+							statuses are: NEW, IN_PROGRESS, COMPLETED, FAILED, POST_PROCESSSING_NEEDED
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="CreationTimestamp" type="xs:dateTime"
+							minOccurs="1">
+					<xs:annotation>
+						<xs:documentation>Timestamp of requestCreation. Used in file name.
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="ErrorCause" type="xs:string"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Cause of retry, for example stack trace of exception
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="AdditionalData" type="xs:string"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Addidional data needed for retry execution
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="UniqueId" type="xs:string"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Unique Identifier of retry record
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="PnrLocator" type="xs:string"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Pnr Locator used for Update
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="PnrPartition" type="xs:string"
+							minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Partition Pnr resides in
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:simpleType name="RetryRecordStatus">
+		<xs:annotation>
+			<xs:documentation>List of possible Retry record statuses
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="NEW"/>
+			<xs:enumeration value="IN_PROGRESS"/>
+			<xs:enumeration value="COMPLETED"/>
+			<xs:enumeration value="FAILED"/>
+			<xs:enumeration value="POST_PROCESSING_NEEDED"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="RetryRecordRequestType">
+		<xs:annotation>
+			<xs:documentation>List of possible Retry record statuses
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="SPANISH"/>
+			<xs:enumeration value="CDM"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+
+	<xs:simpleType name="RetryRecordServiceLocation">
+		<xs:annotation>
+			<xs:documentation>List of possible Retry record statuses
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Trip"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+</xs:schema>

@@ -1,11 +1,12 @@
 """Reservation API endpoints."""
 
-import logging
+import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_origin
+from backend.sabre.models import ReservationsResponse
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["reservations"])
 
 
@@ -16,7 +17,7 @@ def _strip_id(doc):
     return doc
 
 
-@router.get("/{flight_number}/reservations")
+@router.get("/{flight_number}/reservations", response_model=ReservationsResponse)
 def get_reservations(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),

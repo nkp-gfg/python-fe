@@ -25,25 +25,33 @@ Input JSON format:
 """
 
 from backend.feeder import storage
-from backend.feeder.converter import convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports
+from backend.feeder.converter import convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports, convert_schedule
 from backend.feeder.differ import detect_changes
 from backend.sabre.client import SabreClient, SabreError
 import json
 import sys
 import os
-import logging
 
+import structlog
 from dotenv import load_dotenv
 
 # Load .env from project root
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.dev.ConsoleRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger("INFO"),
+    context_class=dict,
+    logger_factory=structlog.PrintLoggerFactory(),
+    cache_logger_on_first_use=True,
 )
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 def _process_api_call(api_type, snapshot_type, flight_info,
@@ -127,9 +135,10 @@ def _process_api_call(api_type, snapshot_type, flight_info,
     storage.update_flight_state(airline, fn, origin, dep_date,
                                 snapshot_id, snapshot_type, summary)
 
-    logger.info("Pipeline complete: %s %s%s — snapshot=%s changes=%d%s",
-                api_type, airline, fn, snapshot_id[:8], num_changes,
-                " [no-change]" if is_dup else "")
+    logger.info("pipeline_complete",
+                api_type=api_type, flight=f"{airline}{fn}",
+                snapshot_id=snapshot_id[:8], changes=num_changes,
+                is_duplicate=is_dup)
 
     return {
         "apiType": api_type,
@@ -176,24 +185,28 @@ def run_feeder(flights):
                 "apis": {},
             }
 
-            logger.info("── Flight %d/%d: %s%s %s %s ──",
-                        i, len(flights), airline, fn, origin, dep_date)
+            logger.info("processing_flight",
+                        index=i, total=len(flights),
+                        flight=f"{airline}{fn}", origin=origin,
+                        departure_date=dep_date)
 
             # 1. Flight Status
             try:
-                raw, xml, meta = client.get_flight_status(airline, fn, origin)
+                raw, xml, meta = client.get_flight_status(
+                    airline, fn, origin, dep_date)
                 details = _process_api_call(
                     "FlightStatus", "flight_status", flight_info,
                     raw, xml, meta,
-                    convert_flight_status, (raw, airline, fn, origin),
+                    convert_flight_status, (raw, airline,
+                                            fn, origin, dep_date),
                 )
                 flight_result["apis"]["flightStatus"] = {
                     "status": "success",
                     **details,
                 }
             except SabreError as e:
-                logger.error("Flight status failed for %s%s: %s",
-                             airline, fn, e)
+                logger.error("flight_status_failed",
+                             flight=f"{airline}{fn}", error=str(e))
                 flight_result["success"] = False
                 flight_result["apis"]["flightStatus"] = {
                     "status": "error",
@@ -215,8 +228,8 @@ def run_feeder(flights):
                     **details,
                 }
             except SabreError as e:
-                logger.error("Passenger list failed for %s%s: %s",
-                             airline, fn, e)
+                logger.error("passenger_list_failed",
+                             flight=f"{airline}{fn}", error=str(e))
                 flight_result["success"] = False
                 flight_result["apis"]["passengerList"] = {
                     "status": "error",
@@ -237,8 +250,8 @@ def run_feeder(flights):
                     **details,
                 }
             except SabreError as e:
-                logger.error("Reservations failed for %s%s: %s",
-                             airline, fn, e)
+                logger.error("reservations_failed",
+                             flight=f"{airline}{fn}", error=str(e))
                 flight_result["success"] = False
                 flight_result["apis"]["reservations"] = {
                     "status": "error",
@@ -297,21 +310,67 @@ def run_feeder(flights):
                     "mlxDurationMs": mlx_meta["durationMs"],
                     "mlcDurationMs": mlc_meta["durationMs"],
                 }
-                logger.info("Trip reports complete: %s%s — cancelled=%d ever_booked=%d",
-                            airline, fn,
-                            merged.get("cancelledCount", 0),
-                            merged.get("everBookedCount", 0))
+                logger.info("trip_reports_complete",
+                            flight=f"{airline}{fn}",
+                            cancelled_count=merged.get("cancelledCount", 0),
+                            ever_booked_count=merged.get("everBookedCount", 0))
             except SabreError as e:
-                logger.warning("Trip reports failed for %s%s: %s (non-fatal)",
-                               airline, fn, e)
+                logger.warning("trip_reports_failed",
+                               flight=f"{airline}{fn}", error=str(e))
                 flight_result["apis"]["tripReports"] = {
+                    "status": "error",
+                    "error": str(e),
+                }
+
+            # 5. Flight Schedule (VerifyFlightDetailsLLSRQ)
+            try:
+                raw, xml, meta = client.verify_flight_details(
+                    airline, fn, dep_date, origin="", destination="")
+                schedule_doc = convert_schedule(raw, airline, fn, dep_date)
+
+                # Store raw request
+                storage.store_raw_request(
+                    api_type="FlightSchedule",
+                    flight_info=flight_info,
+                    request_xml=meta["requestXml"],
+                    response_xml=xml,
+                    response_json=raw,
+                    http_status=meta["httpStatus"],
+                    duration_ms=meta["durationMs"],
+                    session_token=meta.get("sessionToken"),
+                    conversation_id=meta.get("conversationId"),
+                )
+
+                # Store in dedicated collection
+                if schedule_doc.get("success"):
+                    storage.store_flight_schedule(schedule_doc)
+
+                flight_result["apis"]["schedule"] = {
+                    "status": "success" if schedule_doc.get("success") else "error",
+                    "durationMs": meta["durationMs"],
+                    "origin": schedule_doc.get("origin", ""),
+                    "destination": schedule_doc.get("destination", ""),
+                    "scheduledDeparture": schedule_doc.get("scheduledDeparture", ""),
+                    "scheduledArrival": schedule_doc.get("scheduledArrival", ""),
+                    "aircraftType": schedule_doc.get("aircraftType", ""),
+                    "error": schedule_doc.get("error"),
+                }
+                logger.info("schedule_complete",
+                            flight=f"{airline}{fn}",
+                            origin=schedule_doc.get("origin", ""),
+                            destination=schedule_doc.get("destination", ""),
+                            departure=schedule_doc.get("scheduledDeparture", ""))
+            except SabreError as e:
+                logger.warning("schedule_failed",
+                               flight=f"{airline}{fn}", error=str(e))
+                flight_result["apis"]["schedule"] = {
                     "status": "error",
                     "error": str(e),
                 }
 
             results.append(flight_result)
 
-    logger.info("Feeder run complete. Processed %d flight(s).", len(flights))
+    logger.info("feeder_run_complete", processed_flights=len(flights))
     return {
         "processedFlights": len(flights),
         "results": results,

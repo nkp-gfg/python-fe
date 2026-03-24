@@ -1,0 +1,410 @@
+------------------------------
+RQ 
+------------------------------
+<Trip_SearchRQ Version="4.5.0" xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" xmlns="http://webservices.sabre.com/triprecord">
+<ReadRequests>
+<ReservationReadRequest>
+     <LocatorCriteria>
+     <Locator Id="SSJJQD"/>
+     </LocatorCriteria>
+     <PosCriteria AirlineCode="EY"/>
+     <ReturnOptions ViewName="FullX" 
+            MaxItemsReturned="500"
+			ResponseFormat="STL"
+			SearchType="ACTIVE">
+     </ReturnOptions>
+</ReservationReadRequest>
+</ReadRequests>
+</Trip_SearchRQ>
+
+------------------------------
+RS
+------------------------------
+<Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord" xmlns:ns2="http://services.sabre.com/STL/v01" xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" xmlns:ns3="http://webservices.sabre.com/pnrbuilder" xmlns:ns6="http://tds.sabre.com/itinerary" xmlns:ns5="http://tds.sabre.com/rules" xmlns:ns8="http://services.sabre.com/STL/v02" xmlns:ns7="http://services.sabre.com/res/orr/v0" xmlns:ns13="http://www.sabre.com/eps/schemas" xmlns:tir37="http://services.sabre.com/res/tir/v3_7" xmlns:ns9="http://www.sabre.com/ssg/des/v1" xmlns:ns12="http://opentravel.org/common/v02" xmlns:ns11="http://www.OpenTravel.org/ns/OTA2/AppInfo_v01_00" xmlns:tir39="http://services.sabre.com/res/tir/v3_9" xmlns:ns10="http://services.sabre.com/STL_Header/v02_00" xmlns:stl114="http://webservices.sabre.com/pnrbuilder/v1_14" xmlns:ns15="http://webservices.sabre.com/servicesplatform/orr/rules/1.0.0" xmlns:ns14="http://tds.sabre.com/distribution" xmlns:stl115="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:or16="http://services.sabre.com/res/or/v1_6" xmlns:or17="http://services.sabre.com/res/or/v1_7" xmlns:or18="http://services.sabre.com/res/or/v1_8" xmlns:or19="http://services.sabre.com/res/or/v1_9" TimeStamp="2017-07-11T08:33:52" Target="Production" Version="4.5.0">
+<Success>Success</Success>
+<ReservationsList NumberResults="1" NumberPages="1" TotalResults="1">
+<Reservations>
+	<Reservation Locator="SSJJQD">
+		<stl115:GetReservationRS Version="1.15.0">
+			<stl115:Reservation numberInParty="9" numberOfInfants="0" NumberInSegment="9" isMultiCarrierPlatform="true">
+				<stl115:BookingDetails>
+					<stl115:Header>ETIHAD GUEST EXCLUSIVE</stl115:Header>
+					<stl115:RecordLocator>SSJJQD</stl115:RecordLocator>
+					<stl115:CreationTimestamp>2017-07-05T09:13:00</stl115:CreationTimestamp>
+					<stl115:SystemCreationTimestamp>2017-07-05T09:13:00</stl115:SystemCreationTimestamp>
+					<stl115:CreationAgentID>HS1</stl115:CreationAgentID>
+					<stl115:UpdateTimestamp>2017-07-11T08:33:40</stl115:UpdateTimestamp>
+					<stl115:PNRSequence>5</stl115:PNRSequence>
+					<stl115:FlightsRange Start="2017-07-15T02:25:00" End="2017-07-18T20:25:00"/>
+					<stl115:DivideSplitDetails/>
+					<stl115:EstimatedPurgeTimestamp>2017-08-17T00:00:00</stl115:EstimatedPurgeTimestamp>
+					<stl115:UpdateToken>4460d864cb2441134b968af8a87f2223ace243eb5c308a32</stl115:UpdateToken>
+				</stl115:BookingDetails>
+				<stl115:POS>
+					<stl115:Source BookingSource="A0A0" AgentSine="HS1" PseudoCityCode="HDQ" ISOCountry="US" AgentDutyCode="8" AirlineVendorID="EY" HomePseudoCityCode="HDQ"/>
+				</stl115:POS>
+				<stl115:PassengerReservation>
+					<stl115:Passengers>
+						<stl115:Passenger id="4" nameType="S" nameId="01.01" nameAssocId="1" elementId="pnr-4.1">
+							<stl115:LastName>GEBURTIG</stl115:LastName>
+							<stl115:FirstName>FRANCOIS</stl115:FirstName>
+							<stl115:FrequentFlyer id="5">
+								<stl115:SupplierCode>EY</stl115:SupplierCode>
+								<stl115:Number>300065471952</stl115:Number>
+								<stl115:TierLevelNumber>5</stl115:TierLevelNumber>
+								<stl115:ShortText>EXC</stl115:ShortText>
+								<stl115:ReceivingCarrierCode>EY</stl115:ReceivingCarrierCode>
+								<stl115:StatusCode>HK</stl115:StatusCode>
+							</stl115:FrequentFlyer>
+							<stl115:Seats>
+								<stl115:PreReservedSeats>
+									<stl115:PreReservedSeat id="7">
+										<stl115:SeatNumber>30A</stl115:SeatNumber>
+										<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+										<stl115:SeatTypeCode>WLMI</stl115:SeatTypeCode>
+										<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+									</stl115:PreReservedSeat>
+								</stl115:PreReservedSeats>
+							</stl115:Seats>
+						</stl115:Passenger>
+						<stl115:Passenger id="6" nameType="S" nameId="02.01" nameAssocId="2" elementId="pnr-6.2">
+							<stl115:LastName>TESTERS</stl115:LastName>
+							<stl115:FirstName>A</stl115:FirstName>
+							<stl115:Seats>
+								<stl115:PreReservedSeats>
+									<stl115:PreReservedSeat id="8">
+										<stl115:SeatNumber>30B</stl115:SeatNumber>
+										<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+										<stl115:SeatTypeCode>LM</stl115:SeatTypeCode>
+										<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+									</stl115:PreReservedSeat>
+								</stl115:PreReservedSeats>
+							</stl115:Seats>
+						</stl115:Passenger>
+						<stl115:Passenger id="6" nameType="S" nameId="02.02" nameAssocId="3" elementId="pnr-6.3">
+							<stl115:LastName>TESTERS</stl115:LastName>
+							<stl115:FirstName>B</stl115:FirstName>
+							<stl115:Seats>
+								<stl115:PreReservedSeats>
+									<stl115:PreReservedSeat id="9">
+										<stl115:SeatNumber>30C</stl115:SeatNumber>
+										<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+										<stl115:SeatTypeCode>ALM</stl115:SeatTypeCode>
+										<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+									</stl115:PreReservedSeat>
+								</stl115:PreReservedSeats>
+							</stl115:Seats>
+						</stl115:Passenger>
+						<stl115:Passenger id="6" nameType="S" nameId="02.03" nameAssocId="4" elementId="pnr-6.4">
+							<stl115:LastName>TESTERS</stl115:LastName>
+							<stl115:FirstName>C</stl115:FirstName>
+							<stl115:Seats>
+								<stl115:PreReservedSeats>
+									<stl115:PreReservedSeat id="10">
+										<stl115:SeatNumber>30D</stl115:SeatNumber>
+										<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+										<stl115:SeatTypeCode>AMI</stl115:SeatTypeCode>
+										<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+									</stl115:PreReservedSeat>
+								</stl115:PreReservedSeats>
+							</stl115:Seats>
+						</stl115:Passenger>
+						<stl115:Passenger id="6" nameType="S" nameId="02.04" nameAssocId="5" elementId="pnr-6.5">
+							<stl115:LastName>TESTERS</stl115:LastName>
+							<stl115:FirstName>D</stl115:FirstName>
+							<stl115:Seats>
+								<stl115:PreReservedSeats>
+									<stl115:PreReservedSeat id="11">
+										<stl115:SeatNumber>30E</stl115:SeatNumber>
+										<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+										<stl115:SeatTypeCode>M</stl115:SeatTypeCode>
+										<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+									</stl115:PreReservedSeat>
+								</stl115:PreReservedSeats>
+							</stl115:Seats>
+						</stl115:Passenger>
+						<stl115:Passenger id="6" nameType="S" nameId="02.05" nameAssocId="6" elementId="pnr-6.6">
+							<stl115:LastName>TESTERS</stl115:LastName>
+							<stl115:FirstName>F</stl115:FirstName>
+							<stl115:Seats>
+								<stl115:PreReservedSeats>
+									<stl115:PreReservedSeat id="12">
+										<stl115:SeatNumber>30F</stl115:SeatNumber>
+										<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+										<stl115:SeatTypeCode>M</stl115:SeatTypeCode>
+										<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+									</stl115:PreReservedSeat>
+								</stl115:PreReservedSeats>
+							</stl115:Seats>
+						</stl115:Passenger>
+						<stl115:Passenger id="6" nameType="S" nameId="02.06" nameAssocId="7" elementId="pnr-6.7">
+							<stl115:LastName>TESTERS</stl115:LastName>
+							<stl115:FirstName>E</stl115:FirstName>
+							<stl115:Seats>
+								<stl115:PreReservedSeats>
+									<stl115:PreReservedSeat id="13">
+										<stl115:SeatNumber>30G</stl115:SeatNumber>
+										<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+										<stl115:SeatTypeCode>AM</stl115:SeatTypeCode>
+										<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+									</stl115:PreReservedSeat>
+								</stl115:PreReservedSeats>
+							</stl115:Seats>
+						</stl115:Passenger>
+						<stl115:Passenger id="6" nameType="S" nameId="02.07" nameAssocId="8" elementId="pnr-6.8">
+							<stl115:LastName>TESTERS</stl115:LastName>
+							<stl115:FirstName>G</stl115:FirstName>
+							<stl115:Seats>
+								<stl115:PreReservedSeats>
+									<stl115:PreReservedSeat id="14">
+										<stl115:SeatNumber>30H</stl115:SeatNumber>
+										<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+										<stl115:SeatTypeCode>ARM</stl115:SeatTypeCode>
+										<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+									</stl115:PreReservedSeat>
+								</stl115:PreReservedSeats>
+							</stl115:Seats>
+						</stl115:Passenger>
+						<stl115:Passenger id="6" nameType="S" nameId="02.08" nameAssocId="9" elementId="pnr-6.9">
+							<stl115:LastName>TESTERS</stl115:LastName>
+							<stl115:FirstName>H</stl115:FirstName>
+							<stl115:Seats>
+								<stl115:PreReservedSeats>
+									<stl115:PreReservedSeat id="15">
+										<stl115:SeatNumber>30J</stl115:SeatNumber>
+										<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+										<stl115:SeatTypeCode>RM</stl115:SeatTypeCode>
+										<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+									</stl115:PreReservedSeat>
+								</stl115:PreReservedSeats>
+							</stl115:Seats>
+						</stl115:Passenger>
+					</stl115:Passengers>
+					<stl115:Segments>
+						<stl115:Poc>
+							<stl115:Airport>AUH</stl115:Airport>
+							<stl115:Departure>2017-07-15T02:25:00</stl115:Departure>
+						</stl115:Poc>
+						<stl115:Segment sequence="1" id="3">
+							<stl115:Air id="3" sequence="1" segmentAssociationId="2" isPast="false">
+								<stl115:DepartureAirport>AUH</stl115:DepartureAirport>
+								<stl115:DepartureAirportCodeContext>IATA</stl115:DepartureAirportCodeContext>
+								<stl115:ArrivalAirport>MUC</stl115:ArrivalAirport>
+								<stl115:ArrivalAirportCodeContext>IATA</stl115:ArrivalAirportCodeContext>
+								<stl115:OperatingAirlineCode>EY</stl115:OperatingAirlineCode>
+								<stl115:OperatingAirlineShortName>ETIHAD AIRWAYS</stl115:OperatingAirlineShortName>
+								<stl115:OperatingFlightNumber>0005</stl115:OperatingFlightNumber>
+								<stl115:EquipmentType>77W</stl115:EquipmentType>
+								<stl115:MarketingAirlineCode>EY</stl115:MarketingAirlineCode>
+								<stl115:MarketingFlightNumber>0005</stl115:MarketingFlightNumber>
+								<stl115:OperatingClassOfService>Y</stl115:OperatingClassOfService>
+								<stl115:MarketingClassOfService>Y</stl115:MarketingClassOfService>
+								<stl115:MarriageGrp>
+									<stl115:Ind>0</stl115:Ind>
+									<stl115:Group>0</stl115:Group>
+									<stl115:Sequence>0</stl115:Sequence>
+								</stl115:MarriageGrp>
+								<stl115:Seats>
+									<stl115:PreReservedSeats>
+										<stl115:PreReservedSeat id="7">
+											<stl115:SeatNumber>30A</stl115:SeatNumber>
+											<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+											<stl115:SeatTypeCode>WLMI</stl115:SeatTypeCode>
+											<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+										</stl115:PreReservedSeat>
+										<stl115:PreReservedSeat id="8">
+											<stl115:SeatNumber>30B</stl115:SeatNumber>
+											<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+											<stl115:SeatTypeCode>LM</stl115:SeatTypeCode>
+											<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+										</stl115:PreReservedSeat>
+										<stl115:PreReservedSeat id="9">
+											<stl115:SeatNumber>30C</stl115:SeatNumber>
+											<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+											<stl115:SeatTypeCode>ALM</stl115:SeatTypeCode>
+											<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+										</stl115:PreReservedSeat>
+										<stl115:PreReservedSeat id="10">
+											<stl115:SeatNumber>30D</stl115:SeatNumber>
+											<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+											<stl115:SeatTypeCode>AMI</stl115:SeatTypeCode>
+											<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+										</stl115:PreReservedSeat>
+										<stl115:PreReservedSeat id="11">
+											<stl115:SeatNumber>30E</stl115:SeatNumber>
+											<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+											<stl115:SeatTypeCode>M</stl115:SeatTypeCode>
+											<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+										</stl115:PreReservedSeat>
+										<stl115:PreReservedSeat id="12">
+											<stl115:SeatNumber>30F</stl115:SeatNumber>
+											<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+											<stl115:SeatTypeCode>M</stl115:SeatTypeCode>
+											<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+										</stl115:PreReservedSeat>
+										<stl115:PreReservedSeat id="13">
+											<stl115:SeatNumber>30G</stl115:SeatNumber>
+											<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+											<stl115:SeatTypeCode>AM</stl115:SeatTypeCode>
+											<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+										</stl115:PreReservedSeat>
+										<stl115:PreReservedSeat id="14">
+											<stl115:SeatNumber>30H</stl115:SeatNumber>
+											<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+											<stl115:SeatTypeCode>ARM</stl115:SeatTypeCode>
+											<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+										</stl115:PreReservedSeat>
+										<stl115:PreReservedSeat id="15">
+											<stl115:SeatNumber>30J</stl115:SeatNumber>
+											<stl115:SmokingPrefOfferedIndicator>false</stl115:SmokingPrefOfferedIndicator>
+											<stl115:SeatTypeCode>RM</stl115:SeatTypeCode>
+											<stl115:SeatStatusCode>HK</stl115:SeatStatusCode>
+										</stl115:PreReservedSeat>
+									</stl115:PreReservedSeats>
+								</stl115:Seats>
+								<stl115:Eticket>true</stl115:Eticket>
+								<stl115:DepartureDateTime>2017-07-15T02:25:00</stl115:DepartureDateTime>
+								<stl115:ArrivalDateTime>2017-07-15T07:00:00</stl115:ArrivalDateTime>
+								<stl115:FlightNumber>0005</stl115:FlightNumber>
+								<stl115:ClassOfService>Y</stl115:ClassOfService>
+								<stl115:ActionCode>HK</stl115:ActionCode>
+								<stl115:NumberInParty>9</stl115:NumberInParty>
+								<stl115:SegmentSpecialRequests/>
+								<stl115:inboundConnection>false</stl115:inboundConnection>
+								<stl115:outboundConnection>false</stl115:outboundConnection>
+								<stl115:ScheduleChangeIndicator>false</stl115:ScheduleChangeIndicator>
+								<stl115:SegmentBookedDate>2017-07-05T09:13:00</stl115:SegmentBookedDate>
+								<stl115:Pos>
+									<stl115:IataNumber>0</stl115:IataNumber>
+									<stl115:AgencyCityCode>HDQ</stl115:AgencyCityCode>
+									<stl115:CountryCode>US</stl115:CountryCode>
+									<stl115:DutyCode>8</stl115:DutyCode>
+								</stl115:Pos>
+							</stl115:Air>
+						</stl115:Segment>
+						<stl115:Segment sequence="2" id="25">
+							<stl115:Air id="25" sequence="2" segmentAssociationId="3" isPast="false">
+								<stl115:DepartureAirport>MUC</stl115:DepartureAirport>
+								<stl115:DepartureAirportCodeContext>IATA</stl115:DepartureAirportCodeContext>
+								<stl115:ArrivalAirport>AUH</stl115:ArrivalAirport>
+								<stl115:ArrivalAirportCodeContext>IATA</stl115:ArrivalAirportCodeContext>
+								<stl115:OperatingAirlineCode>EY</stl115:OperatingAirlineCode>
+								<stl115:OperatingAirlineShortName>ETIHAD AIRWAYS</stl115:OperatingAirlineShortName>
+								<stl115:OperatingFlightNumber>0006</stl115:OperatingFlightNumber>
+								<stl115:EquipmentType>77W</stl115:EquipmentType>
+								<stl115:MarketingAirlineCode>EY</stl115:MarketingAirlineCode>
+								<stl115:MarketingFlightNumber>0006</stl115:MarketingFlightNumber>
+								<stl115:OperatingClassOfService>D</stl115:OperatingClassOfService>
+								<stl115:MarketingClassOfService>D</stl115:MarketingClassOfService>
+								<stl115:MarriageGrp>
+									<stl115:Ind>0</stl115:Ind>
+									<stl115:Group>0</stl115:Group>
+									<stl115:Sequence>0</stl115:Sequence>
+								</stl115:MarriageGrp>
+								<stl115:Seats/>
+								<stl115:Eticket>true</stl115:Eticket>
+								<stl115:DepartureDateTime>2017-07-18T12:10:00</stl115:DepartureDateTime>
+								<stl115:ArrivalDateTime>2017-07-18T20:25:00</stl115:ArrivalDateTime>
+								<stl115:FlightNumber>0006</stl115:FlightNumber>
+								<stl115:ClassOfService>D</stl115:ClassOfService>
+								<stl115:ActionCode>HK</stl115:ActionCode>
+								<stl115:NumberInParty>9</stl115:NumberInParty>
+								<stl115:SegmentSpecialRequests/>
+								<stl115:inboundConnection>false</stl115:inboundConnection>
+								<stl115:outboundConnection>false</stl115:outboundConnection>
+								<stl115:ScheduleChangeIndicator>false</stl115:ScheduleChangeIndicator>
+								<stl115:SegmentBookedDate>2017-07-11T08:33:00</stl115:SegmentBookedDate>
+								<stl115:Pos>
+									<stl115:IataNumber>0</stl115:IataNumber>
+									<stl115:AgencyCityCode>HDQ</stl115:AgencyCityCode>
+									<stl115:CountryCode>US</stl115:CountryCode>
+									<stl115:DutyCode>8</stl115:DutyCode>
+								</stl115:Pos>
+							</stl115:Air>
+						</stl115:Segment>
+					</stl115:Segments>
+					<stl115:TicketingInfo>
+						<stl115:FutureTicketing id="22" index="1" elementId="pnr-22">
+							<stl115:Code>TAW</stl115:Code>
+						</stl115:FutureTicketing>
+					</stl115:TicketingInfo>
+					<stl115:ItineraryPricing/>
+				</stl115:PassengerReservation>
+				<stl115:ReceivedFrom>
+					<stl115:Name>P</stl115:Name>
+				</stl115:ReceivedFrom>
+				<stl115:PhoneNumbers>
+					<stl115:PhoneNumber id="17" index="1" elementId="pnr-17">
+						<stl115:CityCode>HDQ</stl115:CityCode>
+						<stl115:Number>P</stl115:Number>
+					</stl115:PhoneNumber>
+					<stl115:PhoneNumber id="21" index="2" elementId="pnr-21">
+						<stl115:CityCode>HDQ</stl115:CityCode>
+						<stl115:Number>1133-9999788-M</stl115:Number>
+					</stl115:PhoneNumber>
+				</stl115:PhoneNumbers>
+				<stl115:EmailAddresses/>
+				<stl115:History>
+					<stl115:HistoryTransaction>
+						<stl115:Signature SequenceNbr="2">
+							<stl115:HistoryTimestamp>2017-07-11T08:33:00</stl115:HistoryTimestamp>
+							<stl115:DutyCode>8</stl115:DutyCode>
+							<stl115:AgentSine>HQX</stl115:AgentSine>
+							<stl115:HomePCC>HDQ</stl115:HomePCC>
+							<stl115:AgencyPCC>HDQ</stl115:AgencyPCC>
+							<stl115:HistoryFrom>HENRY</stl115:HistoryFrom>
+						</stl115:Signature>
+						<stl115:ItineraryHistory>
+							<stl115:AirSegment>
+								<stl115:DepartureAirport>MUC</stl115:DepartureAirport>
+								<stl115:ArrivalAirport>AUH</stl115:ArrivalAirport>
+								<stl115:EquipmentType>77W</stl115:EquipmentType>
+								<stl115:MarketingAirlineCode>EY</stl115:MarketingAirlineCode>
+								<stl115:MarketingFlightNumber>0006</stl115:MarketingFlightNumber>
+								<stl115:DepartureDateTime>2017-07-18T12:10:00</stl115:DepartureDateTime>
+								<stl115:ArrivalDateTime>2017-07-18T20:25:00</stl115:ArrivalDateTime>
+								<stl115:FlightNumber>0006</stl115:FlightNumber>
+								<stl115:ClassOfService>D</stl115:ClassOfService>
+								<stl115:ActionCode>SS</stl115:ActionCode>
+								<stl115:NumberInParty>9</stl115:NumberInParty>
+								<stl115:HistoryAction>AS</stl115:HistoryAction>
+							</stl115:AirSegment>
+						</stl115:ItineraryHistory>
+					</stl115:HistoryTransaction>
+					<stl115:HistoryTransaction>
+						<stl115:Signature SequenceNbr="1">
+							<stl115:HistoryTimestamp>2017-07-11T08:31:00</stl115:HistoryTimestamp>
+							<stl115:DutyCode>8</stl115:DutyCode>
+							<stl115:AgentSine>HQX</stl115:AgentSine>
+							<stl115:HomePCC>HDQ</stl115:HomePCC>
+							<stl115:AgencyPCC>HDQ</stl115:AgencyPCC>
+							<stl115:HistoryFrom>HENRY</stl115:HistoryFrom>
+						</stl115:Signature>
+						<stl115:TicketingHistory>
+							<stl115:OriginalTicketDetails>T-</stl115:OriginalTicketDetails>
+							<stl115:TransactionIndicator>T</stl115:TransactionIndicator>
+							<stl115:AgencyLocation/>
+							<stl115:HistoryAction>X7</stl115:HistoryAction>
+						</stl115:TicketingHistory>
+						<stl115:TicketingHistory>
+							<stl115:OriginalTicketDetails>TAW/</stl115:OriginalTicketDetails>
+							<stl115:TransactionIndicator>TAW</stl115:TransactionIndicator>
+							<stl115:AgencyLocation/>
+							<stl115:HistoryAction>A7</stl115:HistoryAction>
+						</stl115:TicketingHistory>
+						<stl115:PhoneHistory>
+							<stl115:Location>M</stl115:Location>
+							<stl115:TJRCityCode>HDQ</stl115:TJRCityCode>
+							<stl115:CityCode/>
+							<stl115:Extension/>
+							<stl115:Number>1133-9999788</stl115:Number>
+							<stl115:HistoryAction>A9</stl115:HistoryAction>
+						</stl115:PhoneHistory>
+					</stl115:HistoryTransaction>
+				</stl115:History>
+			</stl115:Reservation>
+		</stl115:GetReservationRS>
+	</Reservation>
+</Reservations>
+</ReservationsList>
+</Trip_SearchRS>

@@ -1,0 +1,267 @@
+<SamplePayloads>
+	<!--Request-->
+	<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sec="http://schemas.xmlsoap.org/ws/2002/12/secext" xmlns:mes="http://www.ebxml.org/namespaces/messageHeader" xmlns:v4="http://services.sabre.com/checkin/getPassengerData/v4"> 
+		<soapenv:Header> 
+			<eb:MessageHeader eb:id="" eb:version="1.0" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"> 
+				<eb:From> 
+					<eb:PartyId eb:type="URI">Client</eb:PartyId> 
+				</eb:From> 
+				<eb:To> 
+					<eb:PartyId eb:type="URI">Server</eb:PartyId> 
+				</eb:To> 
+				<eb:CPAId>IPCC</eb:CPAId> 
+				<eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId> 
+				<eb:Service>CKI</eb:Service> 
+				<eb:Action>GetPassengerDataRQ</eb:Action> 
+				<eb:MessageData> 
+					<eb:MessageId>mid:1</eb:MessageId> 
+					<eb:Timestamp>2008-03-03T12:45:52</eb:Timestamp> 
+				</eb:MessageData> 
+			</eb:MessageHeader> 
+			<wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"> 
+				<wsse:BinarySecurityToken EncodingType="wsse:Base64Binary" valueType="String">${#TestSuite#BST}</wsse:BinarySecurityToken> 
+			</wsse:Security> 
+		</soapenv:Header> 
+		<soapenv:Body> 
+			<ns3:GetPassengerDataRQ validateCheckInRequirements="true" xmlns:ns2="http://services.sabre.com/STL/v3" xmlns:ns3="http://services.sabre.com/checkin/getPassengerData/v4">
+				<PNRLocator>FRJZGW</PNRLocator>
+				<Client>WEB</Client>
+			</ns3:GetPassengerDataRQ>
+
+		</soapenv:Body> 
+	</soapenv:Envelope>
+
+	<!--Response-->
+	<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+		<soap-env:Header>
+			<eb:MessageHeader eb:version="1.0" soap-env:mustUnderstand="1" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader">
+				<eb:From>
+					<eb:PartyId eb:type="URI">Server</eb:PartyId>
+				</eb:From>
+				<eb:To>
+					<eb:PartyId eb:type="URI">Client</eb:PartyId>
+				</eb:To>
+				<eb:CPAId>IPCC</eb:CPAId>
+				<eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId>
+				<eb:Service>CKI</eb:Service>
+				<eb:Action>GetPassengerDataRS</eb:Action>
+				<eb:MessageData>
+					<eb:MessageId>947643262032370151</eb:MessageId>
+					<eb:Timestamp>2017-01-05T07:16:43</eb:Timestamp>
+					<eb:RefToMessageId>mid:1</eb:RefToMessageId>
+				</eb:MessageData>
+			</eb:MessageHeader>
+			<wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+				<wsse:BinarySecurityToken valueType="String" EncodingType="wsse:Base64Binary">Shared/IDL:IceSess\/SessMgr:1\.0.IDL/Common/!ICESMS\/ACPCRTC!ICESMSLB\/CRT.LB!-3321899793193564794!1173906!0</wsse:BinarySecurityToken>
+			</wsse:Security>
+		</soap-env:Header>
+		<soap-env:Body>
+			<ns3:GetPassengerDataRS xmlns:ns2="http://services.sabre.com/STL/v3" xmlns:ns3="http://services.sabre.com/checkin/getPassengerData/v4">
+				<PassengerDataResponseList>
+					<PassengerDataResponse>
+						<LineNumber>1</LineNumber>
+						<LastName>JAMES</LastName>
+						<FirstName>DICK</FirstName>
+						<PassengerID>292DEA0D0001</PassengerID>
+						<PNRLocator nameAssociationID="1">FRJZGW</PNRLocator>
+						<GroupCode>AD2</GroupCode>
+						<BaggageRouteList>
+							<ns2:BaggageRoute>
+								<ns2:SegmentID>1</ns2:SegmentID>
+								<ns2:Airline>EY</ns2:Airline>
+								<ns2:Flight>655</ns2:Flight>
+								<ns2:BookingClass>Y</ns2:BookingClass>
+								<ns2:OperatingAirline>EY</ns2:OperatingAirline>
+								<ns2:OperatingFlight>655</ns2:OperatingFlight>
+								<ns2:Origin>AUH</ns2:Origin>
+								<ns2:Destination>CAI</ns2:Destination>
+								<ns2:DepartureDate>2017-01-11</ns2:DepartureDate>
+								<ns2:DepartureTime>09:25PM</ns2:DepartureTime>
+								<ns2:ArrivalDate>2017-01-11</ns2:ArrivalDate>
+								<ns2:ArrivalTime>11:35PM</ns2:ArrivalTime>
+								<ns2:SegmentStatus>HK</ns2:SegmentStatus>
+								<ns2:PassengerID>292DEA0D0001</ns2:PassengerID>
+							</ns2:BaggageRoute>
+						</BaggageRouteList>
+						<PassengerItineraryList>
+							<PassengerItinerary>
+								<SegmentID>1</SegmentID>
+								<Airline>EY</Airline>
+								<Flight>655</Flight>
+								<BookingClass>Y</BookingClass>
+								<Origin>AUH</Origin>
+								<Destination>CAI</Destination>
+								<DepartureDate>2017-01-11</DepartureDate>
+								<AircraftType>320</AircraftType>
+								<Cabin>Y</Cabin>
+								<PassengerType>F</PassengerType>
+								<BagCount>0</BagCount>
+								<TotalBagWeightAndUnit>0</TotalBagWeightAndUnit>
+								<EditCodeList>
+									<ns2:EditCode>M</ns2:EditCode>
+								</EditCodeList>
+								<RequiredInfoList>
+									<RequiredInfo>
+										<Code>DOCS</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>!DOCS REQUIRED</FreeText>
+									</RequiredInfo>
+									<RequiredInfo>
+										<Code>APP</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>AE -!NO APP RESULT - PERFORM GAPP ENTRY</FreeText>
+									</RequiredInfo>
+									<RequiredInfo>
+										<Code>DOCV</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>!VERIFY TRAVEL DOCUMENT DATA, THEN ADD DOCV</FreeText>
+									</RequiredInfo>
+									<RequiredInfo>
+										<Code>DOCS</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>!MUST ENTER DOCS BEFORE DOCV</FreeText>
+									</RequiredInfo>
+									<RequiredInfo>
+										<Code>TIM</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>TIM-TIMATIC STATUS REQUIRED</FreeText>
+									</RequiredInfo>
+								</RequiredInfoList>
+							</PassengerItinerary>
+						</PassengerItineraryList>
+						<RequiredInfoSumList>
+							<RequiredInfo>
+								<Code>DOCS</Code>
+								<DetailStatus>ValidationRequired</DetailStatus>
+								<FreeText>!DOCS REQUIRED</FreeText>
+							</RequiredInfo>
+							<RequiredInfo>
+								<Code>APP</Code>
+								<DetailStatus>ValidationRequired</DetailStatus>
+								<FreeText>AE -!NO APP RESULT - PERFORM GAPP ENTRY</FreeText>
+							</RequiredInfo>
+							<RequiredInfo>
+								<Code>DOCV</Code>
+								<DetailStatus>ValidationRequired</DetailStatus>
+								<FreeText>!VERIFY TRAVEL DOCUMENT DATA, THEN ADD DOCV</FreeText>
+							</RequiredInfo>
+							<RequiredInfo>
+								<Code>TIM</Code>
+								<DetailStatus>ValidationRequired</DetailStatus>
+								<FreeText>TIM-TIMATIC STATUS REQUIRED</FreeText>
+							</RequiredInfo>
+						</RequiredInfoSumList>
+					</PassengerDataResponse>
+					<PassengerDataResponse>
+						<LineNumber>2</LineNumber>
+						<LastName>SHAN</LastName>
+						<FirstName>OTY</FirstName>
+						<PassengerID>292DEA0D0002</PassengerID>
+						<PNRLocator nameAssociationID="2">FRJZGW</PNRLocator>
+						<GroupCode>AD2</GroupCode>
+						<BaggageRouteList>
+							<ns2:BaggageRoute>
+								<ns2:SegmentID>1</ns2:SegmentID>
+								<ns2:Airline>EY</ns2:Airline>
+								<ns2:Flight>655</ns2:Flight>
+								<ns2:BookingClass>Y</ns2:BookingClass>
+								<ns2:OperatingAirline>EY</ns2:OperatingAirline>
+								<ns2:OperatingFlight>655</ns2:OperatingFlight>
+								<ns2:Origin>AUH</ns2:Origin>
+								<ns2:Destination>CAI</ns2:Destination>
+								<ns2:DepartureDate>2017-01-11</ns2:DepartureDate>
+								<ns2:DepartureTime>09:25PM</ns2:DepartureTime>
+								<ns2:ArrivalDate>2017-01-11</ns2:ArrivalDate>
+								<ns2:ArrivalTime>11:35PM</ns2:ArrivalTime>
+								<ns2:SegmentStatus>HK</ns2:SegmentStatus>
+								<ns2:PassengerID>292DEA0D0002</ns2:PassengerID>
+							</ns2:BaggageRoute>
+						</BaggageRouteList>
+						<PassengerItineraryList>
+							<PassengerItinerary>
+								<SegmentID>1</SegmentID>
+								<Airline>EY</Airline>
+								<Flight>655</Flight>
+								<BookingClass>Y</BookingClass>
+								<Origin>AUH</Origin>
+								<Destination>CAI</Destination>
+								<DepartureDate>2017-01-11</DepartureDate>
+								<AircraftType>320</AircraftType>
+								<Cabin>Y</Cabin>
+								<PassengerType>F</PassengerType>
+								<BagCount>0</BagCount>
+								<TotalBagWeightAndUnit>0</TotalBagWeightAndUnit>
+								<RequiredInfoList>
+									<RequiredInfo>
+										<Code>DOCS</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>!DOCS REQUIRED</FreeText>
+									</RequiredInfo>
+									<RequiredInfo>
+										<Code>APP</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>AE -!NO APP RESULT - PERFORM GAPP ENTRY</FreeText>
+									</RequiredInfo>
+									<RequiredInfo>
+										<Code>GENDER</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>ENTER GENDER FOR PSGR</FreeText>
+									</RequiredInfo>
+									<RequiredInfo>
+										<Code>DOCV</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>!VERIFY TRAVEL DOCUMENT DATA, THEN ADD DOCV</FreeText>
+									</RequiredInfo>
+									<RequiredInfo>
+										<Code>DOCS</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>!MUST ENTER DOCS BEFORE DOCV</FreeText>
+									</RequiredInfo>
+									<RequiredInfo>
+										<Code>TIM</Code>
+										<DetailStatus>ValidationRequired</DetailStatus>
+										<FreeText>TIM-TIMATIC STATUS REQUIRED</FreeText>
+									</RequiredInfo>
+								</RequiredInfoList>
+							</PassengerItinerary>
+						</PassengerItineraryList>
+						<RequiredInfoSumList>
+							<RequiredInfo>
+								<Code>DOCS</Code>
+								<DetailStatus>ValidationRequired</DetailStatus>
+								<FreeText>!DOCS REQUIRED</FreeText>
+							</RequiredInfo>
+							<RequiredInfo>
+								<Code>APP</Code>
+								<DetailStatus>ValidationRequired</DetailStatus>
+								<FreeText>AE -!NO APP RESULT - PERFORM GAPP ENTRY</FreeText>
+							</RequiredInfo>
+							<RequiredInfo>
+								<Code>GENDER</Code>
+								<DetailStatus>ValidationRequired</DetailStatus>
+								<FreeText>ENTER GENDER FOR PSGR</FreeText>
+							</RequiredInfo>
+							<RequiredInfo>
+								<Code>DOCV</Code>
+								<DetailStatus>ValidationRequired</DetailStatus>
+								<FreeText>!VERIFY TRAVEL DOCUMENT DATA, THEN ADD DOCV</FreeText>
+							</RequiredInfo>
+							<RequiredInfo>
+								<Code>TIM</Code>
+								<DetailStatus>ValidationRequired</DetailStatus>
+								<FreeText>TIM-TIMATIC STATUS REQUIRED</FreeText>
+							</RequiredInfo>
+						</RequiredInfoSumList>
+					</PassengerDataResponse>
+				</PassengerDataResponseList>
+				<Result messageId="ID-acs-int2-sgdcelab-sabre-com-46224-1484091726262-2-127074" timeStamp="2017-01-11T07:15:40.989Z">
+					<ns2:Status>Success</ns2:Status>
+					<ns2:CompletionStatus>Complete</ns2:CompletionStatus>
+					<ns2:System>ACS-BSO</ns2:System>
+				</Result>
+			</ns3:GetPassengerDataRS>
+
+		</soap-env:Body>
+	</soap-env:Envelope>
+
+</SamplePayloads>

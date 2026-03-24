@@ -1,0 +1,13 @@
+<Trip_ReportsRQ Version="1.3.0" xmlns="http://webservices.sabre.com/triprecord">
+	<Report>
+		<ReportName>BST</ReportName>
+		<Criteria>
+			<FlightCriteria>
+				<AirlineCode>LA</AirlineCode>
+				<FlightNumber>125</FlightNumber>            
+				<DepartureDateTime>2018-01-20</DepartureDateTime>
+			</FlightCriteria>
+			<PosCriteria>LA</PosCriteria>
+		</Criteria>
+	</Report>
+</Trip_ReportsRQ>

@@ -1,0 +1,444 @@
+------------------------------
+RQ. Search by AS Past Date PNR by PNR record locator, with STL response format expected. 
+------------------------------
+<Trip_SearchRQ Version="4.5.0" xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" xmlns="http://webservices.sabre.com/triprecord">
+<ReadRequests>
+<ReservationReadRequest>
+<LocatorCriteria>
+     <Locator Id="XAQRZZ"/>
+</LocatorCriteria>
+<PosCriteria AirlineCode="EY"/>
+<ReturnOptions ViewName="TripSearchBlob" 
+                    MaxItemsReturned="500" 
+                    ResponseFormat="STL"
+                    SearchType="INACTIVE"/> 
+</ReservationReadRequest>
+</ReadRequests>
+</Trip_SearchRQ>
+</soapenv:Body>
+</soapenv:Envelope>
+
+
+
+------------------------------
+RS. The response lists only the indicated PNR, e.g. in the header it is reflected this is a Past Date PNR. 
+------------------------------
+     <Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord" xmlns:ns2="http://services.sabre.com/STL/v01" xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" xmlns:ns3="http://webservices.sabre.com/pnrbuilder" xmlns:ns6="http://tds.sabre.com/itinerary" xmlns:ns5="http://tds.sabre.com/rules" xmlns:ns8="http://services.sabre.com/STL/v02" xmlns:ns7="http://services.sabre.com/res/orr/v0" xmlns:ns13="http://www.sabre.com/eps/schemas" xmlns:tir37="http://services.sabre.com/res/tir/v3_7" xmlns:ns9="http://www.sabre.com/ssg/des/v1" xmlns:ns12="http://opentravel.org/common/v02" xmlns:ns11="http://www.OpenTravel.org/ns/OTA2/AppInfo_v01_00" xmlns:tir39="http://services.sabre.com/res/tir/v3_9" xmlns:ns10="http://services.sabre.com/STL_Header/v02_00" xmlns:stl114="http://webservices.sabre.com/pnrbuilder/v1_14" xmlns:ns15="http://webservices.sabre.com/servicesplatform/orr/rules/1.0.0" xmlns:ns14="http://tds.sabre.com/distribution" xmlns:stl115="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:stl117="http://webservices.sabre.com/pnrbuilder/v1_17" xmlns:or111="http://services.sabre.com/res/or/v1_11" xmlns:or16="http://services.sabre.com/res/or/v1_6" xmlns:or17="http://services.sabre.com/res/or/v1_7" xmlns:or18="http://services.sabre.com/res/or/v1_8" xmlns:or19="http://services.sabre.com/res/or/v1_9" TimeStamp="2019-06-12T10:05:01" Target="Production" Version="4.5.0">
+            <Success>Success</Success>
+            <ReservationsList NumberResults="1" NumberPages="1" TotalResults="1">
+                <Reservations>
+                    <Reservation Locator="XAQRZZ" PastDate="true" PurgeDate="2019-02-01T00:00:00">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.19.0">
+                            <stl19:Reservation NumberInSegment="3" isMultiCarrierPlatform="true" numberInParty="3" numberOfInfants="0">
+                                <stl19:BookingDetails>
+                                    <stl19:RecordLocator>XAQRZZ</stl19:RecordLocator>
+                                    <stl19:CreationTimestamp>2018-12-03T06:34:00</stl19:CreationTimestamp>
+                                    <stl19:SystemCreationTimestamp>2018-12-03T06:34:00</stl19:SystemCreationTimestamp>
+                                    <stl19:CreationAgentID>HL5</stl19:CreationAgentID>
+                                    <stl19:UpdateTimestamp>2018-12-31T21:18:27</stl19:UpdateTimestamp>
+                                    <stl19:PNRSequence>3</stl19:PNRSequence>
+                                    <stl19:FlightsRange End="2019-01-03T06:25:00" Start="2019-01-02T09:15:00"/>
+                                    <stl19:DivideSplitDetails/>
+                                    <stl19:EstimatedPurgeTimestamp>2019-02-01T00:00:00</stl19:EstimatedPurgeTimestamp>
+                                    <stl19:UpdateToken>-6094a2275888c081b5c8933cc6374c911494687f57cc5c36</stl19:UpdateToken>
+                                </stl19:BookingDetails>
+                                <stl19:POS>
+                                    <stl19:Source AgentDutyCode="5" AgentSine="HL5" AirlineVendorID="EY" BookingSource="A0A0" HomePseudoCityCode="HDQ" ISOCountry="US" PseudoCityCode="HDQ"/>
+                                </stl19:POS>
+                                <stl19:PassengerReservation>
+                                    <stl19:Passengers>
+                                        <stl19:Passenger elementId="pnr-3.1" id="3" nameAssocId="1" nameId="01.01" nameType="S">
+                                            <stl19:LastName>OXIS</stl19:LastName>
+                                            <stl19:FirstName>NST</stl19:FirstName>
+                                            <stl19:SpecialRequests>
+                                                <stl19:GenericSpecialRequest id="22" msgType="S" type="A">
+                                                    <stl19:Code>AUTO</stl19:Code>
+                                                    <stl19:FreeText>/RBD</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>3</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                    <stl19:FullText>AUTO EY 450Y2JAN/RBD NN3</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                            </stl19:SpecialRequests>
+                                            <stl19:Seats>
+                                                <stl19:PreReservedSeats>
+                                                    <stl19:PreReservedSeat id="19">
+                                                        <stl19:SeatNumber>48H</stl19:SeatNumber>
+                                                        <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                        <stl19:SeatTypeCode>ARM</stl19:SeatTypeCode>
+                                                        <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                        <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                        <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                    </stl19:PreReservedSeat>
+                                                </stl19:PreReservedSeats>
+                                            </stl19:Seats>
+                                            <stl19:AncillaryServices>
+                                                <stl19:AncillaryService elementId="pnr-13" id="13" sequenceNumber="1">
+                                                    <stl19:CommercialName>PRE RESERVED SEAT ASSIGNMENT</stl19:CommercialName>
+                                                    <stl19:RficCode>A</stl19:RficCode>
+                                                    <stl19:RficSubcode>0B5</stl19:RficSubcode>
+                                                    <stl19:OwningCarrierCode>EY</stl19:OwningCarrierCode>
+                                                    <stl19:BookingIndicator>  </stl19:BookingIndicator>
+                                                    <stl19:Vendor>ATP</stl19:Vendor>
+                                                    <stl19:EMDType>2</stl19:EMDType>
+                                                    <stl19:EquivalentPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:EquivalentPrice>
+                                                    <stl19:TTLPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TTLPrice>
+                                                    <stl19:OriginalBasePrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:OriginalBasePrice>
+                                                    <stl19:RefundIndicator>N</stl19:RefundIndicator>
+                                                    <stl19:CommisionIndicator>N</stl19:CommisionIndicator>
+                                                    <stl19:InterlineIndicator>N</stl19:InterlineIndicator>
+                                                    <stl19:FeeApplicationIndicator> </stl19:FeeApplicationIndicator>
+                                                    <stl19:PassengerTypeCode>ADT</stl19:PassengerTypeCode>
+                                                    <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                    <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                    <stl19:TotalOriginalBasePrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TotalOriginalBasePrice>
+                                                    <stl19:TotalEquivalentPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TotalEquivalentPrice>
+                                                    <stl19:TotalTTLPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TotalTTLPrice>
+                                                    <stl19:NumberOfItems>1</stl19:NumberOfItems>
+                                                    <stl19:ActionCode>HK</stl19:ActionCode>
+                                                    <stl19:SegmentIndicator>S</stl19:SegmentIndicator>
+                                                    <stl19:BookingSource>0</stl19:BookingSource>
+                                                    <stl19:TicketingIndicator>0</stl19:TicketingIndicator>
+                                                    <stl19:PdcSeat>48H</stl19:PdcSeat>
+                                                    <stl19:FirstTravelDate>190102</stl19:FirstTravelDate>
+                                                    <stl19:LastTravelDate>190103</stl19:LastTravelDate>
+                                                    <stl19:PurchaseTimestamp>2019-01-01T00:00:00</stl19:PurchaseTimestamp>
+                                                    <stl19:GroupCode>SA</stl19:GroupCode>
+                                                    <stl19:TicketUsedForEMDPricing>N</stl19:TicketUsedForEMDPricing>
+                                                    <stl19:EMDConsummedAtIssuance> </stl19:EMDConsummedAtIssuance>
+                                                    <stl19:PaperDocRequired>N</stl19:PaperDocRequired>
+                                                    <stl19:TaxExemption>N</stl19:TaxExemption>
+                                                    <stl19:ACSCount>0</stl19:ACSCount>
+                                                    <stl19:Segment id="7" sequence="1">
+                                                        <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                        <stl19:FlightNumber>0450</stl19:FlightNumber>
+                                                        <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                        <stl19:DepartureDate>2019-01-02</stl19:DepartureDate>
+                                                        <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                        <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                        <stl19:MarketingCarrier>EY</stl19:MarketingCarrier>
+                                                        <stl19:OperatingCarrier>EY</stl19:OperatingCarrier>
+                                                    </stl19:Segment>
+                                                </stl19:AncillaryService>
+                                            </stl19:AncillaryServices>
+                                        </stl19:Passenger>
+                                        <stl19:Passenger elementId="pnr-4.2" id="4" nameAssocId="2" nameId="02.01" nameType="S">
+                                            <stl19:LastName>SMEU</stl19:LastName>
+                                            <stl19:FirstName>NPZ</stl19:FirstName>
+                                            <stl19:SpecialRequests>
+                                                <stl19:GenericSpecialRequest id="22" msgType="S" type="A">
+                                                    <stl19:Code>AUTO</stl19:Code>
+                                                    <stl19:FreeText>/RBD</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>3</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                    <stl19:FullText>AUTO EY 450Y2JAN/RBD NN3</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                            </stl19:SpecialRequests>
+                                            <stl19:Seats>
+                                                <stl19:PreReservedSeats>
+                                                    <stl19:PreReservedSeat id="20">
+                                                        <stl19:SeatNumber>48J</stl19:SeatNumber>
+                                                        <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                        <stl19:SeatTypeCode>RM</stl19:SeatTypeCode>
+                                                        <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                        <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                        <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                    </stl19:PreReservedSeat>
+                                                </stl19:PreReservedSeats>
+                                            </stl19:Seats>
+                                            <stl19:AncillaryServices>
+                                                <stl19:AncillaryService elementId="pnr-15" id="15" sequenceNumber="2">
+                                                    <stl19:CommercialName>PRE RESERVED SEAT ASSIGNMENT</stl19:CommercialName>
+                                                    <stl19:RficCode>A</stl19:RficCode>
+                                                    <stl19:RficSubcode>0B5</stl19:RficSubcode>
+                                                    <stl19:OwningCarrierCode>EY</stl19:OwningCarrierCode>
+                                                    <stl19:BookingIndicator>  </stl19:BookingIndicator>
+                                                    <stl19:Vendor>ATP</stl19:Vendor>
+                                                    <stl19:EMDType>2</stl19:EMDType>
+                                                    <stl19:EquivalentPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:EquivalentPrice>
+                                                    <stl19:TTLPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TTLPrice>
+                                                    <stl19:OriginalBasePrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:OriginalBasePrice>
+                                                    <stl19:RefundIndicator>N</stl19:RefundIndicator>
+                                                    <stl19:CommisionIndicator>N</stl19:CommisionIndicator>
+                                                    <stl19:InterlineIndicator>N</stl19:InterlineIndicator>
+                                                    <stl19:FeeApplicationIndicator> </stl19:FeeApplicationIndicator>
+                                                    <stl19:PassengerTypeCode>ADT</stl19:PassengerTypeCode>
+                                                    <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                    <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                    <stl19:TotalOriginalBasePrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TotalOriginalBasePrice>
+                                                    <stl19:TotalEquivalentPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TotalEquivalentPrice>
+                                                    <stl19:TotalTTLPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TotalTTLPrice>
+                                                    <stl19:NumberOfItems>1</stl19:NumberOfItems>
+                                                    <stl19:ActionCode>HK</stl19:ActionCode>
+                                                    <stl19:SegmentIndicator>S</stl19:SegmentIndicator>
+                                                    <stl19:BookingSource>0</stl19:BookingSource>
+                                                    <stl19:TicketingIndicator>0</stl19:TicketingIndicator>
+                                                    <stl19:PdcSeat>48J</stl19:PdcSeat>
+                                                    <stl19:FirstTravelDate>190102</stl19:FirstTravelDate>
+                                                    <stl19:LastTravelDate>190103</stl19:LastTravelDate>
+                                                    <stl19:PurchaseTimestamp>2019-01-01T00:00:00</stl19:PurchaseTimestamp>
+                                                    <stl19:GroupCode>SA</stl19:GroupCode>
+                                                    <stl19:TicketUsedForEMDPricing>N</stl19:TicketUsedForEMDPricing>
+                                                    <stl19:EMDConsummedAtIssuance> </stl19:EMDConsummedAtIssuance>
+                                                    <stl19:PaperDocRequired>N</stl19:PaperDocRequired>
+                                                    <stl19:TaxExemption>N</stl19:TaxExemption>
+                                                    <stl19:ACSCount>0</stl19:ACSCount>
+                                                    <stl19:Segment id="7" sequence="1">
+                                                        <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                        <stl19:FlightNumber>0450</stl19:FlightNumber>
+                                                        <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                        <stl19:DepartureDate>2019-01-02</stl19:DepartureDate>
+                                                        <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                        <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                        <stl19:MarketingCarrier>EY</stl19:MarketingCarrier>
+                                                        <stl19:OperatingCarrier>EY</stl19:OperatingCarrier>
+                                                    </stl19:Segment>
+                                                </stl19:AncillaryService>
+                                            </stl19:AncillaryServices>
+                                        </stl19:Passenger>
+                                        <stl19:Passenger elementId="pnr-5.3" id="5" nameAssocId="3" nameId="03.01" nameType="S">
+                                            <stl19:LastName>ZHFM</stl19:LastName>
+                                            <stl19:FirstName>BPK</stl19:FirstName>
+                                            <stl19:Profiles>
+                                                <stl19:Profile id="12">
+                                                    <stl19:ProfileID>CREATETVLPROFILE1PSGRSTFULPSGRID</stl19:ProfileID>
+                                                    <stl19:ProfileType>TVL</stl19:ProfileType>
+                                                </stl19:Profile>
+                                            </stl19:Profiles>
+                                            <stl19:SpecialRequests>
+                                                <stl19:GenericSpecialRequest id="22" msgType="S" type="A">
+                                                    <stl19:Code>AUTO</stl19:Code>
+                                                    <stl19:FreeText>/RBD</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>3</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                    <stl19:FullText>AUTO EY 450Y2JAN/RBD NN3</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                            </stl19:SpecialRequests>
+                                            <stl19:Seats>
+                                                <stl19:PreReservedSeats>
+                                                    <stl19:PreReservedSeat id="21">
+                                                        <stl19:SeatNumber>48K</stl19:SeatNumber>
+                                                        <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                        <stl19:SeatTypeCode>WRMI</stl19:SeatTypeCode>
+                                                        <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                        <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                        <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                    </stl19:PreReservedSeat>
+                                                </stl19:PreReservedSeats>
+                                            </stl19:Seats>
+                                            <stl19:AncillaryServices>
+                                                <stl19:AncillaryService elementId="pnr-17" id="17" sequenceNumber="3">
+                                                    <stl19:CommercialName>PRE RESERVED SEAT ASSIGNMENT</stl19:CommercialName>
+                                                    <stl19:RficCode>A</stl19:RficCode>
+                                                    <stl19:RficSubcode>0B5</stl19:RficSubcode>
+                                                    <stl19:OwningCarrierCode>EY</stl19:OwningCarrierCode>
+                                                    <stl19:BookingIndicator>  </stl19:BookingIndicator>
+                                                    <stl19:Vendor>ATP</stl19:Vendor>
+                                                    <stl19:EMDType>2</stl19:EMDType>
+                                                    <stl19:EquivalentPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:EquivalentPrice>
+                                                    <stl19:TTLPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TTLPrice>
+                                                    <stl19:OriginalBasePrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:OriginalBasePrice>
+                                                    <stl19:RefundIndicator>N</stl19:RefundIndicator>
+                                                    <stl19:CommisionIndicator>N</stl19:CommisionIndicator>
+                                                    <stl19:InterlineIndicator>N</stl19:InterlineIndicator>
+                                                    <stl19:FeeApplicationIndicator> </stl19:FeeApplicationIndicator>
+                                                    <stl19:PassengerTypeCode>ADT</stl19:PassengerTypeCode>
+                                                    <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                    <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                    <stl19:TotalOriginalBasePrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TotalOriginalBasePrice>
+                                                    <stl19:TotalEquivalentPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TotalEquivalentPrice>
+                                                    <stl19:TotalTTLPrice>
+                                                        <stl19:Price>0</stl19:Price>
+                                                        <stl19:Currency>USD</stl19:Currency>
+                                                    </stl19:TotalTTLPrice>
+                                                    <stl19:NumberOfItems>1</stl19:NumberOfItems>
+                                                    <stl19:ActionCode>HK</stl19:ActionCode>
+                                                    <stl19:SegmentIndicator>S</stl19:SegmentIndicator>
+                                                    <stl19:BookingSource>0</stl19:BookingSource>
+                                                    <stl19:TicketingIndicator>0</stl19:TicketingIndicator>
+                                                    <stl19:PdcSeat>48K</stl19:PdcSeat>
+                                                    <stl19:FirstTravelDate>190102</stl19:FirstTravelDate>
+                                                    <stl19:LastTravelDate>190103</stl19:LastTravelDate>
+                                                    <stl19:PurchaseTimestamp>2019-01-01T00:00:00</stl19:PurchaseTimestamp>
+                                                    <stl19:GroupCode>SA</stl19:GroupCode>
+                                                    <stl19:TicketUsedForEMDPricing>N</stl19:TicketUsedForEMDPricing>
+                                                    <stl19:EMDConsummedAtIssuance> </stl19:EMDConsummedAtIssuance>
+                                                    <stl19:PaperDocRequired>N</stl19:PaperDocRequired>
+                                                    <stl19:TaxExemption>N</stl19:TaxExemption>
+                                                    <stl19:ACSCount>0</stl19:ACSCount>
+                                                    <stl19:Segment id="7" sequence="1">
+                                                        <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                        <stl19:FlightNumber>0450</stl19:FlightNumber>
+                                                        <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                        <stl19:DepartureDate>2019-01-02</stl19:DepartureDate>
+                                                        <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                        <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                        <stl19:MarketingCarrier>EY</stl19:MarketingCarrier>
+                                                        <stl19:OperatingCarrier>EY</stl19:OperatingCarrier>
+                                                    </stl19:Segment>
+                                                </stl19:AncillaryService>
+                                            </stl19:AncillaryServices>
+                                        </stl19:Passenger>
+                                    </stl19:Passengers>
+                                    <stl19:Segments>
+                                        <stl19:Poc>
+                                            <stl19:Airport>AUH</stl19:Airport>
+                                            <stl19:Departure>2019-01-02T09:15:00</stl19:Departure>
+                                        </stl19:Poc>
+                                        <stl19:Air SpecialMeal="false" id="7" isPast="true" segmentAssociationId="2" sequence="1">
+                                            <stl19:DepartureAirport>AUH</stl19:DepartureAirport>
+                                            <stl19:DepartureAirportCodeContext>IATA</stl19:DepartureAirportCodeContext>
+                                            <stl19:ArrivalAirport>SYD</stl19:ArrivalAirport>
+                                            <stl19:ArrivalAirportCodeContext>IATA</stl19:ArrivalAirportCodeContext>
+                                            <stl19:OperatingAirlineCode>EY</stl19:OperatingAirlineCode>
+                                            <stl19:OperatingAirlineShortName>ETIHAD AIRWAYS</stl19:OperatingAirlineShortName>
+                                            <stl19:OperatingFlightNumber>0450</stl19:OperatingFlightNumber>
+                                            <stl19:EquipmentType>388</stl19:EquipmentType>
+                                            <stl19:MarketingAirlineCode>EY</stl19:MarketingAirlineCode>
+                                            <stl19:MarketingFlightNumber>0450</stl19:MarketingFlightNumber>
+                                            <stl19:OperatingClassOfService>Y</stl19:OperatingClassOfService>
+                                            <stl19:MarketingClassOfService>Y</stl19:MarketingClassOfService>
+                                            <stl19:MarriageGrp>
+                                                <stl19:Ind>0</stl19:Ind>
+                                                <stl19:Group>0</stl19:Group>
+                                                <stl19:Sequence>0</stl19:Sequence>
+                                            </stl19:MarriageGrp>
+                                            <stl19:Seats>
+                                                <stl19:PreReservedSeats>
+                                                    <stl19:PreReservedSeat id="19">
+                                                        <stl19:SeatNumber>48H</stl19:SeatNumber>
+                                                        <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                        <stl19:SeatTypeCode>ARM</stl19:SeatTypeCode>
+                                                        <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                        <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                        <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                    </stl19:PreReservedSeat>
+                                                    <stl19:PreReservedSeat id="20">
+                                                        <stl19:SeatNumber>48J</stl19:SeatNumber>
+                                                        <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                        <stl19:SeatTypeCode>RM</stl19:SeatTypeCode>
+                                                        <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                        <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                        <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                    </stl19:PreReservedSeat>
+                                                    <stl19:PreReservedSeat id="21">
+                                                        <stl19:SeatNumber>48K</stl19:SeatNumber>
+                                                        <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                        <stl19:SeatTypeCode>WRMI</stl19:SeatTypeCode>
+                                                        <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                        <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                        <stl19:OffPoint>SYD</stl19:OffPoint>
+                                                    </stl19:PreReservedSeat>
+                                                </stl19:PreReservedSeats>
+                                            </stl19:Seats>
+                                            <stl19:Eticket>true</stl19:Eticket>
+                                            <stl19:DepartureDateTime>2019-01-02T09:15:00</stl19:DepartureDateTime>
+                                            <stl19:ArrivalDateTime>2019-01-03T06:25:00</stl19:ArrivalDateTime>
+                                            <stl19:FlightNumber>0450</stl19:FlightNumber>
+                                            <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                            <stl19:ActionCode>HK</stl19:ActionCode>
+                                            <stl19:NumberInParty>3</stl19:NumberInParty>
+                                            <stl19:SegmentSpecialRequests>
+                                                <stl19:GenericSpecialRequest id="22" msgType="S" type="A">
+                                                    <stl19:Code>AUTO</stl19:Code>
+                                                    <stl19:FreeText>/RBD</stl19:FreeText>
+                                                    <stl19:ActionCode>NN</stl19:ActionCode>
+                                                    <stl19:NumberInParty>3</stl19:NumberInParty>
+                                                    <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                    <stl19:FullText>AUTO EY 450Y2JAN/RBD NN3</stl19:FullText>
+                                                </stl19:GenericSpecialRequest>
+                                            </stl19:SegmentSpecialRequests>
+                                            <stl19:inboundConnection>false</stl19:inboundConnection>
+                                            <stl19:outboundConnection>false</stl19:outboundConnection>
+                                            <stl19:AncillaryServices>
+                                                <stl19:AncillaryService ref="13"/>
+                                                <stl19:AncillaryService ref="15"/>
+                                                <stl19:AncillaryService ref="17"/>
+                                            </stl19:AncillaryServices>
+                                            <stl19:ScheduleChangeIndicator>false</stl19:ScheduleChangeIndicator>
+                                            <stl19:SegmentBookedDate>2018-12-03T06:34:00</stl19:SegmentBookedDate>
+                                            <stl19:Pos>
+                                                <stl19:IataNumber>0</stl19:IataNumber>
+                                                <stl19:AgencyCityCode>HDQ</stl19:AgencyCityCode>
+                                                <stl19:CountryCode>US</stl19:CountryCode>
+                                                <stl19:DutyCode>5</stl19:DutyCode>
+                                            </stl19:Pos>
+                                        </stl19:Air>
+                                    </stl19:Segments>
+                                    <stl19:TicketingInfo>
+                                        <stl19:FutureTicketing elementId="pnr-8" id="8" index="1">
+                                            <stl19:Code>TAW</stl19:Code>
+                                            <stl19:Comment>*</stl19:Comment>
+                                        </stl19:FutureTicketing>
+                                    </stl19:TicketingInfo>
+                                    <stl19:ItineraryPricing/>
+                                </stl19:PassengerReservation>
+                                <stl19:ReceivedFrom>
+                                    <stl19:Name>QA TESTING</stl19:Name>
+                                </stl19:ReceivedFrom>
+                                <stl19:PhoneNumbers>
+                                    <stl19:PhoneNumber elementId="pnr-9" id="9" index="1">
+                                        <stl19:CityCode>HDQ</stl19:CityCode>
+                                        <stl19:Number>1800123456</stl19:Number>
+                                    </stl19:PhoneNumber>
+                                </stl19:PhoneNumbers>
+                                <stl19:EmailAddresses/>
+                            </stl19:Reservation>
+                        </stl19:GetReservationRS>
+                    </Reservation>
+                </Reservations>
+            </ReservationsList>
+        </Trip_SearchRS>

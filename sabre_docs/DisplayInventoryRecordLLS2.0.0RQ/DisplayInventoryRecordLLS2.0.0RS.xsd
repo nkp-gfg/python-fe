@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:sws="http://webservices.sabre.com/sabreXML/2011/10" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:stl="http://services.sabre.com/STL/v01" targetNamespace="http://webservices.sabre.com/sabreXML/2011/10" elementFormDefault="qualified">
+    <xs:import namespace="http://services.sabre.com/STL/v01" schemaLocation="STL_For_SabreProtocol_v.1.2.0.xsd"/>
+    <xs:include schemaLocation="sws_common.xsd"/>
+    <xs:element name="DisplayInventoryRecordRS">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="stl:ApplicationResults"/>
+                <xs:element name="FlightInfoDetails" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="FlightLegInfo" minOccurs="0" maxOccurs="99">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="BookingClassAvail" minOccurs="0" maxOccurs="99">
+                                            <xs:complexType>
+                                                <xs:sequence>
+                                                    <xs:element name="AircraftCapacity" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="Count" type="xs:string" use="optional" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="AssociatedBaseSeatsSold" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="Count" type="xs:string" use="optional" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="AssociatedLegSeatsSold" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="Count" type="xs:string" use="optional" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="AuthorizedCapacity" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="Count" type="xs:string" use="optional" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="BaseSeatsSold" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="Count" type="xs:string" use="optional" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="LegLargeParty" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="Count" type="xs:string" use="optional" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="LegPositiveSpace" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="Count" type="xs:string" use="optional" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="SeatsAvailable" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="Count" type="xs:string" use="optional" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                </xs:sequence>
+                                                <xs:attribute name="RPH" type="xs:string" use="optional" />
+                                                <xs:attribute name="ResBookDesigCode" type="xs:string" use="optional" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="OriginLocation" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="LocationCode" type="xs:string" use="optional" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="InventoryStatus" minOccurs="0" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="BookingClassAvail" minOccurs="0" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="LargeParty" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="PositiveSpace" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="SeatsSold" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="SegmentLimitSales" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="WaitList" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                    <xs:attribute name="RPH" type="xs:string" use="optional" />
+                                    <xs:attribute name="ResBookDesigCode" type="xs:string" use="optional" />
+                                </xs:complexType>
+
+                            </xs:element>
+                            <xs:element name="DestinationLocation" minOccurs="0">
+                                <xs:complexType>
+                                    <xs:attribute name="LocationCode" type="xs:string" use="required" />
+                                </xs:complexType>
+                            </xs:element>
+                            <xs:element name="OriginLocation" minOccurs="0">
+                                <xs:complexType>
+                                    <xs:attribute name="LocationCode" type="xs:string" use="required" />
+                                </xs:complexType>
+                            </xs:element>
+                            <xs:element name="Totals" minOccurs="0">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="LargeParty" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="PositiveSpace" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="SeatsSold" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="SegmentLimitSales" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                        <xs:element name="WaitList" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="Count" type="xs:string" use="required" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                        <xs:attribute name="RPH" type="xs:string" use="optional" />
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="OriginDestinationOptions" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="OriginDestinationOption" minOccurs="0">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="FlightSegment" minOccurs="0" maxOccurs="99">
+                                            <xs:complexType>
+                                                <xs:sequence>
+                                                    <xs:element name="DestinationLocation" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="LocationCode" type="xs:string" use="required" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="Equipment" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="AirEquipType" type="xs:string" use="required" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="FlightDetails" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:sequence>
+                                                                <xs:element name="Text" type="xs:string"/>
+                                                            </xs:sequence>
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                    <xs:element name="OriginLocation" minOccurs="0">
+                                                        <xs:complexType>
+                                                            <xs:attribute name="LocationCode" type="xs:string" use="required" />
+                                                        </xs:complexType>
+                                                    </xs:element>
+                                                </xs:sequence>
+                                                <xs:attribute name="ArrivalDateTime" type="sws:dateOrTime" use="optional" />
+                                                <xs:attribute name="DepartureDateTime" type="sws:dateOrTime" use="optional" />
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="Version" type="xs:string" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

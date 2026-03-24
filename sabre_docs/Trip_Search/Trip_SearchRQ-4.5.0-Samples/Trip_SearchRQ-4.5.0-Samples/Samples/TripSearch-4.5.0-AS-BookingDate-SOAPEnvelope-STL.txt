@@ -1,0 +1,106 @@
+BASIC LOCATOR DETAILS SEARCH BY BOOKING DATE (LOCATOR + DEPARTURE DATE + PAX NAME)
+
+How to use:
+1) Use DateCriteria/UpdateDate for booking date (created/updated time window).
+2) Keep FlightCriteria only if you want to narrow by sector/class.
+3) Remove FlightCriteria to get bookings done in period regardless of departure date.
+4) This returns booking rows so you can extract locator, departure date, and passenger name.
+
+Important:
+- In ReservationReadRequest, UpdateDate maps to BookingDetails/UpdateTimestamp.
+- There is no direct DateCriteria element that filters by BookingDetails/CreationTimestamp.
+- To get "bookings created today", query a manageable UpdateDate window, then filter response rows by CreationTimestamp on client side.
+
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                  xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                  xmlns:tr="http://webservices.sabre.com/triprecord">
+  <soapenv:Header>
+    <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
+      <eb:From>
+        <eb:PartyId/>
+      </eb:From>
+      <eb:To>
+        <eb:PartyId/>
+      </eb:To>
+      <eb:CPAId>GF</eb:CPAId>
+      <eb:ConversationId>YOUR_CONVERSATION_ID</eb:ConversationId>
+      <eb:Service>Trip_SearchRQ</eb:Service>
+      <eb:Action>Trip_SearchRQ</eb:Action>
+      <eb:MessageData>
+        <eb:MessageId>mid:tripsearch-basic-001</eb:MessageId>
+        <eb:Timestamp>2026-02-26T10:00:00</eb:Timestamp>
+      </eb:MessageData>
+    </eb:MessageHeader>
+
+    <wsse:Security soapenv:mustUnderstand="0">
+      <wsse:BinarySecurityToken>YOUR_BINARY_SECURITY_TOKEN_FROM_SESSION_CREATE</wsse:BinarySecurityToken>
+    </wsse:Security>
+  </soapenv:Header>
+
+  <soapenv:Body>
+    <tr:Trip_SearchRQ Version="4.5.0"
+                      ConversationId="YOUR_CONVERSATION_ID"
+                      TimeStamp="2026-02-26T10:00:00"
+                      Target="Production">
+      <tr:ReadRequests>
+        <tr:ReservationReadRequest>
+          <tr:DateCriteria>
+            <tr:UpdateDate After="2026-02-26T00:00:00" Before="2026-02-26T23:59:59"/>
+          </tr:DateCriteria>
+
+          <tr:PosCriteria AirlineCode="GF"/>
+
+          <tr:ReturnOptions ResponseFormat="STL"
+                            ViewName="TripSearchBlob"
+                            SearchType="ACTIVE"
+                            MaxItemsReturned="800">
+            <tr:SubjectAreas>
+              <tr:SubjectArea>HEADER</tr:SubjectArea>
+              <tr:SubjectArea>NAME</tr:SubjectArea>
+              <tr:SubjectArea>ITINERARY</tr:SubjectArea>
+            </tr:SubjectAreas>
+          </tr:ReturnOptions>
+        </tr:ReservationReadRequest>
+      </tr:ReadRequests>
+    </tr:Trip_SearchRQ>
+  </soapenv:Body>
+</soapenv:Envelope>
+
+Extract these fields from response:
+1) Locator (PNR):
+   /Trip_SearchRS/ReservationsList/Reservations/Reservation/@Locator
+
+2) Passenger name:
+   /Trip_SearchRS/ReservationsList/Reservations/Reservation/
+     stl119:GetReservationRS/stl119:Reservation/
+       stl119:PassengerReservation/stl119:Passengers/stl119:Passenger/stl119:LastName
+   /Trip_SearchRS/ReservationsList/Reservations/Reservation/
+     stl119:GetReservationRS/stl119:Reservation/
+       stl119:PassengerReservation/stl119:Passengers/stl119:Passenger/stl119:FirstName
+
+3) Departure date/time:
+   /Trip_SearchRS/ReservationsList/Reservations/Reservation/
+     stl119:GetReservationRS/stl119:Reservation/
+       stl119:PassengerReservation/stl119:Segments/stl119:Segment/
+         stl119:FlightDetails/stl119:DepartureDateTime
+
+Optional summary count remains available at:
+   /Trip_SearchRS/ReservationsList/@TotalResults
+
+Creation timestamp field (for client-side filter):
+  /Trip_SearchRS/ReservationsList/Reservations/Reservation/
+    stl19:GetReservationRS/stl19:Reservation/
+     stl19:BookingDetails/stl19:CreationTimestamp
+
+Example client-side rule for "created today":
+  keep row when CreationTimestamp starts with "2026-02-26"
+
+If you want to narrow by sector or class, add FlightCriteria back (optional):
+<tr:FlightCriteria>
+  <tr:Flight>
+    <tr:DepartureAirport>BAH</tr:DepartureAirport>
+    <tr:ArrivalAirport>DXB</tr:ArrivalAirport>
+    <tr:ClassOfService>Y</tr:ClassOfService>
+  </tr:Flight>
+</tr:FlightCriteria>

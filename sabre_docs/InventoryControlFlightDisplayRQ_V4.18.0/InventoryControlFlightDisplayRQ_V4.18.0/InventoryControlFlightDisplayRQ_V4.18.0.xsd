@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns="http://www.sabre.com/ns/SSI/1.0" xmlns:SSI="http://www.sabre.com/ns/SSI/1.0" xmlns:shdr="http://services.sabre.com/ns/SOTA/Messaging/v1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.sabre.com/ns/SSI/1.0" elementFormDefault="qualified" attributeFormDefault="unqualified" version="4.18.0">
+   <xsd:annotation>
+      <xsd:documentation>
+        The schema of XML request to receive a specified flight content from SSI.
+        The flight to display is defined using:
+          - flight carrier code (element Flight::Carrier),
+          - flight number (element Flight::Number),
+          - a date when the flight begins (element Flight::Date).
+        Only flights in Inventory Horizon can be displayed.
+      </xsd:documentation>
+   </xsd:annotation>
+   <xsd:include schemaLocation="AirInventory_CSS_CommonTypes_V4.18.0.xsd"/>
+   <xsd:element name="InventoryControlFlightDisplayRQ" type="InventoryControlFlightDisplayRQ"/>
+   <!-- InventoryControlFlightDisplayRQ -->
+   <xsd:complexType name="InventoryControlFlightDisplayRQ">
+      <xsd:sequence>
+         <xsd:element name="SystemAccess" type="SystemAccess" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The complex type contains informations to which carrier request is directed
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="FlightDisplay" type="FlightDisplay.RQ">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type is described in the end of this schema document.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+      </xsd:sequence>
+      <xsd:attribute name="Version" type="xsd:string" use="required">
+         <xsd:annotation>
+            <xsd:documentation>
+            The Version is a version of schema of XML response for the request.
+            For all OTA versioned messages, the Version is indicated by a decimal value.
+            </xsd:documentation>
+         </xsd:annotation>
+      </xsd:attribute>
+      <xsd:attribute name="TimeStamp" type="xsd:string" use="optional">
+         <xsd:annotation>
+            <xsd:documentation>
+               TimeStamp indicates the creation date and time of the message in server's local time using the following format specified by ISO 8601:
+               YYYY- MM- DDThh:mm:ssZ
+                  YYYY - year in 4 digits
+                  MM   - month number in 2 digits with leading 0 for month January-September
+                  DD   - day of month in 2 digits with leading 0 for days 1-9
+                  T    - separator character
+                  hh   - hour in 24-hours clock in 2 digits with leading 0 for hours 0-9
+                  mm   - minutes in 2 digits with leading 0 for minutes 0-9
+                  ss   - seconds in 2 digits with leading 0 for seconds 0-9
+                  Z    - separator character
+               (e.g. 03 June 2015, 1:59:38 pm UTC becomes 2015-06-03T13:59:38.000).
+            </xsd:documentation>
+         </xsd:annotation>
+      </xsd:attribute>
+   </xsd:complexType>
+   <!-- TYPES -->
+   <xsd:complexType name="SystemAccess">
+      <xsd:attribute name="TargetCarrier" type="AirlineCode">
+         <xsd:annotation>
+            <xsd:documentation>
+               The simple type is described in AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+            </xsd:documentation>
+         </xsd:annotation>
+      </xsd:attribute>
+   </xsd:complexType>
+   <xsd:complexType name="FlightDisplay.RQ">
+         <xsd:annotation>
+            <xsd:documentation>
+               The complex types User and Flight are described in AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+            </xsd:documentation>
+         </xsd:annotation>
+      <xsd:sequence>
+         <xsd:element name="User" type="User"/>
+         <xsd:element name="Flight" type="Flight"/>
+      </xsd:sequence>
+      <xsd:attribute name="ancillaryInfoNeeded" type="xsd:boolean">
+         <xsd:annotation>
+            <xsd:documentation>
+               Include the Ancillary information in the flight display response if true.
+            </xsd:documentation>
+         </xsd:annotation>
+      </xsd:attribute>
+   </xsd:complexType>
+</xsd:schema>

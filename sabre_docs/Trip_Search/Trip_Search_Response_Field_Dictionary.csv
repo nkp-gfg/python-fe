@@ -1,0 +1,166 @@
+Group,ParentPath,FieldName,DataTypeHint,ExampleValue
+Reservation Wrapper,Reservation,@Locator,string,tstpnr
+GetReservation Envelope,Reservation/stl19:GetReservationRS,@Version,string,1.19.0
+Reservation Header,Reservation/stl19:GetReservationRS/stl19:Reservation,@NumberInSegment,integer,1
+Reservation Header,Reservation/stl19:GetReservationRS/stl19:Reservation,@numberInParty,integer,1
+Reservation Header,Reservation/stl19:GetReservationRS/stl19:Reservation,@numberOfInfants,integer,0
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,Header,string,BLUE FALCON
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,RecordLocator,string,tstpnr
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,CreationTimestamp,datetime,2026-02-01T05:00:00
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,SystemCreationTimestamp,datetime,2026-02-01T05:00:00
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,CreationAgentID,string,C03
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,UpdateTimestamp,datetime,2026-03-05T12:12:41
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,PNRSequence,integer,33
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails/FlightsRange,@Start,datetime,2026-02-10T06:30:00
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails/FlightsRange,@End,datetime,2026-03-05T22:50:00
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,DivideSplitDetails,object,
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,EstimatedPurgeTimestamp,datetime,2026-04-01T00:00:00
+Booking Details,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:BookingDetails,UpdateToken,string,tst
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS,@AirExtras,boolean,FALSE
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS,@InhibitCode,string,U
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS/stl19:Source,@AgentDutyCode,string,4
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS/stl19:Source,@AgentSine,string,C03
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS/stl19:Source,@AirlineVendorID,string,GF
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS/stl19:Source,@BookingSource,string,A0A0
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS/stl19:Source,@HomePseudoCityCode,string,BAH
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS/stl19:Source,@ISOCountry,string,BH
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS/stl19:Source,@PrimeHostID,string,GF
+POS,Reservation/stl19:GetReservationRS/stl19:Reservation/stl19:POS/stl19:Source,@PseudoCityCode,string,BAH
+Passenger Core,Reservation/.../PassengerReservation/Passengers/Passenger,@elementId,string,pnr-14.1
+Passenger Core,Reservation/.../PassengerReservation/Passengers/Passenger,@id,integer,14
+Passenger Core,Reservation/.../PassengerReservation/Passengers/Passenger,@nameAssocId,integer,1
+Passenger Core,Reservation/.../PassengerReservation/Passengers/Passenger,@nameId,string,1.01
+Passenger Core,Reservation/.../PassengerReservation/Passengers/Passenger,@nameType,string,S
+Passenger Core,Reservation/.../PassengerReservation/Passengers/Passenger,LastName,string,XXXXX
+Passenger Core,Reservation/.../PassengerReservation/Passengers/Passenger,FirstName,string,XXXXX
+Frequent Flyer,Reservation/.../Passenger/FrequentFlyer,@id,integer,59
+Frequent Flyer,Reservation/.../Passenger/FrequentFlyer,SupplierCode,string,GF
+Frequent Flyer,Reservation/.../Passenger/FrequentFlyer,Number,string,FFP Number
+Frequent Flyer,Reservation/.../Passenger/FrequentFlyer,TierLevelNumber,integer,8
+Frequent Flyer,Reservation/.../Passenger/FrequentFlyer,ShortText,string,BLU
+Frequent Flyer,Reservation/.../Passenger/FrequentFlyer,ReceivingCarrierCode,string,GF
+Frequent Flyer,Reservation/.../Passenger/FrequentFlyer,StatusCode,string,HK
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,@id,integer,29
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,@msgType,string,S
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,@type,string,A
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,Code,string,TKNE
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,FreeText,string,GF HK1 BOMBAH0057E10FEB/0722136251212C1
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,ActionCode,string,HK
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,NumberInParty,integer,1
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,AirlineCode,string,GF
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,TicketNumber,string,7.22136E+11
+Passenger SSR Generic,Reservation/.../Passenger/SpecialRequests/GenericSpecialRequest,FullText,string,TKNE GF HK1 BOMBAH
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,@id,integer,55
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,@type,string,A
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,DocumentType,string,P
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,CountryOfIssue,string,IN
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,DocumentNumber,string,xxx
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,DocumentNationalityCountry,string,IN
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,DateOfBirth,date,14-01-2000
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,Gender,string,M
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,DocumentExpirationDate,date,11-06-2028
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,Surname,string,xxxx
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,Forename,string,xxx
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,MiddleName,string,
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,PrimaryHolder,boolean,FALSE
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,FreeText,string,
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,ActionCode,string,HK
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,NumberInParty,integer,1
+APIS DOCS,Reservation/.../Passenger/SpecialRequests/APISRequest/DOCSEntry,VendorCode,string,GF
+Passenger Seat,Reservation/.../Passenger/Seats/PreReservedSeats/PreReservedSeat,@id,integer,62
+Passenger Seat,Reservation/.../Passenger/Seats/PreReservedSeats/PreReservedSeat,SeatNumber,string,16A
+Passenger Seat,Reservation/.../Passenger/Seats/PreReservedSeats/PreReservedSeat,SmokingPrefOfferedIndicator,boolean,FALSE
+Passenger Seat,Reservation/.../Passenger/Seats/PreReservedSeats/PreReservedSeat,SeatTypeCode,string,WLEO
+Passenger Seat,Reservation/.../Passenger/Seats/PreReservedSeats/PreReservedSeat,SeatStatusCode,string,HK
+Passenger Seat,Reservation/.../Passenger/Seats/PreReservedSeats/PreReservedSeat,BoardPoint,string,BOM
+Passenger Seat,Reservation/.../Passenger/Seats/PreReservedSeats/PreReservedSeat,OffPoint,string,BAH
+Passenger Seat,Reservation/.../Passenger/Seats/PreReservedSeats/PreReservedSeat,Changed,string,N
+Passenger Seat,Reservation/.../Passenger/Seats/PreReservedSeats/PreReservedSeat,NameNumber,string,1.01
+Segment Container,Reservation/.../PassengerReservation/Segments/Poc,Airport,string,BOM
+Segment Container,Reservation/.../PassengerReservation/Segments/Poc,Departure,datetime,2026-02-10T06:30:00
+Segment Wrapper,Reservation/.../PassengerReservation/Segments/Segment,@id,integer,26
+Segment Wrapper,Reservation/.../PassengerReservation/Segments/Segment,@sequence,integer,1
+Air Segment,Reservation/.../Segments/Segment/Air,@CodeShare,boolean,FALSE
+Air Segment,Reservation/.../Segments/Segment/Air,@DayOfWeekInd,integer,2
+Air Segment,Reservation/.../Segments/Segment/Air,@ResBookDesigCode,string,E
+Air Segment,Reservation/.../Segments/Segment/Air,@SmokingAllowed,boolean,FALSE
+Air Segment,Reservation/.../Segments/Segment/Air,@SpecialMeal,boolean,FALSE
+Air Segment,Reservation/.../Segments/Segment/Air,@id,integer,26
+Air Segment,Reservation/.../Segments/Segment/Air,@isPast,boolean,TRUE
+Air Segment,Reservation/.../Segments/Segment/Air,@segmentAssociationId,integer,3
+Air Segment,Reservation/.../Segments/Segment/Air,@sequence,integer,1
+Air Segment,Reservation/.../Segments/Segment/Air,DepartureAirport,string,BOM
+Air Segment,Reservation/.../Segments/Segment/Air,DepartureAirportCodeContext,string,IATA
+Air Segment,Reservation/.../Segments/Segment/Air,ArrivalAirport,string,BAH
+Air Segment,Reservation/.../Segments/Segment/Air,ArrivalAirportCodeContext,string,IATA
+Air Segment,Reservation/.../Segments/Segment/Air,OperatingAirlineCode,string,GF
+Air Segment,Reservation/.../Segments/Segment/Air,OperatingAirlineShortName,string,GULF AIR
+Air Segment,Reservation/.../Segments/Segment/Air,OperatingFlightNumber,string,57
+Air Segment,Reservation/.../Segments/Segment/Air,EquipmentType,string,32Q
+Air Segment,Reservation/.../Segments/Segment/Air,MarketingAirlineCode,string,GF
+Air Segment,Reservation/.../Segments/Segment/Air,MarketingFlightNumber,string,57
+Air Segment,Reservation/.../Segments/Segment/Air,OperatingClassOfService,string,E
+Air Segment,Reservation/.../Segments/Segment/Air,MarketingClassOfService,string,E
+Air Segment,Reservation/.../Segments/Segment/Air/MarriageGrp,Ind,integer,0
+Air Segment,Reservation/.../Segments/Segment/Air/MarriageGrp,Group,integer,0
+Air Segment,Reservation/.../Segments/Segment/Air/MarriageGrp,Sequence,integer,0
+Air Segment,Reservation/.../Segments/Segment/Air,Eticket,boolean,TRUE
+Air Segment,Reservation/.../Segments/Segment/Air,DepartureDateTime,datetime,2026-02-10T06:30:00
+Air Segment,Reservation/.../Segments/Segment/Air,ArrivalDateTime,datetime,2026-02-10T08:05:00
+Air Segment,Reservation/.../Segments/Segment/Air,FlightNumber,string,57
+Air Segment,Reservation/.../Segments/Segment/Air,ClassOfService,string,E
+Air Segment,Reservation/.../Segments/Segment/Air,ActionCode,string,HK
+Air Segment,Reservation/.../Segments/Segment/Air,NumberInParty,integer,1
+Air Segment,Reservation/.../Segments/Segment/Air,inboundConnection,boolean,FALSE
+Air Segment,Reservation/.../Segments/Segment/Air,outboundConnection,boolean,FALSE
+Air Segment,Reservation/.../Segments/Segment/Air,ScheduleChangeIndicator,boolean,FALSE
+Air Segment,Reservation/.../Segments/Segment/Air,SegmentBookedDate,datetime,2026-02-02T06:03:00
+Air Segment POS,Reservation/.../Segments/Segment/Air/Pos,IataNumber,integer,0
+Air Segment POS,Reservation/.../Segments/Segment/Air/Pos,AgencyCityCode,string,BAH
+Air Segment POS,Reservation/.../Segments/Segment/Air/Pos,CountryCode,string,BH
+Air Segment POS,Reservation/.../Segments/Segment/Air/Pos,DutyCode,string,4
+Air Segment,Reservation/.../Segments/Segment/Air,Banner,string,MARKETED BY GULF AIR
+Air Segment,Reservation/.../Segments/Segment/Air,Informational,boolean,FALSE
+ARNK Segment,Reservation/.../Segments/Segment/Arunk,@id,integer,87
+ARNK Segment,Reservation/.../Segments/Segment/Arunk,@sequence,integer,2
+ARNK Segment,Reservation/.../Segments/Segment/Arunk/Line,@Type,string,ARNK
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,@id,integer,29
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,@msgType,string,S
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,@type,string,A
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,Code,string,TKNE
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,FreeText,string,GF HK1
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,ActionCode,string,HK
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,NumberInParty,integer,1
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,AirlineCode,string,GF
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,TicketNumber,string,7.22136E+11
+Segment SSR Generic,Reservation/.../Air/SegmentSpecialRequests/GenericSpecialRequest,FullText,string,TKNE GF HK1
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/AlreadyTicketed,@elementId,string,pnr-81
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/AlreadyTicketed,@id,integer,81
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/AlreadyTicketed,@index,integer,1
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/AlreadyTicketed,Code,string,T-05MAR-xx
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/ETicketNumber,@elementId,string,pnr-33
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/ETicketNumber,@id,integer,33
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/ETicketNumber,@index,integer,2
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/ETicketNumber,#text,string,TE xx MASCA/A xx1504/02FEB
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,@elementId,string,pnr-33
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,@id,integer,33
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,@index,integer,2
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,OriginalTicketDetails,string,TE xx xx/A BAH4C03 1504/02FEB
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,TransactionIndicator,string,TE
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,TicketNumber,string,7.22136E+11
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,PassengerName,string,MASCA/A
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,AgencyLocation,string,WWG
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,DutyCode,string,4
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,AgentSine,string,HAJ
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,Timestamp,datetime,2026-03-05T10:03:00
+Ticketing Info,Reservation/.../PassengerReservation/TicketingInfo/TicketDetails,PaymentType,string,
+Pricing,Reservation/.../PassengerReservation,ItineraryPricing,object,
+Received From,Reservation/.../stl19:ReceivedFrom,#text,string,
+Phone Numbers,Reservation/.../stl19:PhoneNumbers/stl19:PhoneNumber,@elementId,string,pnr-18
+Phone Numbers,Reservation/.../stl19:PhoneNumbers/stl19:PhoneNumber,@id,integer,18
+Phone Numbers,Reservation/.../stl19:PhoneNumbers/stl19:PhoneNumber,@index,integer,1
+Phone Numbers,Reservation/.../stl19:PhoneNumbers/stl19:PhoneNumber,CityCode,string,HDQ
+Phone Numbers,Reservation/.../stl19:PhoneNumbers/stl19:PhoneNumber,Number,string,N
+Email Addresses,Reservation/.../stl19:EmailAddresses/stl19:EmailAddress,@id,integer,37
+Email Addresses,Reservation/.../stl19:EmailAddresses/stl19:EmailAddress,Address,string,xxxx
+Email Addresses,Reservation/.../stl19:EmailAddresses/stl19:EmailAddress,Comment,string,

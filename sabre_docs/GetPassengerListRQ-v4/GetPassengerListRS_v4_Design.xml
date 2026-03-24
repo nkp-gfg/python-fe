@@ -1,0 +1,378 @@
+<v4:GetPassengerListRS version="string" timeStamp="2008-09-29T07:19:45" messageID="string" serviceOption="Stateful" hostTimeFormat="hh:mma" xmlns:v4="http://services.sabre.com/checkin/getPassengerList/v4" xmlns:v3="http://services.sabre.com/STL/v3">
+	<!--Optional:-->
+	<v4:ItineraryInfo>
+		<v4:Itinerary>
+			<!--Iata Airline code-->
+			<v4:Airline>K0</v4:Airline>
+			<!-- Flight number-->
+			<v4:Flight>118</v4:Flight>
+			<!--Optional:-->
+			<v4:DepartureDate>2019-02-09</v4:DepartureDate>
+			<!--Departure Aiport code-->
+			<v4:Origin>AUH</v4:Origin>
+			<!--Optional:-->
+			<v4:Destination>LHR</v4:Destination>
+			<!--Optional:-->
+			<v4:ClassOfService>Y</v4:ClassOfService>
+			<!--Optional:-->
+			<v4:AircraftType>388</v4:AircraftType>
+		</v4:Itinerary>
+		<!--Optional:-->
+		<v4:DepartureArrival_Dates>
+			<!--Optional: Flight Scheduled departure date-->
+			<v4:Scheduled_DepartureDate>2019-02-09</v4:Scheduled_DepartureDate>
+			<!--Optional: Flight Estimated departure date-->
+			<v4:Estimated_DepartureDate>2019-02-09</v4:Estimated_DepartureDate>
+			<!--Optional: Flight  departure time-->
+			<v4:DepartureTime>02:50AM</v4:DepartureTime>
+			<!--Optional: Flight Scheduled Arrival date-->
+			<v4:Scheduled_ArrivalDate>2019-02-09</v4:Scheduled_ArrivalDate>
+			<!--Optional: Flight Estimated Arrival date-->
+			<v4:Estimated_ArrivalDate>2019-02-09</v4:Estimated_ArrivalDate>
+			<!--Optional: Flight  Arrival time-->
+			<v4:ArrivalTime>12:50PM</v4:ArrivalTime>
+		</v4:DepartureArrival_Dates>
+		<!--Optional:-->
+		<v4:DepartureGate>GATE</v4:DepartureGate>
+		<!--Optional:-->
+		<v4:CabinInfoList>
+			<!--0 to 99 repetitions:-->
+			<v3:CabinInfo>
+				<!--Optional:-->
+				<v3:Destination>LHR</v3:Destination>
+				<v3:Cabin>F</v3:Cabin>
+				<!--Optional:-->
+				<v3:Count>2</v3:Count>
+				<!--Optional:-->
+				<v3:Authorized>11</v3:Authorized>
+				<!--Optional:This will be returned only for the Priority Lists (PALL and P)-->
+				<v3:Available>12</v3:Available>
+			</v3:CabinInfo>
+		</v4:CabinInfoList>
+	</v4:ItineraryInfo>
+	<!--Optional:-->
+	<v4:PassengerInfoList>
+		<!--Zero or more repetitions:-->
+		<v4:PassengerInfo>
+			<!--Optional:-->
+			<v4:Name_Details>
+				<!--Optional:-->
+				<v4:LastName>NIKE</v4:LastName>
+				<!--Optional:-->
+				<v4:FirstName>ALEX</v4:FirstName>
+			</v4:Name_Details>
+			<!--Optional:-->
+			<v4:PNRLocator nameAssociationID="2">SDKBCH</v4:PNRLocator>
+			<!--Optional: string of characters uniquely identifying the passenger-->
+			<v4:PassengerID>C4FB6A8B0672</v4:PassengerID>
+			<!--Optional: passenger thru flight indicator-->
+			<v4:ThruIndicator>false</v4:ThruIndicator>
+			<!--Optional: passenger line number in PSS host,this element is used for internal purpose -->
+			<v4:LineNumber>1</v4:LineNumber>
+			<!--Optional: code assigned to a group of passengers in the pnr-->
+			<v4:GroupCode>AJ3</v4:GroupCode>
+			<!--Optional: passenger priority/standby code-->
+			<v4:PriorityCode>UPG</v4:PriorityCode>
+			<!--Optional: passenger upgrade priority code-->
+			<v4:UpgradeCode>01J</v4:UpgradeCode>
+			<!--Optional:-->
+			<v4:ZonePreferenceCode>string</v4:ZonePreferenceCode>
+			<!--Optional:-->
+			<v4:CorpID>T</v4:CorpID>
+			<!--Optional:passenger's booking class of service-->
+			<v4:BookingClass>K</v4:BookingClass>
+			<!--Optional:passenger's desired booking class of service-->
+			<v4:DesiredBookingClass>J</v4:DesiredBookingClass>
+			<!--Optional: passenger's cabin class-->
+			<v4:Cabin>Y</v4:Cabin>
+			<!--Optional:Passanger seat number-->
+			<v4:Seat>40H</v4:Seat>
+			<!--Optional:-->
+			<v4:Destination>LHR</v4:Destination>
+			<!--Optional:Indicates whether passenger has checked in -->
+			<v4:BoardingPassFlag>true</v4:BoardingPassFlag>
+			<!--Optional:passenger type, ie. full fare, employee, etc.<-->
+			<v4:PassengerType>F</v4:PassengerType>
+			<!--Optional: number of bags checked in-->
+			<v4:BagCount>1</v4:BagCount>
+			<!--Optional: for airlines using Seniority Date priority listing-->
+			<v4:SeniorityDate>string</v4:SeniorityDate>
+			<!--Optional:-->
+			<v4:PrimaryAirlineCode>K0</v4:PrimaryAirlineCode>
+			<!--Optional: Transferred flight number, if not transfered element will have the checke-in seat number on the booked flight
+				Example : K012 , 19B-->
+			<v4:OutboundFlight>string</v4:OutboundFlight>
+			<!--Optional:-->
+			<v4:Indicators>
+				<!--1 or more repetitions: Deprecated-->
+				<v4:Indicator>Revenue</v4:Indicator>
+			</v4:Indicators>
+			<!--Optional:-->
+			<v4:CheckIn_Info>
+				<!--Optional: Passenger sequence number when checked in to the flight-->
+				<v4:CheckInNumber>10</v4:CheckInNumber>
+				<!--Optional:-->
+				<v4:CheckInDate>2019-02-09</v4:CheckInDate>
+				<!--Optional:-->
+				<v4:CheckInTime>04:20</v4:CheckInTime>
+				<!--Optional:-->
+				<v4:CheckInStatus>true</v4:CheckInStatus>
+			</v4:CheckIn_Info>
+			<!--Optional:-->
+			<v4:Boarding_Info>
+				<!--Optional:-->
+				<v4:BoardDate>2019-02-09</v4:BoardDate>
+				<!--Optional:-->
+				<v4:BoardTime>04:20</v4:BoardTime>
+				<!--Optional:-->
+				<v4:BoardStatus>true</v4:BoardStatus>
+			</v4:Boarding_Info>
+			<!--Optional:-->
+			<v4:VCR_Info>
+				<!--Zero or more repetitions:-->
+				<v4:VCR_Data inUse="true" type="adult">
+					<!--Optional:-->
+					<v4:AirlineNumber>11</v4:AirlineNumber>
+					<!--Optional:-->
+					<v4:CouponNumber>2</v4:CouponNumber>
+					<!--Optional:-->
+					<v4:SerialNumber>5438287621</v4:SerialNumber>
+				</v4:VCR_Data>
+			</v4:VCR_Info>
+			<!--Optional:-->
+			<v4:AEDetailsList>
+				<!--0 to 99 repetitions:-->
+				<v3:AEDetails>
+					<!--Optional:-->
+					<v3:ItemID>string</v3:ItemID>
+					<!--Optional:-->
+					<v3:Code>string</v3:Code>
+					<!--Optional:-->
+					<v3:ATPCOGroupCode>string</v3:ATPCOGroupCode>
+					<!--Optional:-->
+					<v3:ATPCOSubCode>string</v3:ATPCOSubCode>
+					<!--Optional:-->
+					<v3:StatusCode>string</v3:StatusCode>
+					<!--Optional:-->
+					<v3:Description>string</v3:Description>
+					<!--Optional:-->
+					<v3:UsedEMD>false</v3:UsedEMD>
+					<!--Optional:-->
+					<v3:QuantityUsed>1</v3:QuantityUsed>
+					<!--Optional:-->
+					<v3:QuantityBought>1</v3:QuantityBought>
+					<!--Optional:-->
+					<v3:PurchaseDate>string</v3:PurchaseDate>
+					<!--Optional:-->
+					<v3:PurchaseTime>string</v3:PurchaseTime>
+					<!--Optional:-->
+					<v3:Disassociated>false</v3:Disassociated>
+					<!--Optional:-->
+					<v3:MarketingAirline>str</v3:MarketingAirline>
+					<!--Optional:-->
+					<v3:MarketingFlight>string</v3:MarketingFlight>
+					<!--Optional:-->
+					<v3:Origin>string</v3:Origin>
+					<!--Optional:-->
+					<v3:Destination>string</v3:Destination>
+					<!--Optional:-->
+					<v3:OperatingAirline>str</v3:OperatingAirline>
+					<!--Optional:-->
+					<v3:OperatingFlight>string</v3:OperatingFlight>
+					<!--Optional:-->
+					<v3:EMDTicketNumber couponNumber="1">string</v3:EMDTicketNumber>
+					<!--Optional:-->
+					<v3:PriceDetails>
+						<!--Optional:-->
+						<v3:TotalPrice currencyCode="USD" currency="string">1000.000</v3:TotalPrice>
+						<!--Optional:-->
+						<v3:BasePrice currencyCode="USD" currency="string">1000.000</v3:BasePrice>
+						<!--Optional:-->
+						<v3:EquivalentPrice currencyCode="USD" currency="string">1000.000</v3:EquivalentPrice>
+						<!--Optional:-->
+						<v3:TaxDetails>
+							<v3:TotalTaxAmount currencyCode="USD" currency="string">1000.000</v3:TotalTaxAmount>
+							<!--1 to 99 repetitions:-->
+							<v3:TaxAmount currencyCode="USD" currency="string" exempt="false" taxCode="string">1000.000</v3:TaxAmount>
+						</v3:TaxDetails>
+					</v3:PriceDetails>
+					<!--Optional:-->
+					<v3:BagTagInfoList>
+						<!--0 to 99 repetitions:-->
+						<v3:BagTagInfo>
+							<!--Optional:-->
+							<v3:BagTagNumber>string</v3:BagTagNumber>
+							<!--Optional:-->
+							<v3:WeightAndSize>
+								<!--Optional:-->
+								<v3:WeightAndUnit unit="LB">100</v3:WeightAndUnit>
+								<!--Optional:-->
+								<v3:LengthAndUnit unit="CM">100</v3:LengthAndUnit>
+							</v3:WeightAndSize>
+							<!--Optional:-->
+							<v3:BagStatus aeStatus="NoFeeMatchWithPricingRules">string</v3:BagStatus>
+						</v3:BagTagInfo>
+						<!--Optional:-->
+						<v3:TotalWeightAndUnit unit="LB">100</v3:TotalWeightAndUnit>
+					</v3:BagTagInfoList>
+					<!--Optional:-->
+					<v3:Deal>
+						<!--Optional:-->
+						<v3:Type>string</v3:Type>
+						<!--Optional:-->
+						<v3:Percentage>100.00</v3:Percentage>
+						<!--Optional:-->
+						<v3:Amount currencyCode="USD" currency="string">1000.000</v3:Amount>
+					</v3:Deal>
+				</v3:AEDetails>
+			</v4:AEDetailsList>
+			<!--Optional:-->
+			<v4:BaggageRouteList>
+				<!--0 to 99 repetitions:-->
+				<v3:BaggageRoute>
+					<v3:SegmentID>1</v3:SegmentID>
+					<v3:Airline>K0</v3:Airline>
+					<v3:Flight>121</v3:Flight>
+					<!--Optional:-->
+					<v3:BookingClass>Y</v3:BookingClass>
+					<!--Optional:-->
+					<v3:MarketingBookingClass>Y</v3:MarketingBookingClass>
+					<!--Optional:-->
+					<v3:OperatingBookingClass>Y</v3:OperatingBookingClass>
+					<!--Optional:-->
+					<v3:OperatingAirline>K0</v3:OperatingAirline>
+					<!--Optional:-->
+					<v3:OperatingFlight>121</v3:OperatingFlight>
+					<!--Optional:-->
+					<v3:MarketingAirline>U0</v3:MarketingAirline>
+					<!--Optional:-->
+					<v3:MarketingFlight>123</v3:MarketingFlight>
+					<v3:Origin>AAA</v3:Origin>
+					<v3:Destination>BBB</v3:Destination>
+					<v3:DepartureDate>2019-02-09</v3:DepartureDate>
+					<!--Optional:-->
+					<v3:DepartureTime>12:10PM</v3:DepartureTime>
+					<!--Optional:-->
+					<v3:ArrivalDate>2019-02-09</v3:ArrivalDate>
+					<!--Optional:-->
+					<v3:ArrivalTime>12:50PM</v3:ArrivalTime>
+					<v3:SegmentStatus>HK</v3:SegmentStatus>
+					<v3:PassengerID>C4FB6A8B0672</v3:PassengerID>
+					<!--Optional:-->
+					<v3:BagEmbargo>1</v3:BagEmbargo>
+					<!--Optional:-->
+					<v3:PetRestriction>Y</v3:PetRestriction>
+					<!--Optional:-->
+					<v3:FreeText>string</v3:FreeText>
+					<!--Optional:-->
+					<v3:BaggageRouteRequired>true</v3:BaggageRouteRequired>
+					<!--Optional:-->
+					<v3:BaggageRestrictionLimit>2</v3:BaggageRestrictionLimit>
+					<!--Optional:-->
+					<v3:LateCheckin>string</v3:LateCheckin>
+					<!--Optional:-->
+					<v3:ShortCheckinReason>string</v3:ShortCheckinReason>
+					<!--Optional:-->
+					<v3:HomePrintedBagTag restriction="string">
+						<!--Optional:-->
+						<v3:ReasonList>
+							<!--1 to 25 repetitions:-->
+							<v3:Reason code="string">string</v3:Reason>
+						</v3:ReasonList>
+					</v3:HomePrintedBagTag>
+				</v3:BaggageRoute>
+			</v4:BaggageRouteList>
+			<!--Optional:-->
+			<v4:EditCodeList>
+				<!--0 to 999 repetitions:-->
+				<v3:EditCode>WCHR</v3:EditCode>
+				<!--0 to 999 repetitions:-->
+				<v3:EditPattern>string</v3:EditPattern>
+			</v4:EditCodeList>
+			<!--Optional:-->
+			<v4:MissingBagList>
+				<!--1 or more repetitions:-->
+				<v4:MissingBagDetails>
+					<!--Optional:-->
+					<v4:Airline>str</v4:Airline>
+					<!--Optional:-->
+					<v4:BagTagNumber>string</v4:BagTagNumber>
+					<!--Optional:-->
+					<v4:Comments1>string</v4:Comments1>
+					<!--Optional:-->
+					<v4:Comments2>string</v4:Comments2>
+				</v4:MissingBagDetails>
+			</v4:MissingBagList>
+			<!--Optional:-->
+			<v4:FreeTextInfoList>
+				<!--0 to 999 repetitions:-->
+				<v3:FreeTextInfo>
+					<!--Optional:-->
+					<v3:LineID>strin</v3:LineID>
+					<!--Optional:-->
+					<v3:EditCode>string</v3:EditCode>
+					<!--Optional:-->
+					<v3:TextLine>
+						<!--0 to 999 repetitions:-->
+						<v3:Text>string</v3:Text>
+					</v3:TextLine>
+				</v3:FreeTextInfo>
+			</v4:FreeTextInfoList>
+		</v4:PassengerInfo>
+	</v4:PassengerInfoList>
+	<!--Optional:this list exsits only on BT list request when cancelled passengers with checked bags are present.-->
+	<v4:CancelledPassengerInfoList>
+		<!--Zero or more repetitions:-->
+		<v4:CancelledPassengerInfo>
+			<!--Optional:-->
+			<v4:LineNumber>1</v4:LineNumber>
+			<!--Optional:-->
+			<v4:LastName>SMITH</v4:LastName>
+			<!--Optional:-->
+			<v4:FirstName>SAM</v4:FirstName>
+			<!--Optional:-->
+			<v4:BagCount>1</v4:BagCount>
+			<!--Optional:-->
+			<v4:FreeTextInfoList>
+				<!--0 to 999 repetitions:-->
+				<v3:FreeTextInfo>
+					<!--Optional:-->
+					<v3:LineID>strin</v3:LineID>
+					<!--Optional:-->
+					<v3:EditCode>string</v3:EditCode>
+					<!--Optional:-->
+					<v3:TextLine>
+						<!--0 to 999 repetitions:-->
+						<v3:Text>K0 FRA    441361481</v3:Text>
+					</v3:TextLine>
+				</v3:FreeTextInfo>
+			</v4:FreeTextInfoList>
+		</v4:CancelledPassengerInfo>
+	</v4:CancelledPassengerInfoList>
+	<v4:Result conversationID="string" messageId="string" version="string" timeStamp="2013-12-21T17:02:42+05:30">
+		<!--Optional:-->
+		<v3:ErrorSource id="string">string</v3:ErrorSource>
+		<v3:Status>Success</v3:Status>
+		<!--Optional:-->
+		<v3:CompletionStatus>Complete</v3:CompletionStatus>
+		<!--Optional:-->
+		<v3:System id="string">string</v3:System>
+		<!--Zero or more repetitions:-->
+		<v3:SystemSpecificResults serviceName="string">
+			<!--Optional:-->
+			<v3:ErrorMessage code="655">!DISPLAY CODE INCORRECT</v3:ErrorMessage>
+			<!--Optional:-->
+			<v3:ShortText>string</v3:ShortText>
+			<!--Optional:-->
+			<v3:Element>string</v3:Element>
+			<!--Optional:-->
+			<v3:RecordID>string</v3:RecordID>
+			<!--Optional:-->
+			<v3:DocURL>http://www.test.com/iovis/flammato</v3:DocURL>
+			<!--Optional:-->
+			<v3:DiagnosticResults lineNumber="7" programName="string">
+				<AnyElement/>
+			</v3:DiagnosticResults>
+		</v3:SystemSpecificResults>
+	</v4:Result>
+</v4:GetPassengerListRS>

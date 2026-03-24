@@ -25,33 +25,55 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
+export type FilterCabin = "all" | "Y" | "J";
+export type FilterStatus = "all" | "booked" | "checkedIn" | "boarded";
+export type FilterType = "all" | "revenue" | "nonRevenue" | "child" | "infant";
+export type FilterLoyalty = "all" | "FF" | "BLU" | "SLV" | "GLD" | "BLK";
+
 interface PassengerTableProps {
   flightNumber: string;
   origin: string;
   date: string;
   onSelectPassenger?: (pnr: string) => void;
+  filterCabin: FilterCabin;
+  setFilterCabin: (v: FilterCabin) => void;
+  filterStatus: FilterStatus;
+  setFilterStatus: (v: FilterStatus) => void;
+  filterType: FilterType;
+  setFilterType: (v: FilterType) => void;
+  filterLoyalty: FilterLoyalty;
+  setFilterLoyalty: (v: FilterLoyalty) => void;
 }
 
 type SortKey = "lastName" | "cabin" | "seat" | "status" | "bookingClass" | "bagCount";
 type SortDir = "asc" | "desc";
 
-type FilterCabin = "all" | "Y" | "J";
-type FilterStatus = "all" | "booked" | "checkedIn" | "boarded";
-type FilterType = "all" | "revenue" | "nonRevenue" | "child" | "infant";
+const LOYALTY_TIERS: { value: FilterLoyalty; label: string; color: string }[] = [
+  { value: "FF", label: "FalconFlyer", color: "text-amber-500" },
+  { value: "BLU", label: "Blue", color: "text-blue-500" },
+  { value: "SLV", label: "Silver", color: "text-gray-400" },
+  { value: "GLD", label: "Gold", color: "text-yellow-500" },
+  { value: "BLK", label: "Black", color: "text-gray-900 dark:text-gray-100" },
+];
 
 export function PassengerTable({
   flightNumber,
   origin,
   date,
   onSelectPassenger,
+  filterCabin,
+  setFilterCabin,
+  filterStatus,
+  setFilterStatus,
+  filterType,
+  setFilterType,
+  filterLoyalty,
+  setFilterLoyalty,
 }: PassengerTableProps) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [sortKey, setSortKey] = useState<SortKey>("lastName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filterCabin, setFilterCabin] = useState<FilterCabin>("all");
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-  const [filterType, setFilterType] = useState<FilterType>("all");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["passengers", flightNumber, origin, date],
@@ -72,7 +94,7 @@ export function PassengerTable({
   const filtered = useMemo(() => {
     let list = [...passengers];
 
-    // Text search
+    // Text search (include nationality + ticket)
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase();
       list = list.filter(
@@ -80,7 +102,9 @@ export function PassengerTable({
           p.lastName.toLowerCase().includes(q) ||
           p.firstName.toLowerCase().includes(q) ||
           p.pnr.toLowerCase().includes(q) ||
-          p.seat.toLowerCase().includes(q)
+          p.seat.toLowerCase().includes(q) ||
+          (p.nationality || "").toLowerCase().includes(q) ||
+          (p.ticketNumber || "").includes(q)
       );
     }
 
@@ -102,6 +126,11 @@ export function PassengerTable({
     else if (filterType === "child") list = list.filter((p) => p.isChild);
     else if (filterType === "infant") list = list.filter((p) => p.hasInfant);
 
+    // Loyalty filter
+    if (filterLoyalty !== "all") {
+      list = list.filter((p) => p.editCodes.includes(filterLoyalty));
+    }
+
     // Sort
     list.sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
@@ -117,7 +146,7 @@ export function PassengerTable({
     });
 
     return list;
-  }, [passengers, search, filterCabin, filterStatus, filterType, sortKey, sortDir]);
+  }, [passengers, search, filterCabin, filterStatus, filterType, filterLoyalty, sortKey, sortDir]);
 
   function getStatusBadge(p: PassengerRecord) {
     if (p.isBoarded) return <Badge className="bg-emerald-500/15 text-emerald-600 border-transparent text-[10px]">Boarded</Badge>;
@@ -164,8 +193,20 @@ export function PassengerTable({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, PNR, seat..."
             aria-label="Search passengers"
-            className="w-full rounded-md border border-input bg-background px-9 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className={cn(
+              "w-full rounded-md border bg-background px-9 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              search ? "border-blue-500" : "border-input"
+            )}
           />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-2 rounded-full p-0.5 hover:bg-muted transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
@@ -247,9 +288,35 @@ export function PassengerTable({
               </button>
             )}
           </div>
-          {(filterCabin !== "all" || filterStatus !== "all" || filterType !== "all") && (
+          <div className="relative">
+            <select
+              value={filterLoyalty}
+              onChange={(e) => setFilterLoyalty(e.target.value as FilterLoyalty)}
+              className={cn(
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                filterLoyalty !== "all"
+                  ? "border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium"
+                  : "border-input bg-background"
+              )}
+            >
+              <option value="all">All Loyalty</option>
+              {LOYALTY_TIERS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            {filterLoyalty !== "all" && (
+              <button
+                onClick={() => setFilterLoyalty("all")}
+                className="absolute right-0.5 top-1 rounded-full p-0.5 hover:bg-amber-500/20 transition-colors"
+                aria-label="Clear loyalty filter"
+              >
+                <X className="h-3 w-3 text-amber-500" />
+              </button>
+            )}
+          </div>
+          {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all") && (
             <button
-              onClick={() => { setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); }}
+              onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); }}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
             >
               <X className="h-3 w-3" />
@@ -262,6 +329,59 @@ export function PassengerTable({
         </span>
       </div>
 
+      {/* Active filter chips */}
+      {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all") && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-muted-foreground mr-0.5">Active:</span>
+          {search && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              Search: &ldquo;{search}&rdquo;
+              <button onClick={() => setSearch("")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove search filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterCabin !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              Cabin: {filterCabin === "J" ? "Business" : "Economy"}
+              <button onClick={() => setFilterCabin("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove cabin filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterStatus !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              Status: {filterStatus === "checkedIn" ? "Checked-In" : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
+              <button onClick={() => setFilterStatus("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove status filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterType !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              Type: {filterType === "nonRevenue" ? "Non-Revenue" : filterType === "infant" ? "With Infant" : filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+              <button onClick={() => setFilterType("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove type filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterLoyalty !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              Loyalty: {LOYALTY_TIERS.find((t) => t.value === filterLoyalty)?.label ?? filterLoyalty}
+              <button onClick={() => setFilterLoyalty("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove loyalty filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          <button
+            onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); }}
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-1 underline underline-offset-2"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-lg border bg-card shadow-sm">
         <Table>
@@ -269,6 +389,7 @@ export function PassengerTable({
             <TableRow className="bg-muted/30">
               <TableHead>{renderSortHeader("Name", "lastName")}</TableHead>
               <TableHead>PNR</TableHead>
+              <TableHead>Nat.</TableHead>
               <TableHead>{renderSortHeader("Cabin", "cabin")}</TableHead>
               <TableHead>{renderSortHeader("Seat", "seat")}</TableHead>
               <TableHead>{renderSortHeader("Class", "bookingClass")}</TableHead>
@@ -281,7 +402,7 @@ export function PassengerTable({
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   No passengers match the current filters.
                 </TableCell>
               </TableRow>
@@ -301,6 +422,7 @@ export function PassengerTable({
                     {p.hasInfant && <Badge variant="outline" className="ml-1.5 text-[9px] px-1 border-emerald-300 text-emerald-600">INF</Badge>}
                   </TableCell>
                   <TableCell className="font-mono text-xs">{p.pnr}</TableCell>
+                  <TableCell className="text-xs">{p.nationality || "—"}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn("text-[10px] px-1.5", p.cabin === "J" ? "border-amber-300 text-amber-600" : "border-emerald-300 text-emerald-600")}>
                       {p.cabin === "J" ? "BIZ" : "ECO"}

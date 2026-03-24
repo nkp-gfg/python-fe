@@ -5,6 +5,7 @@ import type {
   PassengerListResponse, StandbyListResponse,
   PassengerDetailResponse, ChangeRecord, ChangeSummaryResponse,
   SnapshotMeta, FlightStatusRecord, ReservationsResponse,
+  FlightSchedule, ScheduleLookupRequest,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -217,4 +218,22 @@ export function fetchReservations(
   if (date) params.set("date", date);
   const qs = params.toString() ? `?${params}` : "";
   return get<ReservationsResponse>(`/flights/${flightNumber}/reservations${qs}`);
+}
+
+// --- Flight Schedule ---
+
+export function fetchSchedule(
+  flightNumber: string,
+  date?: string,
+): Promise<FlightSchedule> {
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+  const qs = params.toString() ? `?${params}` : "";
+  return get<FlightSchedule>(`/flights/${flightNumber}/schedule${qs}`);
+}
+
+export function lookupSchedule(
+  payload: ScheduleLookupRequest,
+): Promise<FlightSchedule> {
+  return post<FlightSchedule>("/flights/schedule/lookup", payload);
 }

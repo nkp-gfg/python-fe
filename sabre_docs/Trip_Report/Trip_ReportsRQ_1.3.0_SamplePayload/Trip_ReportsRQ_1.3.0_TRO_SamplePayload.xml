@@ -1,0 +1,15 @@
+<Trip_ReportsRQ Version="1.3.0" xmlns="http://webservices.sabre.com/triprecord">
+	<Report>
+		<ReportName>TRO</ReportName>
+		<ReportFormat>TRO</ReportFormat> 
+		<Criteria>
+			<FlightCriteria>
+				<AirlineCode>LA</AirlineCode>
+				<FlightNumber>2474</FlightNumber>
+				<OutboundAirport>LIM</OutboundAirport>
+				<DepartureDateTime>2018-01-20</DepartureDateTime>
+			</FlightCriteria>
+			<PosCriteria>LA</PosCriteria>
+		</Criteria>
+	</Report>
+</Trip_ReportsRQ>

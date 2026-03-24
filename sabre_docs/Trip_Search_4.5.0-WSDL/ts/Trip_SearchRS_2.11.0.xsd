@@ -1,0 +1,459 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="http://webservices.sabre.com/triprecord" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	targetNamespace="http://webservices.sabre.com/triprecord" elementFormDefault="qualified">
+
+	<xs:include schemaLocation="TR_CommonTypes_2.11.0.xsd" />
+	<xs:annotation>
+		<xs:documentation xml:lang="en">Trip Searches - can be Trip retrieve, PNR retrieve, CDI Search, PNR Search
+			etc</xs:documentation>
+		<xs:documentation xml:lang="en">Based off OTA 2007A ResRetroeveRS</xs:documentation>
+	</xs:annotation>
+	<xs:element name="Trip_SearchRS">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="BaseTripResponse">
+					<xs:choice>
+						<xs:sequence>
+							<xs:element name="ReservationsList" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation xml:lang="en">A container for multiple reservations.  </xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:choice>
+										<xs:element name="SabreIndex" minOccurs="0" maxOccurs="unbounded">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="UniqueID" type="UniqueID_Type">
+														<xs:annotation>
+															<xs:documentation xml:lang="en">The booking reference ID.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TravellerNames" minOccurs="0">
+														<xs:complexType>
+															<xs:annotation>
+																<xs:documentation xml:lang="en">The name of the traveler in the reservation.
+																</xs:documentation>
+															</xs:annotation>
+															<xs:sequence>
+																<xs:element name="TravelerName" type="PersonNameType_Sabre" minOccurs="1" maxOccurs="unbounded" />
+															</xs:sequence>
+															<xs:attributeGroup ref="TravellerNamesGroup"></xs:attributeGroup>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="EmailAddress" type="xs:string" minOccurs="0" />
+													<xs:element name="ProfileID" minOccurs="0" maxOccurs="unbounded">
+														<xs:complexType>
+															<xs:attributeGroup ref="ProfileIDGroup" />
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="Telephone" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation xml:lang="en">Request a reservation based on a telephone number.
+															</xs:documentation>
+														</xs:annotation>
+														<xs:complexType>
+															<xs:attributeGroup ref="TelephoneAttributesGroup" />
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="CustLoyalty" minOccurs="0">
+														<xs:complexType>
+															<xs:attributeGroup ref="CustomerLoyaltyGroup" />
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="FlightSegment" type="FlightSegmentType" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation xml:lang="en">The airline code, flight number, departure and arrival dates,
+																and the origin and
+																destination.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="VehicleResSummary" type="VehicleReservationSummaryType" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation xml:lang="en">It contains the pickup and return dates, confirmation number,
+																pickup and return
+																locations, customer name, and vehicle information.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="UpdatedBy" type="UpdatedBy_Type" minOccurs="0" />
+													<xs:element name="Remarks" type="RemarksType" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Phrase indicating the type of Active PNR Status</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+												</xs:sequence>
+												<xs:attributeGroup ref="SabreReservationIndexAttributes_Type" />
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="GlobalReservation" minOccurs="0" maxOccurs="unbounded">
+											<xs:annotation>
+												<xs:documentation xml:lang="en">One line in a list of reservations from a global distribution
+													system. It may contain the
+													booking reference, the person name, start date, and an itinerary name. </xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="UniqueID" type="UniqueID_Type">
+														<xs:annotation>
+															<xs:documentation xml:lang="en">The booking reference ID.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TravelerName" type="PersonNameType_Sabre" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation xml:lang="en">The name of the first traveler in the reservation.
+															</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TPA_Extensions" minOccurs="0">
+														<xs:complexType>
+															<xs:sequence>
+																<xs:element name="Status" minOccurs="0">
+																	<xs:complexType>
+																		<xs:attribute name="CancelledItems" type="xs:boolean" use="optional" default="false" />
+																	</xs:complexType>
+																</xs:element>
+																<xs:element name="AgencyPCC" type="xs:string" />
+															</xs:sequence>
+														</xs:complexType>
+													</xs:element>
+												</xs:sequence>
+												<xs:attribute name="ItineraryName" type="xs:string" use="optional">
+													<xs:annotation>
+														<xs:documentation xml:lang="en">A name given to this itinerary.
+		                                                        </xs:documentation>
+													</xs:annotation>
+												</xs:attribute>
+												<xs:attribute name="Start" type="DateOrDateTimeType" use="optional">
+													<xs:annotation>
+														<xs:documentation xml:lang="en">The first date of the reservation, i.e., check-in date,
+															departure date, pickup date,
+															etc.</xs:documentation>
+													</xs:annotation>
+												</xs:attribute>
+											</xs:complexType>
+										</xs:element>
+
+										<xs:element name="Reservations" type="Reservations" minOccurs="0" maxOccurs="unbounded" />
+									</xs:choice>
+									<xs:attribute name="NumberResults" type="xs:int" use="optional" default="0" />
+									<xs:attribute name="NumberPages" type="xs:int" use="optional" default="0" />
+									<xs:attribute name="TotalResults" type="xs:int" use="optional" />
+									<xs:attribute name="Token" type="xs:string" use="optional" default="0" />
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="Token" minOccurs="0" maxOccurs="unbounded">
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="Id" type="xs:string" minOccurs="0" maxOccurs="1"></xs:element>
+										<xs:element name="Status" type="xs:string" minOccurs="0" maxOccurs="1"></xs:element>
+										<xs:element name="CreateDate" type="xs:dateTime" minOccurs="0" maxOccurs="1"></xs:element>
+									</xs:sequence>
+									<xs:attribute name="System" type="xs:string" use="optional" />
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+
+					</xs:choice>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+
+
+	<xs:complexType name="PersonNameType_Sabre">
+		<xs:sequence>
+			<xs:element name="GivenName" type="xs:string" minOccurs="0" />
+			<xs:element name="Surname" type="xs:string" minOccurs="0" />
+			<xs:element name="TPA_Extensions" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="NameReference" minOccurs="0">
+							<xs:complexType>
+								<xs:attribute name="Text" type="xs:string" use="optional" />
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="NameNumber" minOccurs="0">
+							<xs:complexType>
+								<xs:attribute name="Number" type="xs:string" use="optional" />
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="CorporateName" minOccurs="0">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="Name" type="xs:string" minOccurs="0" />
+									<xs:element name="NameNumber" minOccurs="0">
+										<xs:complexType>
+											<xs:attribute name="Number" type="xs:string" use="optional" />
+										</xs:complexType>
+									</xs:element>
+									<xs:element name="SeatsRemaining" minOccurs="0">
+										<xs:complexType>
+											<xs:attribute name="Number" type="xs:string" use="optional" />
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+								<xs:attribute name="Ind" type="xs:boolean" use="optional" default="false" />
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="Infant" minOccurs="0">
+							<xs:complexType>
+								<xs:attribute name="Ind" type="xs:boolean" use="optional" default="false" />
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="NumberInParty" minOccurs="0">
+							<xs:complexType>
+								<xs:attribute name="Number" type="xs:nonNegativeInteger" use="optional" />
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="NumberMatchingNames" minOccurs="0">
+							<xs:complexType>
+								<xs:attribute name="Number" type="xs:nonNegativeInteger" use="optional" />
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:attributeGroup name="TravellerNamesGroup">
+		<xs:attribute name="NumberInParty" type="xs:nonNegativeInteger" use="optional" />
+		<xs:attribute name="NumberMatchingNames" type="xs:nonNegativeInteger" use="optional" />
+	</xs:attributeGroup>
+
+	<xs:simpleType name="DateOrDateTimeType">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">A construct to validate either a date or a dateTime value.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:union memberTypes="xs:date xs:dateTime" />
+	</xs:simpleType>
+
+
+	<xs:complexType name="FlightSegmentType">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">
+				FlightSegmentType extends FlightSegmentBaseType to provide additional functionality. 
+	</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="FlightSegmentBaseType">
+				<xs:sequence>
+					<xs:element name="MarketingAirline" type="xs:string" minOccurs="0">
+						<xs:annotation>
+							<xs:documentation xml:lang="en">The marketing airline. This is required for use with scheduled
+								airline messages but may be omitted
+								for requests by tour operators. </xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:sequence>
+				<xs:attribute name="FlightNumber" type="xs:string" use="optional">
+					<xs:annotation>
+						<xs:documentation xml:lang="en">The flight number of the flight. This is required for use with
+							scheduled airline messages but may be
+							omitted for requests by tour operators. </xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+				<xs:attribute name="TourOperatorFlightID" type="xs:string" use="optional">
+					<xs:annotation>
+						<xs:documentation xml:lang="en">ID of a flight in the Tour Operator's inventory. This flight is not
+							necessarily in the inventory of an
+							airline. Rather, it is a code created by tour operators.  </xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+
+	<xs:complexType name="FlightSegmentBaseType">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Construct for holding a flight segment availability object.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:sequence>
+			<xs:element name="DepartureAirport">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">Departure point of flight segment.</xs:documentation>
+				</xs:annotation>
+				<xs:complexType>
+					<xs:attributeGroup ref="AirportLocationGroup" />
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="ArrivalAirport">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">Arrival point of flight segment.</xs:documentation>
+				</xs:annotation>
+				<xs:complexType>
+					<xs:attributeGroup ref="AirportLocationGroup" />
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="OperatingAirline" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation xml:lang="en"> The operating airline of the flight if it is a codeshare flight.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="DepartureDateTime" type="xs:dateTime" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">The date and time of the flight segment departure.</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="ArrivalDateTime" type="xs:dateTime" use="optional" />
+		<xs:attribute name="StopQuantity" type="xs:nonNegativeInteger" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en"> The number of stops the flight makes</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="InfoSource" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">Used to specify the source of the data being exchanged as determined by
+					trading partners.
+        </xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+	</xs:complexType>
+
+	<xs:attributeGroup name="AirportLocationGroup">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">Airport location includes 3 letter code, terminal and gate.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:attribute name="LocationCode" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en"> Location code used to identify a specific airport.</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="CodeContext" type="xs:string" use="optional" default="IATA">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">Identifies the context of the identifying code, such as IATA, ARC, or
+					internal code, etc.
+        </xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="Terminal" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en"> Arrival or departure terminal (e.g., Concourse A)</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="Gate" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en"> Arrival or departure gate (e.g., B12)</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+	</xs:attributeGroup>
+
+	<xs:complexType name="VehicleReservationSummaryType">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">The VehicleReservationSummaryType complextype identifies the summary data
+				that identifies a reservation.
+				Use of one or more of the elements will help in identifying a specific reservation.</xs:documentation>
+		</xs:annotation>
+		<xs:sequence>
+			<xs:element name="ConfID" type="UniqueID_Type">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">A confirmation number by which this reservation can be uniquely
+						identified</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="PickUpLocation" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">A code to identify the pick up location, along with an optional code
+						context.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="ReturnLocation" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">A code to identify the return location, along with an optional code
+						context.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="TPA_Extensions" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Vendor" type="xs:string" minOccurs="0" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="PickUpDateTime" type="xs:dateTime" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">The PickUpDateTime attribute provides information on the pickup date and
+					time.</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="ReturnDateTime" type="xs:dateTime" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">The ReturnDateTime attribute provides information on the return date and
+					time.</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+	</xs:complexType>
+
+	<xs:attributeGroup name="SabreReservationIndexAttributes_Type">
+		<xs:attribute name="StartDate" type="xs:date" use="optional" />
+		<xs:attribute name="EndDate" type="xs:date" use="optional" />
+		<xs:attribute name="DataSource" use="optional">
+			<xs:simpleType>
+				<xs:restriction base="xs:string">
+					<xs:enumeration value="TDW only" />
+					<xs:enumeration value="CCC only" />
+					<xs:enumeration value="CCC and TDW" />
+					<xs:enumeration value="CCC down - Data from TDW" />
+					<xs:enumeration value="TDW down - Data from CCC" />
+					<xs:enumeration value="CCC and TDW  are down Cannot Retrieve data" />
+				</xs:restriction>
+			</xs:simpleType>
+		</xs:attribute>
+		<xs:attribute name="OnHold" type="xs:boolean" use="optional" />
+		<xs:attribute name="HasBeenTicketed" type="xs:boolean" use="optional" />
+		<xs:attribute name="Status" type="ReservationStatus_Type" use="optional" />
+
+	</xs:attributeGroup>
+
+	<xs:simpleType name="RemarksType">
+		<xs:annotation>
+			<xs:documentation>This value indicates the Phrase type associated with the PNR </xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="No Air,Car,Hotel,Cancelled Segments" />
+			<xs:enumeration value="Active Segments" />
+			<xs:enumeration value="Unknown" />
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="ReservationStatus_Type">
+		<xs:annotation>
+			<xs:documentation>This value indicates the PNR Status I=InActive , A=Active</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:NMTOKEN">
+			<xs:enumeration value="Active" />
+			<xs:enumeration value="InActive" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:complexType name="UpdatedBy_Type">
+		<xs:sequence>
+			<xs:element name="TPA_Extensions">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Source">
+							<xs:complexType>
+								<xs:attribute name="HomePseudoCityCode" type="xs:string" use="optional" />
+								<xs:attribute name="PseudoCityCode" type="xs:string" use="optional" />
+								<xs:attribute name="AgentSine" type="xs:string" use="optional" />
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="CreateDateTime" type="xs:dateTime" use="optional" />
+	</xs:complexType>
+
+</xs:schema>
+
+
+
+
+
+

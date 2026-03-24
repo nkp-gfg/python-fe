@@ -1,0 +1,591 @@
+<Trip_SearchRQ Version="4.5.0" xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" xmlns="http://webservices.sabre.com/triprecord">
+<ReadRequests>
+<ReservationReadRequest>
+   <DateCriteria>
+     <ReservationStartDate After="2019-05-08T07:00:00"/>
+		
+     <ReservationEndDate Before="2019-06-26T14:00:00"/>
+   </DateCriteria>
+  <NameCriteria>
+    <Name>
+      <LastName MatchMode="EXACT">IGLESIAS</LastName>
+
+    </Name>
+  </NameCriteria>
+  <PosCriteria AirlineCode="EY"/>
+  <ReturnOptions ResponseFormat="STL" ViewName="TripSearchBlob" SearchType="ACTIVE" MaxItemsReturned="10"/>
+</ReservationReadRequest>
+</ReadRequests>
+</Trip_SearchRQ>
+
+RS
+
+  <Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord" xmlns:ns2="http://services.sabre.com/STL/v01" xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" xmlns:ns3="http://webservices.sabre.com/pnrbuilder" xmlns:ns6="http://tds.sabre.com/itinerary" xmlns:ns5="http://tds.sabre.com/rules" xmlns:ns8="http://services.sabre.com/STL/v02" xmlns:ns7="http://services.sabre.com/res/orr/v0" xmlns:ns13="http://www.sabre.com/eps/schemas" xmlns:tir37="http://services.sabre.com/res/tir/v3_7" xmlns:ns9="http://www.sabre.com/ssg/des/v1" xmlns:ns12="http://opentravel.org/common/v02" xmlns:ns11="http://www.OpenTravel.org/ns/OTA2/AppInfo_v01_00" xmlns:tir39="http://services.sabre.com/res/tir/v3_9" xmlns:ns10="http://services.sabre.com/STL_Header/v02_00" xmlns:stl114="http://webservices.sabre.com/pnrbuilder/v1_14" xmlns:ns15="http://webservices.sabre.com/servicesplatform/orr/rules/1.0.0" xmlns:ns14="http://tds.sabre.com/distribution" xmlns:stl115="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:stl117="http://webservices.sabre.com/pnrbuilder/v1_17" xmlns:or111="http://services.sabre.com/res/or/v1_11" xmlns:or16="http://services.sabre.com/res/or/v1_6" xmlns:or17="http://services.sabre.com/res/or/v1_7" xmlns:or18="http://services.sabre.com/res/or/v1_8" xmlns:or19="http://services.sabre.com/res/or/v1_9" TimeStamp="2019-06-12T10:16:03" Target="Production" Version="4.5.0">
+      <Success>Success</Success>
+      <ReservationsList NumberResults="1" NumberPages="1" TotalResults="1">
+          <Reservations>
+              <Reservation Locator="MUSOZB">
+                  <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0">
+                      <stl19:Reservation NumberInSegment="4" isMultiCarrierPlatform="true" numberInParty="4" numberOfInfants="0">
+                          <stl19:BookingDetails>
+                              <stl19:RecordLocator>MUSOZB</stl19:RecordLocator>
+                              <stl19:CreationTimestamp>2019-03-22T16:24:00</stl19:CreationTimestamp>
+                              <stl19:SystemCreationTimestamp>2019-03-22T16:24:00</stl19:SystemCreationTimestamp>
+                              <stl19:UpdateTimestamp>2019-05-25T22:55:40</stl19:UpdateTimestamp>
+                              <stl19:PNRSequence>3</stl19:PNRSequence>
+                              <stl19:FlightsRange End="2019-06-06T20:00:00" Start="2019-05-27T09:55:00"/>
+                              <stl19:DivideSplitDetails/>
+                              <stl19:EstimatedPurgeTimestamp>2019-07-07T00:00:00</stl19:EstimatedPurgeTimestamp>
+                              <stl19:UpdateToken>22f381d3be736048901d93e238e950d2b5c003ef2b19220a</stl19:UpdateToken>
+                          </stl19:BookingDetails>
+                          <stl19:POS>
+                              <stl19:Source AirlineVendorID="EY" BookingSource="A0A0" HomePseudoCityCode="TTY" ISOCountry="US" PseudoCityCode="TTY">
+                                  <stl19:TTYRecordLocator>
+                                      <stl19:CRSLocator>HDQ</stl19:CRSLocator>
+                                      <stl19:CRSCode>HM</stl19:CRSCode>
+                                      <stl19:RecordLocator>GSJKUL</stl19:RecordLocator>
+                                      <stl19:AgencyId>HDQ</stl19:AgencyId>
+                                      <stl19:IataNumber>99999999</stl19:IataNumber>
+                                      <stl19:AgencyLocation>HDQ</stl19:AgencyLocation>
+                                      <stl19:UserType>A</stl19:UserType>
+                                      <stl19:CountryCode>US</stl19:CountryCode>
+                                  </stl19:TTYRecordLocator>
+                              </stl19:Source>
+                          </stl19:POS>
+                          <stl19:PassengerReservation>
+                              <stl19:Passengers>
+                                  <stl19:Passenger elementId="pnr-5.1" id="5" nameAssocId="1" nameId="01.01" nameType="S">
+                                      <stl19:LastName>HOAR</stl19:LastName>
+                                      <stl19:FirstName>HERVE</stl19:FirstName>
+                                      <stl19:SpecialRequests>
+                                          <stl19:GenericSpecialRequest id="27" msgType="S" type="A">
+                                              <stl19:Code>AUTO</stl19:Code>
+                                              <stl19:FreeText>/RBD</stl19:FreeText>
+                                              <stl19:ActionCode>NN</stl19:ActionCode>
+                                              <stl19:NumberInParty>4</stl19:NumberInParty>
+                                              <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                              <stl19:FullText>AUTO EY 101Y27MAY/RBD NN4</stl19:FullText>
+                                          </stl19:GenericSpecialRequest>
+                                      </stl19:SpecialRequests>
+                                      <stl19:Seats>
+                                          <stl19:PreReservedSeats>
+                                              <stl19:PreReservedSeat id="23">
+                                                  <stl19:SeatNumber>43D</stl19:SeatNumber>
+                                                  <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                  <stl19:SeatTypeCode>AMI</stl19:SeatTypeCode>
+                                                  <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              </stl19:PreReservedSeat>
+                                          </stl19:PreReservedSeats>
+                                      </stl19:Seats>
+                                      <stl19:AncillaryServices>
+                                          <stl19:AncillaryService elementId="pnr-15" id="15" sequenceNumber="1">
+                                              <stl19:CommercialName>PRE RESERVED SEAT ASSIGNMENT</stl19:CommercialName>
+                                              <stl19:RficCode>A</stl19:RficCode>
+                                              <stl19:RficSubcode>0B5</stl19:RficSubcode>
+                                              <stl19:OwningCarrierCode>EY</stl19:OwningCarrierCode>
+                                              <stl19:BookingIndicator>  </stl19:BookingIndicator>
+                                              <stl19:Vendor>ATP</stl19:Vendor>
+                                              <stl19:EMDType>2</stl19:EMDType>
+                                              <stl19:TTLPrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TTLPrice>
+                                              <stl19:OriginalBasePrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:OriginalBasePrice>
+                                              <stl19:RefundIndicator>N</stl19:RefundIndicator>
+                                              <stl19:CommisionIndicator>N</stl19:CommisionIndicator>
+                                              <stl19:InterlineIndicator>N</stl19:InterlineIndicator>
+                                              <stl19:FeeApplicationIndicator>4</stl19:FeeApplicationIndicator>
+                                              <stl19:PassengerTypeCode>ADT</stl19:PassengerTypeCode>
+                                              <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                              <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              <stl19:TotalOriginalBasePrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TotalOriginalBasePrice>
+                                              <stl19:TotalTTLPrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TotalTTLPrice>
+                                              <stl19:NumberOfItems>1</stl19:NumberOfItems>
+                                              <stl19:ActionCode>HK</stl19:ActionCode>
+                                              <stl19:SegmentIndicator>S</stl19:SegmentIndicator>
+                                              <stl19:BookingSource>0</stl19:BookingSource>
+                                              <stl19:TicketingIndicator>0</stl19:TicketingIndicator>
+                                              <stl19:PdcSeat>43D</stl19:PdcSeat>
+                                              <stl19:FirstTravelDate>190527</stl19:FirstTravelDate>
+                                              <stl19:LastTravelDate>190527</stl19:LastTravelDate>
+                                              <stl19:PurchaseTimestamp>2019-05-26T00:00:00</stl19:PurchaseTimestamp>
+                                              <stl19:GroupCode>SA</stl19:GroupCode>
+                                              <stl19:TicketUsedForEMDPricing>N</stl19:TicketUsedForEMDPricing>
+                                              <stl19:EMDConsummedAtIssuance> </stl19:EMDConsummedAtIssuance>
+                                              <stl19:PaperDocRequired>N</stl19:PaperDocRequired>
+                                              <stl19:TaxExemption>N</stl19:TaxExemption>
+                                              <stl19:ACSCount>0</stl19:ACSCount>
+                                              <stl19:Segment id="10" sequence="1">
+                                                  <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                  <stl19:FlightNumber>0101</stl19:FlightNumber>
+                                                  <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                  <stl19:DepartureDate>2019-05-27</stl19:DepartureDate>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                                  <stl19:MarketingCarrier>EY</stl19:MarketingCarrier>
+                                                  <stl19:OperatingCarrier>EY</stl19:OperatingCarrier>
+                                              </stl19:Segment>
+                                          </stl19:AncillaryService>
+                                      </stl19:AncillaryServices>
+                                  </stl19:Passenger>
+                                  <stl19:Passenger elementId="pnr-6.2" id="6" nameAssocId="2" nameId="02.01" nameType="S">
+                                      <stl19:LastName>IGLESIAS</stl19:LastName>
+                                      <stl19:FirstName>HAILEE</stl19:FirstName>
+                                      <stl19:SpecialRequests>
+                                          <stl19:GenericSpecialRequest id="27" msgType="S" type="A">
+                                              <stl19:Code>AUTO</stl19:Code>
+                                              <stl19:FreeText>/RBD</stl19:FreeText>
+                                              <stl19:ActionCode>NN</stl19:ActionCode>
+                                              <stl19:NumberInParty>4</stl19:NumberInParty>
+                                              <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                              <stl19:FullText>AUTO EY 101Y27MAY/RBD NN4</stl19:FullText>
+                                          </stl19:GenericSpecialRequest>
+                                      </stl19:SpecialRequests>
+                                      <stl19:Seats>
+                                          <stl19:PreReservedSeats>
+                                              <stl19:PreReservedSeat id="24">
+                                                  <stl19:SeatNumber>43E</stl19:SeatNumber>
+                                                  <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                  <stl19:SeatTypeCode>MI</stl19:SeatTypeCode>
+                                                  <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              </stl19:PreReservedSeat>
+                                          </stl19:PreReservedSeats>
+                                      </stl19:Seats>
+                                      <stl19:AncillaryServices>
+                                          <stl19:AncillaryService elementId="pnr-17" id="17" sequenceNumber="2">
+                                              <stl19:CommercialName>PRE RESERVED SEAT ASSIGNMENT</stl19:CommercialName>
+                                              <stl19:RficCode>A</stl19:RficCode>
+                                              <stl19:RficSubcode>0B5</stl19:RficSubcode>
+                                              <stl19:OwningCarrierCode>EY</stl19:OwningCarrierCode>
+                                              <stl19:BookingIndicator>  </stl19:BookingIndicator>
+                                              <stl19:Vendor>ATP</stl19:Vendor>
+                                              <stl19:EMDType>2</stl19:EMDType>
+                                              <stl19:TTLPrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TTLPrice>
+                                              <stl19:OriginalBasePrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:OriginalBasePrice>
+                                              <stl19:RefundIndicator>N</stl19:RefundIndicator>
+                                              <stl19:CommisionIndicator>N</stl19:CommisionIndicator>
+                                              <stl19:InterlineIndicator>N</stl19:InterlineIndicator>
+                                              <stl19:FeeApplicationIndicator>4</stl19:FeeApplicationIndicator>
+                                              <stl19:PassengerTypeCode>ADT</stl19:PassengerTypeCode>
+                                              <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                              <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              <stl19:TotalOriginalBasePrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TotalOriginalBasePrice>
+                                              <stl19:TotalTTLPrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TotalTTLPrice>
+                                              <stl19:NumberOfItems>1</stl19:NumberOfItems>
+                                              <stl19:ActionCode>HK</stl19:ActionCode>
+                                              <stl19:SegmentIndicator>S</stl19:SegmentIndicator>
+                                              <stl19:BookingSource>0</stl19:BookingSource>
+                                              <stl19:TicketingIndicator>0</stl19:TicketingIndicator>
+                                              <stl19:PdcSeat>43E</stl19:PdcSeat>
+                                              <stl19:FirstTravelDate>190527</stl19:FirstTravelDate>
+                                              <stl19:LastTravelDate>190527</stl19:LastTravelDate>
+                                              <stl19:PurchaseTimestamp>2019-05-26T00:00:00</stl19:PurchaseTimestamp>
+                                              <stl19:GroupCode>SA</stl19:GroupCode>
+                                              <stl19:TicketUsedForEMDPricing>N</stl19:TicketUsedForEMDPricing>
+                                              <stl19:EMDConsummedAtIssuance> </stl19:EMDConsummedAtIssuance>
+                                              <stl19:PaperDocRequired>N</stl19:PaperDocRequired>
+                                              <stl19:TaxExemption>N</stl19:TaxExemption>
+                                              <stl19:ACSCount>0</stl19:ACSCount>
+                                              <stl19:Segment id="10" sequence="1">
+                                                  <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                  <stl19:FlightNumber>0101</stl19:FlightNumber>
+                                                  <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                  <stl19:DepartureDate>2019-05-27</stl19:DepartureDate>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                                  <stl19:MarketingCarrier>EY</stl19:MarketingCarrier>
+                                                  <stl19:OperatingCarrier>EY</stl19:OperatingCarrier>
+                                              </stl19:Segment>
+                                          </stl19:AncillaryService>
+                                      </stl19:AncillaryServices>
+                                  </stl19:Passenger>
+                                  <stl19:Passenger elementId="pnr-6.3" id="6" nameAssocId="3" nameId="02.02" nameType="S">
+                                      <stl19:LastName>IGLESIAS</stl19:LastName>
+                                      <stl19:FirstName>GINA</stl19:FirstName>
+                                      <stl19:SpecialRequests>
+                                          <stl19:GenericSpecialRequest id="27" msgType="S" type="A">
+                                              <stl19:Code>AUTO</stl19:Code>
+                                              <stl19:FreeText>/RBD</stl19:FreeText>
+                                              <stl19:ActionCode>NN</stl19:ActionCode>
+                                              <stl19:NumberInParty>4</stl19:NumberInParty>
+                                              <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                              <stl19:FullText>AUTO EY 101Y27MAY/RBD NN4</stl19:FullText>
+                                          </stl19:GenericSpecialRequest>
+                                      </stl19:SpecialRequests>
+                                      <stl19:Seats>
+                                          <stl19:PreReservedSeats>
+                                              <stl19:PreReservedSeat id="25">
+                                                  <stl19:SeatNumber>43F</stl19:SeatNumber>
+                                                  <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                  <stl19:SeatTypeCode>MI</stl19:SeatTypeCode>
+                                                  <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              </stl19:PreReservedSeat>
+                                          </stl19:PreReservedSeats>
+                                      </stl19:Seats>
+                                      <stl19:AncillaryServices>
+                                          <stl19:AncillaryService elementId="pnr-19" id="19" sequenceNumber="3">
+                                              <stl19:CommercialName>PRE RESERVED SEAT ASSIGNMENT</stl19:CommercialName>
+                                              <stl19:RficCode>A</stl19:RficCode>
+                                              <stl19:RficSubcode>0B5</stl19:RficSubcode>
+                                              <stl19:OwningCarrierCode>EY</stl19:OwningCarrierCode>
+                                              <stl19:BookingIndicator>  </stl19:BookingIndicator>
+                                              <stl19:Vendor>ATP</stl19:Vendor>
+                                              <stl19:EMDType>2</stl19:EMDType>
+                                              <stl19:TTLPrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TTLPrice>
+                                              <stl19:OriginalBasePrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:OriginalBasePrice>
+                                              <stl19:RefundIndicator>N</stl19:RefundIndicator>
+                                              <stl19:CommisionIndicator>N</stl19:CommisionIndicator>
+                                              <stl19:InterlineIndicator>N</stl19:InterlineIndicator>
+                                              <stl19:FeeApplicationIndicator>4</stl19:FeeApplicationIndicator>
+                                              <stl19:PassengerTypeCode>ADT</stl19:PassengerTypeCode>
+                                              <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                              <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              <stl19:TotalOriginalBasePrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TotalOriginalBasePrice>
+                                              <stl19:TotalTTLPrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TotalTTLPrice>
+                                              <stl19:NumberOfItems>1</stl19:NumberOfItems>
+                                              <stl19:ActionCode>HK</stl19:ActionCode>
+                                              <stl19:SegmentIndicator>S</stl19:SegmentIndicator>
+                                              <stl19:BookingSource>0</stl19:BookingSource>
+                                              <stl19:TicketingIndicator>0</stl19:TicketingIndicator>
+                                              <stl19:PdcSeat>43F</stl19:PdcSeat>
+                                              <stl19:FirstTravelDate>190527</stl19:FirstTravelDate>
+                                              <stl19:LastTravelDate>190527</stl19:LastTravelDate>
+                                              <stl19:PurchaseTimestamp>2019-05-26T00:00:00</stl19:PurchaseTimestamp>
+                                              <stl19:GroupCode>SA</stl19:GroupCode>
+                                              <stl19:TicketUsedForEMDPricing>N</stl19:TicketUsedForEMDPricing>
+                                              <stl19:EMDConsummedAtIssuance> </stl19:EMDConsummedAtIssuance>
+                                              <stl19:PaperDocRequired>N</stl19:PaperDocRequired>
+                                              <stl19:TaxExemption>N</stl19:TaxExemption>
+                                              <stl19:ACSCount>0</stl19:ACSCount>
+                                              <stl19:Segment id="10" sequence="1">
+                                                  <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                  <stl19:FlightNumber>0101</stl19:FlightNumber>
+                                                  <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                  <stl19:DepartureDate>2019-05-27</stl19:DepartureDate>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                                  <stl19:MarketingCarrier>EY</stl19:MarketingCarrier>
+                                                  <stl19:OperatingCarrier>EY</stl19:OperatingCarrier>
+                                              </stl19:Segment>
+                                          </stl19:AncillaryService>
+                                      </stl19:AncillaryServices>
+                                  </stl19:Passenger>
+                                  <stl19:Passenger elementId="pnr-7.4" id="7" nameAssocId="4" nameId="03.01" nameType="S">
+                                      <stl19:LastName>PONTE</stl19:LastName>
+                                      <stl19:FirstName>LYMAN</stl19:FirstName>
+                                      <stl19:SpecialRequests>
+                                          <stl19:GenericSpecialRequest id="27" msgType="S" type="A">
+                                              <stl19:Code>AUTO</stl19:Code>
+                                              <stl19:FreeText>/RBD</stl19:FreeText>
+                                              <stl19:ActionCode>NN</stl19:ActionCode>
+                                              <stl19:NumberInParty>4</stl19:NumberInParty>
+                                              <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                              <stl19:FullText>AUTO EY 101Y27MAY/RBD NN4</stl19:FullText>
+                                          </stl19:GenericSpecialRequest>
+                                      </stl19:SpecialRequests>
+                                      <stl19:Seats>
+                                          <stl19:PreReservedSeats>
+                                              <stl19:PreReservedSeat id="26">
+                                                  <stl19:SeatNumber>43G</stl19:SeatNumber>
+                                                  <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                  <stl19:SeatTypeCode>AMI</stl19:SeatTypeCode>
+                                                  <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              </stl19:PreReservedSeat>
+                                          </stl19:PreReservedSeats>
+                                      </stl19:Seats>
+                                      <stl19:AncillaryServices>
+                                          <stl19:AncillaryService elementId="pnr-21" id="21" sequenceNumber="4">
+                                              <stl19:CommercialName>PRE RESERVED SEAT ASSIGNMENT</stl19:CommercialName>
+                                              <stl19:RficCode>A</stl19:RficCode>
+                                              <stl19:RficSubcode>0B5</stl19:RficSubcode>
+                                              <stl19:OwningCarrierCode>EY</stl19:OwningCarrierCode>
+                                              <stl19:BookingIndicator>  </stl19:BookingIndicator>
+                                              <stl19:Vendor>ATP</stl19:Vendor>
+                                              <stl19:EMDType>2</stl19:EMDType>
+                                              <stl19:TTLPrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TTLPrice>
+                                              <stl19:OriginalBasePrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:OriginalBasePrice>
+                                              <stl19:RefundIndicator>N</stl19:RefundIndicator>
+                                              <stl19:CommisionIndicator>N</stl19:CommisionIndicator>
+                                              <stl19:InterlineIndicator>N</stl19:InterlineIndicator>
+                                              <stl19:FeeApplicationIndicator>4</stl19:FeeApplicationIndicator>
+                                              <stl19:PassengerTypeCode>ADT</stl19:PassengerTypeCode>
+                                              <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                              <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              <stl19:TotalOriginalBasePrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TotalOriginalBasePrice>
+                                              <stl19:TotalTTLPrice>
+                                                  <stl19:Price>0</stl19:Price>
+                                                  <stl19:Currency>USD</stl19:Currency>
+                                              </stl19:TotalTTLPrice>
+                                              <stl19:NumberOfItems>1</stl19:NumberOfItems>
+                                              <stl19:ActionCode>HK</stl19:ActionCode>
+                                              <stl19:SegmentIndicator>S</stl19:SegmentIndicator>
+                                              <stl19:BookingSource>0</stl19:BookingSource>
+                                              <stl19:TicketingIndicator>0</stl19:TicketingIndicator>
+                                              <stl19:PdcSeat>43G</stl19:PdcSeat>
+                                              <stl19:FirstTravelDate>190527</stl19:FirstTravelDate>
+                                              <stl19:LastTravelDate>190527</stl19:LastTravelDate>
+                                              <stl19:PurchaseTimestamp>2019-05-26T00:00:00</stl19:PurchaseTimestamp>
+                                              <stl19:GroupCode>SA</stl19:GroupCode>
+                                              <stl19:TicketUsedForEMDPricing>N</stl19:TicketUsedForEMDPricing>
+                                              <stl19:EMDConsummedAtIssuance> </stl19:EMDConsummedAtIssuance>
+                                              <stl19:PaperDocRequired>N</stl19:PaperDocRequired>
+                                              <stl19:TaxExemption>N</stl19:TaxExemption>
+                                              <stl19:ACSCount>0</stl19:ACSCount>
+                                              <stl19:Segment id="10" sequence="1">
+                                                  <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                                  <stl19:FlightNumber>0101</stl19:FlightNumber>
+                                                  <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                  <stl19:DepartureDate>2019-05-27</stl19:DepartureDate>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                                  <stl19:MarketingCarrier>EY</stl19:MarketingCarrier>
+                                                  <stl19:OperatingCarrier>EY</stl19:OperatingCarrier>
+                                              </stl19:Segment>
+                                          </stl19:AncillaryService>
+                                      </stl19:AncillaryServices>
+                                  </stl19:Passenger>
+                              </stl19:Passengers>
+                              <stl19:Segments>
+                                  <stl19:Poc>
+                                      <stl19:Airport>AUH</stl19:Airport>
+                                      <stl19:Departure>2019-05-27T09:55:00</stl19:Departure>
+                                  </stl19:Poc>
+                                  <stl19:Air SpecialMeal="false" id="10" isPast="true" segmentAssociationId="3" sequence="1">
+                                      <stl19:DepartureAirport>AUH</stl19:DepartureAirport>
+                                      <stl19:DepartureAirportCodeContext>IATA</stl19:DepartureAirportCodeContext>
+                                      <stl19:ArrivalAirport>JFK</stl19:ArrivalAirport>
+                                      <stl19:ArrivalAirportCodeContext>IATA</stl19:ArrivalAirportCodeContext>
+                                      <stl19:OperatingAirlineCode>EY</stl19:OperatingAirlineCode>
+                                      <stl19:OperatingAirlineShortName>ETIHAD AIRWAYS</stl19:OperatingAirlineShortName>
+                                      <stl19:OperatingFlightNumber>0101</stl19:OperatingFlightNumber>
+                                      <stl19:EquipmentType>388</stl19:EquipmentType>
+                                      <stl19:MarketingAirlineCode>EY</stl19:MarketingAirlineCode>
+                                      <stl19:MarketingFlightNumber>0101</stl19:MarketingFlightNumber>
+                                      <stl19:OperatingClassOfService>Y</stl19:OperatingClassOfService>
+                                      <stl19:MarketingClassOfService>Y</stl19:MarketingClassOfService>
+                                      <stl19:MarriageGrp>
+                                          <stl19:Ind>0</stl19:Ind>
+                                          <stl19:Group>0</stl19:Group>
+                                          <stl19:Sequence>0</stl19:Sequence>
+                                      </stl19:MarriageGrp>
+                                      <stl19:Seats>
+                                          <stl19:PreReservedSeats>
+                                              <stl19:PreReservedSeat id="23">
+                                                  <stl19:SeatNumber>43D</stl19:SeatNumber>
+                                                  <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                  <stl19:SeatTypeCode>AMI</stl19:SeatTypeCode>
+                                                  <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              </stl19:PreReservedSeat>
+                                              <stl19:PreReservedSeat id="24">
+                                                  <stl19:SeatNumber>43E</stl19:SeatNumber>
+                                                  <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                  <stl19:SeatTypeCode>MI</stl19:SeatTypeCode>
+                                                  <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              </stl19:PreReservedSeat>
+                                              <stl19:PreReservedSeat id="25">
+                                                  <stl19:SeatNumber>43F</stl19:SeatNumber>
+                                                  <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                  <stl19:SeatTypeCode>MI</stl19:SeatTypeCode>
+                                                  <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              </stl19:PreReservedSeat>
+                                              <stl19:PreReservedSeat id="26">
+                                                  <stl19:SeatNumber>43G</stl19:SeatNumber>
+                                                  <stl19:SmokingPrefOfferedIndicator>false</stl19:SmokingPrefOfferedIndicator>
+                                                  <stl19:SeatTypeCode>AMI</stl19:SeatTypeCode>
+                                                  <stl19:SeatStatusCode>HK</stl19:SeatStatusCode>
+                                                  <stl19:BoardPoint>AUH</stl19:BoardPoint>
+                                                  <stl19:OffPoint>JFK</stl19:OffPoint>
+                                              </stl19:PreReservedSeat>
+                                          </stl19:PreReservedSeats>
+                                      </stl19:Seats>
+                                      <stl19:Eticket>true</stl19:Eticket>
+                                      <stl19:DepartureDateTime>2019-05-27T09:55:00</stl19:DepartureDateTime>
+                                      <stl19:ArrivalDateTime>2019-05-27T16:10:00</stl19:ArrivalDateTime>
+                                      <stl19:FlightNumber>0101</stl19:FlightNumber>
+                                      <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                      <stl19:ActionCode>HK</stl19:ActionCode>
+                                      <stl19:NumberInParty>4</stl19:NumberInParty>
+                                      <stl19:SegmentSpecialRequests>
+                                          <stl19:GenericSpecialRequest id="27" msgType="S" type="A">
+                                              <stl19:Code>AUTO</stl19:Code>
+                                              <stl19:FreeText>/RBD</stl19:FreeText>
+                                              <stl19:ActionCode>NN</stl19:ActionCode>
+                                              <stl19:NumberInParty>4</stl19:NumberInParty>
+                                              <stl19:AirlineCode>EY</stl19:AirlineCode>
+                                              <stl19:FullText>AUTO EY 101Y27MAY/RBD NN4</stl19:FullText>
+                                          </stl19:GenericSpecialRequest>
+                                      </stl19:SegmentSpecialRequests>
+                                      <stl19:inboundConnection>false</stl19:inboundConnection>
+                                      <stl19:outboundConnection>false</stl19:outboundConnection>
+                                      <stl19:AncillaryServices>
+                                          <stl19:AncillaryService ref="15"/>
+                                          <stl19:AncillaryService ref="17"/>
+                                          <stl19:AncillaryService ref="19"/>
+                                          <stl19:AncillaryService ref="21"/>
+                                      </stl19:AncillaryServices>
+                                      <stl19:ScheduleChangeIndicator>false</stl19:ScheduleChangeIndicator>
+                                      <stl19:SegmentBookedDate>2019-03-22T16:24:00</stl19:SegmentBookedDate>
+                                      <stl19:Pos>
+                                          <stl19:IataNumber>0</stl19:IataNumber>
+                                          <stl19:AgencyCityCode>TTY</stl19:AgencyCityCode>
+                                          <stl19:DutyCode>R</stl19:DutyCode>
+                                      </stl19:Pos>
+                                  </stl19:Air>
+                                  <stl19:Air SpecialMeal="false" id="12" isPast="true" segmentAssociationId="4" sequence="2">
+                                      <stl19:DepartureAirport>JFK</stl19:DepartureAirport>
+                                      <stl19:DepartureAirportCodeContext>IATA</stl19:DepartureAirportCodeContext>
+                                      <stl19:ArrivalAirport>AUH</stl19:ArrivalAirport>
+                                      <stl19:ArrivalAirportCodeContext>IATA</stl19:ArrivalAirportCodeContext>
+                                      <stl19:OperatingAirlineCode>EY</stl19:OperatingAirlineCode>
+                                      <stl19:OperatingAirlineShortName>ETIHAD AIRWAYS</stl19:OperatingAirlineShortName>
+                                      <stl19:OperatingFlightNumber>0100</stl19:OperatingFlightNumber>
+                                      <stl19:EquipmentType>388</stl19:EquipmentType>
+                                      <stl19:MarketingAirlineCode>EY</stl19:MarketingAirlineCode>
+                                      <stl19:MarketingFlightNumber>0100</stl19:MarketingFlightNumber>
+                                      <stl19:OperatingClassOfService>J</stl19:OperatingClassOfService>
+                                      <stl19:MarketingClassOfService>J</stl19:MarketingClassOfService>
+                                      <stl19:MarriageGrp>
+                                          <stl19:Ind>0</stl19:Ind>
+                                          <stl19:Group>0</stl19:Group>
+                                          <stl19:Sequence>0</stl19:Sequence>
+                                      </stl19:MarriageGrp>
+                                      <stl19:Seats>
+                                          <stl19:SeatSpecialRequests>
+                                              <stl19:SeatRequest id="29" type="G">
+                                                  <stl19:SeatCode>NSST</stl19:SeatCode>
+                                                  <stl19:FlightNumber>0101</stl19:FlightNumber>
+                                                  <stl19:VendorCode>EY</stl19:VendorCode>
+                                                  <stl19:FlightDate>2019-05-27</stl19:FlightDate>
+                                                  <stl19:BoardCity>AUH</stl19:BoardCity>
+                                                  <stl19:OffCity>JFK</stl19:OffCity>
+                                                  <stl19:Comment>43D</stl19:Comment>
+                                                  <stl19:ActionCode>KK</stl19:ActionCode>
+                                                  <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                  <stl19:NumberInParty>1</stl19:NumberInParty>
+                                              </stl19:SeatRequest>
+                                              <stl19:SeatRequest id="30" type="G">
+                                                  <stl19:SeatCode>NSST</stl19:SeatCode>
+                                                  <stl19:FlightNumber>0101</stl19:FlightNumber>
+                                                  <stl19:VendorCode>EY</stl19:VendorCode>
+                                                  <stl19:FlightDate>2019-05-27</stl19:FlightDate>
+                                                  <stl19:BoardCity>AUH</stl19:BoardCity>
+                                                  <stl19:OffCity>JFK</stl19:OffCity>
+                                                  <stl19:Comment>43E</stl19:Comment>
+                                                  <stl19:ActionCode>KK</stl19:ActionCode>
+                                                  <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                  <stl19:NumberInParty>1</stl19:NumberInParty>
+                                              </stl19:SeatRequest>
+                                              <stl19:SeatRequest id="31" type="G">
+                                                  <stl19:SeatCode>NSST</stl19:SeatCode>
+                                                  <stl19:FlightNumber>0101</stl19:FlightNumber>
+                                                  <stl19:VendorCode>EY</stl19:VendorCode>
+                                                  <stl19:FlightDate>2019-05-27</stl19:FlightDate>
+                                                  <stl19:BoardCity>AUH</stl19:BoardCity>
+                                                  <stl19:OffCity>JFK</stl19:OffCity>
+                                                  <stl19:Comment>43F</stl19:Comment>
+                                                  <stl19:ActionCode>KK</stl19:ActionCode>
+                                                  <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                  <stl19:NumberInParty>1</stl19:NumberInParty>
+                                              </stl19:SeatRequest>
+                                              <stl19:SeatRequest id="32" type="G">
+                                                  <stl19:SeatCode>NSST</stl19:SeatCode>
+                                                  <stl19:FlightNumber>0101</stl19:FlightNumber>
+                                                  <stl19:VendorCode>EY</stl19:VendorCode>
+                                                  <stl19:FlightDate>2019-05-27</stl19:FlightDate>
+                                                  <stl19:BoardCity>AUH</stl19:BoardCity>
+                                                  <stl19:OffCity>JFK</stl19:OffCity>
+                                                  <stl19:Comment>43G</stl19:Comment>
+                                                  <stl19:ActionCode>KK</stl19:ActionCode>
+                                                  <stl19:ClassOfService>Y</stl19:ClassOfService>
+                                                  <stl19:NumberInParty>1</stl19:NumberInParty>
+                                              </stl19:SeatRequest>
+                                          </stl19:SeatSpecialRequests>
+                                      </stl19:Seats>
+                                      <stl19:Eticket>true</stl19:Eticket>
+                                      <stl19:DepartureDateTime>2019-06-05T22:55:00</stl19:DepartureDateTime>
+                                      <stl19:ArrivalDateTime>2019-06-06T20:00:00</stl19:ArrivalDateTime>
+                                      <stl19:FlightNumber>0100</stl19:FlightNumber>
+                                      <stl19:ClassOfService>J</stl19:ClassOfService>
+                                      <stl19:ActionCode>HK</stl19:ActionCode>
+                                      <stl19:NumberInParty>4</stl19:NumberInParty>
+                                      <stl19:SegmentSpecialRequests/>
+                                      <stl19:inboundConnection>false</stl19:inboundConnection>
+                                      <stl19:outboundConnection>false</stl19:outboundConnection>
+                                      <stl19:ScheduleChangeIndicator>false</stl19:ScheduleChangeIndicator>
+                                      <stl19:SegmentBookedDate>2019-03-22T16:24:00</stl19:SegmentBookedDate>
+                                      <stl19:Pos>
+                                          <stl19:IataNumber>0</stl19:IataNumber>
+                                          <stl19:AgencyCityCode>TTY</stl19:AgencyCityCode>
+                                          <stl19:DutyCode>R</stl19:DutyCode>
+                                      </stl19:Pos>
+                                  </stl19:Air>
+                              </stl19:Segments>
+                              <stl19:TicketingInfo/>
+                              <stl19:ItineraryPricing/>
+                          </stl19:PassengerReservation>
+                          <stl19:ReceivedFrom>
+                              <stl19:Name>HDQBBHM222124 99812E9C-001</stl19:Name>
+                          </stl19:ReceivedFrom>
+                          <stl19:EmailAddresses/>
+                      </stl19:Reservation>
+                  </stl19:GetReservationRS>
+              </Reservation>
+          </Reservations>
+      </ReservationsList>
+  </Trip_SearchRS>

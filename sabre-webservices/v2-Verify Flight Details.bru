@@ -1,0 +1,108 @@
+meta {
+  name: v2-Verify Flight Details
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/{{cpaid}}
+  body: xml
+  auth: inherit
+}
+
+headers {
+  Content-Type: text/xml; charset=utf-8
+  SOAPAction: "VerifyFlightDetailsLLSRQ"
+}
+
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                    xmlns:v2="http://webservices.sabre.com/sabreXML/2011/10">
+    <soapenv:Header>
+      <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
+        <eb:From><eb:PartyId/></eb:From>
+        <eb:To><eb:PartyId/></eb:To>
+        <eb:CPAId>{{cpaid}}</eb:CPAId>
+        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+        <eb:Service>VerifyFlightDetailsLLSRQ</eb:Service>
+        <eb:Action>VerifyFlightDetailsLLSRQ</eb:Action>
+        <eb:MessageData>
+          <eb:MessageId>{{messageId}}</eb:MessageId>
+          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+        </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security soapenv:mustUnderstand="0">
+        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+      </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+      <v2:VerifyFlightDetailsRQ Version="2.0.1">
+        <v2:OriginDestinationInformation>
+          <v2:FlightSegment DepartureDateTime="{{departureMmDd}}T00:00">
+            <v2:DestinationLocation LocationCode="{{destination}}"/>
+            <v2:MarketingAirline Code="{{airlineCode}}" FlightNumber="{{flightNumber}}"/>
+            <v2:OriginLocation LocationCode="{{origin}}"/>
+          </v2:FlightSegment>
+        </v2:OriginDestinationInformation>
+      </v2:VerifyFlightDetailsRQ>
+    </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+vars:pre-request {
+  flightNumber: 2006
+  departureDate: 2026-03-25
+  origin: BAH
+  destination: LHR
+  airlineCode: GF
+}
+
+script:pre-request {
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+  // Convert YYYY-MM-DD to MM-DD for Sabre DepartureDateTime
+  const depDate = bru.getVar("departureDate");
+  bru.setVar("departureMmDd", depDate.substring(5));
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  # VerifyFlightDetailsLLSRQ v2.0.1 — Schedule Lookup
+
+  Returns published flight schedule data including:
+  - **DepartureDateTime / ArrivalDateTime** with actual times (MM-DDTHH:MM format)
+  - **Equipment** — aircraft type (e.g., 789 = Boeing 787-9)
+  - **OriginLocation / DestinationLocation** with Terminal info
+  - **ElapsedTime** — scheduled flight duration in minutes
+  - **TimeZone** info (GMT offset) for each airport
+  - **Meal** service codes
+  - **AirMilesFlown** — distance
+
+  ## Use Case
+  Solves the missing schedule times issue when ACS_FlightDetailRQ returns
+  minimal data during early check-in phase. This API returns the published
+  timetable regardless of flight operational status.
+
+  ## Request Fields
+  | Field            | Required | Type                | Notes                          |
+  |------------------|----------|---------------------|--------------------------------|
+  | DepartureDateTime| Yes      | MM-DDTHH:MM         | On FlightSegment attribute     |
+  | OriginLocation   | Yes      | 3-char airport code | Origin airport                 |
+  | DestinationLocation | No   | 3-char airport code | Optional destination filter    |
+  | MarketingAirline | Yes      | Code + FlightNumber | Airline code and flight number |
+}

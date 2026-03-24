@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="http://webservices.sabre.com/triprecord" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	targetNamespace="http://webservices.sabre.com/triprecord" elementFormDefault="qualified">
+
+	<xs:include schemaLocation="TR_CommonTypes_1.3.0.xsd" />
+
+	<xs:element name="Trip_ReportsRS">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="BaseTripResponse">
+					<xs:sequence>
+						<xs:element name="Report" minOccurs="0" maxOccurs="1">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="ReportName" type="xs:string" />
+									<xs:element name="ReportFormat" type="xs:string" />
+									<xs:element name="ReportResult" minOccurs="0" maxOccurs="unbounded">
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="Header" minOccurs="1">
+													<xs:complexType>
+														<xs:sequence>
+															<xs:element name="AirlineCode" type="xs:string" />
+															<xs:element name="FlightNumber" type="xs:string"  minOccurs="0" />
+															<xs:element name="DepartureDateTime" type="xs:dateTime"  minOccurs="0" />
+															<xs:element name="DepartureDayOfWeek" type="xs:string"  minOccurs="0" />
+															<xs:element name="ArrivalDateTime" type="xs:dateTime"  minOccurs="0" />
+															<xs:element name="DisplayType" type="xs:string" minOccurs="0" />
+															<xs:element name="DepartureAirport" type="xs:string" minOccurs="0" />
+															<xs:element name="ArrivalAirport" type="xs:string" minOccurs="0" />
+															<xs:element name="InboundAirport" type="xs:string" minOccurs="0" />
+															<xs:element name="OutboundAirport" type="xs:string" minOccurs="0" />															
+															<xs:element name="DaysPriorToDeparture" type="xs:string" minOccurs="0" />
+															<xs:element name="DaysBeforeDeparture" type="xs:string" minOccurs="0" />
+															<xs:element name="PrsActivated" type="xs:boolean" default="false" minOccurs="0" />
+															<xs:element name="LegsClasses" type="xs:string" minOccurs="0" />
+															<xs:element name="CabinDivideIndicator" type="xs:string" minOccurs="0" />
+															<xs:element name="AircraftType" type="xs:string" minOccurs="0" />
+															<xs:element name="TableOfConfiguration" type="xs:string" minOccurs="0" />
+															<xs:element name="AvsTable" type="xs:string" minOccurs="0" />
+															<xs:element name="ClassList" type="ClassList" minOccurs="0" maxOccurs="2"/>
+															<xs:element name="ReportStartDate" type="xs:dateTime"  minOccurs="0" />
+															<xs:element name="ReportEndDate" type="xs:dateTime"  minOccurs="0" />
+														</xs:sequence>
+													</xs:complexType>
+												</xs:element>
+												<xs:element name="Details">
+													<xs:complexType>
+														<xs:sequence>
+															<xs:element name="Entry" minOccurs="0" maxOccurs="unbounded">
+																<xs:complexType>
+																	<xs:sequence>
+																		<xs:element name="EntryHeader" minOccurs="0">
+																			<xs:complexType>
+																				<xs:sequence>
+																					<xs:element name="DepartureAirport" type="xs:string" minOccurs="0" />
+																					<xs:element name="ArrivalAirport" type="xs:string" minOccurs="0" />
+																					<xs:element name="LastName" type="xs:string" minOccurs="0" />
+																					<xs:element name="FirstName" type="xs:string" minOccurs="0" />
+																					<xs:element name="TypeOfName" type="xs:string" minOccurs="0" />
+																					<xs:element name="Locator" type="xs:string" minOccurs="0" />
+																					<xs:element name="ClassOfService" type="xs:string" minOccurs="0" />
+																					<xs:element name="StatusCode" type="xs:string" minOccurs="0" />
+																					<xs:element name="NumberOfPassengers" type="xs:string" minOccurs="0" />
+																					<xs:element name="EntryType" type="xs:string" minOccurs="0" maxOccurs="1" />
+																					<xs:element name="DepartureLegTime" type="xs:dateTime" minOccurs="0" />
+																				</xs:sequence>
+																			</xs:complexType>
+																		</xs:element>
+																		<xs:choice>
+																			<xs:element name="ScheduleChangeEntry" minOccurs="0" maxOccurs="unbounded">
+																				<xs:complexType>
+																					<xs:sequence>
+																						<xs:element name="PnrIndicatorType" type="xs:string" />
+																						<xs:element name="NumberInParty" type="xs:string" minOccurs="0" />
+																						<xs:element name="Name" type="xs:string" minOccurs="0" />
+																						<xs:element name="Locator" type="xs:string" minOccurs="0" />
+																						<xs:element name="ClassOfService" type="xs:string" minOccurs="0" />
+																						<xs:element name="StatusCode" type="xs:string" minOccurs="0" />
+																						<xs:element name="HistoryActionCode" type="xs:string" minOccurs="0" />
+																						<xs:element name="NumberOfPassengers" type="xs:string" minOccurs="0" />
+																						<xs:element name="UpdateDateTime" type="xs:dateTime" />
+																						<xs:element name="OldFlight" type="FlightEntryType" />
+																						<xs:element name="NewFlight" type="FlightEntryType" maxOccurs="unbounded"/>
+																					</xs:sequence>
+																				</xs:complexType>
+																			</xs:element>
+																			<xs:element name="ShareEntry" minOccurs="0" maxOccurs="unbounded">
+																				<xs:complexType>
+																					<xs:sequence>
+																						<xs:element name="DepartureAirport" type="xs:string" />
+																						<xs:element name="ArrivalAirport" type="xs:string" />
+																						<xs:element name="ClassOfService" type="xs:string" />
+																						<xs:element name="CorporatePnrCount" type="xs:string" />
+																						<xs:element name="BsgPnrs" type="xs:string" />
+																						<xs:element name="WaitList" type="xs:string" />
+																						<xs:element name="TotalBookedSeats" type="xs:string" />
+																						<xs:element name="LimitSalesAmount" type="xs:string" />
+																						<xs:element name="LimitSaleSold" type="xs:string" />
+																						<xs:element name="OrderOfLegs" type="xs:string" />
+																						<xs:element name="AvsTable" type="xs:string" />
+																						<xs:element name="NumberOfGivenNames" type="xs:string" />
+																						<xs:element name="CodeShareIndicator" type="xs:string" />
+																						<xs:element name="TotalSeatsForIndividualWithBSGIncl" type="xs:string" minOccurs="0" />
+																						<xs:element name="TotalTicketsBsgCIncl" type="xs:string" minOccurs="0" />
+																						<xs:element name="TotalTicketsBsgIncl" type="xs:string" minOccurs="0" />
+																						<xs:element name="EntryType" type="FlightEntryTypeEnum" minOccurs="0"/>
+																					</xs:sequence>
+																				</xs:complexType>
+																			</xs:element>
+																			<xs:element name="CodeShareTableAgreement" minOccurs="0" maxOccurs="unbounded">
+																				<xs:complexType>
+																					<xs:sequence>
+																						<xs:element name="DepartureAirport" type="xs:string" />
+																						<xs:element name="ArrivalAirport" type="xs:string" />
+																						<xs:element name="ClassOfService" type="xs:string" />																					
+																						<xs:element name="WaitList" type="xs:string" />
+																						<xs:element name="TotalBookedSeats" type="xs:string" />
+																					</xs:sequence>
+																					<xs:attribute name="agreement" type="xs:short" use="optional" />
+																				</xs:complexType>
+																			</xs:element>
+
+																			<xs:element name="FlightEntry" minOccurs="0" maxOccurs="unbounded">
+																				<xs:complexType>
+																					<xs:sequence>
+																						<xs:element name="DepartureLegTime" type="xs:string" />
+																						<xs:element name="ClassOfLeg" type="xs:string" minOccurs="0" />
+																						<xs:element name="LegOrigin" type="xs:string" minOccurs="0" />
+																						<xs:element name="AvailabilityStatus" type="xs:string" minOccurs="0" />
+																						<xs:element name="AvailableSeats" type="xs:string" minOccurs="0" />
+																						<xs:element name="AircraftCapacityAU" type="xs:string" minOccurs="0" />
+																						<xs:element name="CabinCapacity" type="xs:string" minOccurs="0" />
+																						<xs:element name="TotalSeatsBooked" type="xs:string" minOccurs="0" />
+																						<xs:element name="WaitListed" type="xs:string" minOccurs="0" />
+																						<xs:element name="CorporatePnrs" type="xs:string" minOccurs="0" />
+																						<xs:element name="BsgPnrs" type="xs:string" minOccurs="0" />
+																						<xs:element name="CapacityRestriction" type="xs:string" minOccurs="0" />
+																						<xs:element name="LimitOfSeats" type="xs:string" minOccurs="0" />
+																						<xs:element name="OrderOfLegs" type="xs:short" minOccurs="0" />
+																						<xs:element name="FlightIndicator" type="xs:string" minOccurs="0" />
+																						<xs:element name="TotalSeatsForIndividualWithBSGIncl" type="xs:string" minOccurs="0" />
+																						<xs:element name="TotalTicketsBsgCIncl" type="xs:string" minOccurs="0" />
+																						<xs:element name="TotalTicketsBsgIncl" type="xs:string" minOccurs="0" />
+																						<xs:element name="EntryType" type="FlightEntryTypeEnum" />
+																					</xs:sequence>
+																				</xs:complexType>
+																			</xs:element>
+
+																			<xs:element name="GroupEntry" minOccurs="0" maxOccurs="unbounded">
+																				<xs:complexType>
+																					<xs:sequence>
+																						<xs:element name="PnrIndicatorType" type="xs:string" />
+																						<xs:element name="NumberInParty" type="xs:string" minOccurs="0" />
+																						<xs:element name="Name" type="xs:string" minOccurs="0" />
+																						<xs:element name="Locator" type="xs:string" minOccurs="0" />
+																						<xs:element name="ClassOfService" type="xs:string" minOccurs="0" />
+																						<xs:element name="StatusCode" type="xs:string" minOccurs="0" />
+																						<xs:element name="NumberOfPassengers" type="xs:string" minOccurs="0" />
+																						<xs:element name="AgentId" type="xs:string" minOccurs="0" />
+																						<xs:element name="UpdateDateTime" type="xs:dateTime" minOccurs="0" />
+																					</xs:sequence>
+																					<xs:attribute name="sequenceId" type="xs:short" use="optional" />
+																				</xs:complexType>
+																			</xs:element>
+														
+																			<xs:element name="ReservationEntry" minOccurs="0" maxOccurs="unbounded">
+																				<xs:complexType>
+																					<xs:sequence>
+																						<xs:element name="Locator" type="xs:string"  />
+																						<xs:element name="FirstName" type="xs:string" />
+																						<xs:element name="LastName" type="xs:string"  />
+																						<xs:element name="PnrCreateDate" type="xs:dateTime"  />																						
+																						<xs:element name="TicketTimeLimitDate" type="xs:dateTime"  />
+																						<xs:element name="StationCode" type="xs:string" />
+																						<xs:element name="HomeCityCode" type="xs:string"  />
+																						<xs:element name="AgentSine" type="xs:string"  />
+																					</xs:sequence>
+																				</xs:complexType>
+																			</xs:element>
+														
+																			<xs:element name="PaxEntry" minOccurs="0" maxOccurs="unbounded">
+																				<xs:complexType>
+																					<xs:sequence>
+																						<xs:element name="NumberInParty" type="xs:string" minOccurs="0" />
+																						<xs:element name="FirstName" type="xs:string" minOccurs="1" maxOccurs="1" />
+																						<xs:element name="LastName" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																						<xs:element name="Locator" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																						<xs:element name="PNRCreationTimestamp" type="xs:dateTime" minOccurs="0" maxOccurs="1"/>
+																						<xs:element name="ClassOfService" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																						<xs:element name="NumberOfPassengers" type="xs:string" minOccurs="0" />
+																						<xs:element name="NameNumberAssociation" type="xs:string" minOccurs="0" />
+																						<xs:element name="NumberInSurname" type="xs:int" minOccurs="0" />
+																						<xs:element name="SpecialServiceRequest" minOccurs="0" maxOccurs="unbounded">
+																							<xs:complexType>
+																								<xs:sequence>
+																									<xs:element name="Code" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																									<xs:element name="ActionCode" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																									<xs:element name="AirlineCode" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																									<xs:element name="NumberInParty" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																									<xs:element name="FreeText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																									<xs:element name="FullText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																								</xs:sequence>	
+																								<xs:attribute name="id" type="xs:int"/>
+																								<xs:attribute name="type" type="xs:string"/>
+																							</xs:complexType>
+																						</xs:element>
+																						<xs:element name="OtherSupplementaryInformation" minOccurs="0" maxOccurs="unbounded">
+																							<xs:complexType>
+																								<xs:sequence>
+																									<xs:element name="Code" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																									<xs:element name="AirlineCode" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																									<xs:element name="FreeText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																									<xs:element name="FullText" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																									<xs:choice minOccurs="0" maxOccurs="1">
+																										<xs:element name="StaffTravelInformation" type="StaffTravelInformation"/>
+																									</xs:choice>			
+																							</xs:sequence>	
+																							<xs:attribute name="id" type="xs:int"/>
+																							<xs:attribute name="type" type="xs:string"/>
+																							</xs:complexType>
+																						</xs:element>
+																						<xs:element name="WaitListData" minOccurs="0" maxOccurs="1">
+																							<xs:complexType>
+																								<xs:sequence>
+																									<xs:element name="DepartureAirport" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																									<xs:element name="ArrivalAirport" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																									<xs:element name="Split" type="xs:boolean" minOccurs="0" maxOccurs="1"/>
+																									<xs:element name="PassengerGroupId" type="xs:short" minOccurs="0" maxOccurs="1"/>
+																									<xs:element name="Level" type="xs:string" minOccurs="0" maxOccurs="1" />
+																									<xs:element name="WaitlistSegmentStatusCode" type="xs:string" minOccurs="0" />
+																								</xs:sequence>
+																							</xs:complexType>
+																						</xs:element>
+																					</xs:sequence>
+																				</xs:complexType>
+																			</xs:element>
+																			<xs:element name="ConnectingFlightEntry" type="ConnectingFlightEntry" minOccurs="0" maxOccurs="unbounded" />
+																			<xs:element name="SegmentEntry" minOccurs="0" maxOccurs="unbounded">
+																				<xs:complexType>
+																					<xs:sequence>
+																						<xs:element name="AirlineCode" type="xs:string" minOccurs="0"/>
+																						<xs:element name="FlightNumber" type="xs:string" minOccurs="0"/>
+																						<xs:element name="DepartureAirport" type="xs:string" />
+																						<xs:element name="ArrivalAirport" type="xs:string" />
+																						<xs:element name="DepartureDate" type="xs:date" minOccurs="0"/>
+																						<xs:element name="DepartureTime" type="xs:string" minOccurs="0"/>
+																						<xs:element name="ArrivalTime" type="xs:string" minOccurs="0"/>
+																						<xs:element name="SegmentFareClassString" type="xs:string" minOccurs="0"/>
+																						<xs:element name="ClassAvailability" type="ClassAvailabilityType" minOccurs="0" maxOccurs="unbounded" />
+																					</xs:sequence>
+																				</xs:complexType>
+																			</xs:element>
+																		</xs:choice>
+																	</xs:sequence>
+																</xs:complexType>
+															</xs:element>
+														</xs:sequence>
+													</xs:complexType>
+												</xs:element>
+												<xs:element name="Summary" minOccurs="0" maxOccurs="1">
+													<xs:complexType>
+														<xs:sequence>
+															<xs:element name="Counts" type="Counts" minOccurs="0" maxOccurs="1"/>
+														</xs:sequence>
+													</xs:complexType>
+												</xs:element>
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:complexType name="ClassAvailabilityType">
+		<xs:sequence>
+			<xs:element name="SegmentClass" type="xs:string" minOccurs="0" />
+			<xs:element name="BucketNumber" type="xs:decimal" minOccurs="0" />
+			<xs:element name="SeatsAvailable" type="xs:int" minOccurs="0" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="FlightEntryType">
+		<xs:sequence>
+			<xs:element name="AirlineCode" type="xs:string" />
+			<xs:element name="FlightNumber" type="xs:string" />
+			<xs:element name="ClassOfService" type="xs:string" />
+			<xs:element name="DepartureDateTime" type="xs:dateTime" />
+			<xs:element name="DepartureAirport" type="xs:string" />
+			<xs:element name="ArrivalAirport" type="xs:string" />
+			<xs:element name="StatusCode" type="xs:string" />
+		</xs:sequence>
+		<xs:attribute name="GroupEntryAssocId" type="xs:short" use="optional" />
+	</xs:complexType>
+
+	<xs:simpleType name="FlightEntryTypeEnum">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="BASE" />
+			<xs:enumeration value="NORMAL" />
+			<xs:enumeration value="SUMMARY" />
+		</xs:restriction>
+	</xs:simpleType>
+	
+
+	<xs:complexType name="StaffTravelInformation">
+		<xs:sequence>
+			<xs:element name="PriorityCode" type="xs:string" minOccurs="1" maxOccurs="1"/>
+			<xs:element name="UpgradeCode" type="xs:string" minOccurs="1" maxOccurs="1"/>
+			<xs:element name="SeniorityDate" type="xs:string" minOccurs="1" maxOccurs="1"/>
+		</xs:sequence>				
+	</xs:complexType>
+	
+	
+	<xs:complexType name="ConnectingFlightEntry">
+		<xs:sequence>
+				<xs:element name="AirlineCode" type="xs:string" />
+				<xs:element name="FlightNumber" type="xs:string" />
+				<xs:element name="DepartureDateTime" type="xs:dateTime" minOccurs="0"/>
+				<xs:element name="ArrivalDateTime" type="xs:dateTime" minOccurs="0"/>																								
+				<xs:element name="TotalPassengers" type="xs:string" />
+				<xs:element name="ClassList" type="ClassList" />
+				<xs:element name="ConnectingAirport" type="ConnectingAirportEntry" minOccurs="1" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:attribute name="Type" type="ConnectionType" />
+	</xs:complexType>
+	
+	<xs:complexType name="ConnectingAirportEntry" >
+		<xs:sequence>
+			<xs:element name="ClassList" type="ClassList"/>
+			<xs:element name="Transferees" minOccurs="0">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Transferee" type="Transferee" minOccurs="0" maxOccurs="unbounded" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="Name" type="xs:string" use="required"/>
+	</xs:complexType>
+	
+	<xs:complexType name="Transferee">
+		<xs:sequence>
+			<xs:element name="Name" type="xs:string" />
+			<xs:element name="Locator" type="xs:string" />
+			<xs:element name="ClassOfService" type="xs:string" />
+			<xs:element name="NumberInParty" type="xs:string" />
+			<xs:element name="NumberOfPassengers" type="xs:string" />
+		</xs:sequence>
+	</xs:complexType>	
+	
+	<xs:complexType name="ClassList">
+		<xs:sequence>
+			<xs:element name="Class" type="ClassEntry" minOccurs="1" maxOccurs="unbounded" />
+		</xs:sequence>
+		<xs:attribute name="Type"></xs:attribute>
+	</xs:complexType>
+	
+	<xs:complexType name="ClassEntry">
+		<xs:simpleContent>
+			<xs:extension base="xs:string">
+				<xs:attribute name="Name" type="xs:string" />
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	
+	<xs:simpleType name="ConnectionType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="INBOUND" />
+			<xs:enumeration value="OUTBOUND" />
+		</xs:restriction>
+	</xs:simpleType>
+	
+	<xs:complexType name="Counts">
+		<xs:sequence>
+			<xs:element name="Count" minOccurs="0" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:simpleContent>
+						<xs:extension base="xs:int">
+							<xs:attribute name="Name" type="xs:string"/>
+						</xs:extension>
+					</xs:simpleContent>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="Total" type="xs:int"/>
+	</xs:complexType>
+
+</xs:schema>

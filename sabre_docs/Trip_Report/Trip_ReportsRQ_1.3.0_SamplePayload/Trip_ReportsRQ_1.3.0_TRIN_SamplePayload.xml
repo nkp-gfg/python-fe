@@ -1,0 +1,16 @@
+<Trip_ReportsRQ Version="1.3.0" xmlns="http://webservices.sabre.com/triprecord">
+	<Report>
+		<ReportName>TRIN</ReportName>
+		<ReportFormat>TRIN</ReportFormat> 
+		<Criteria>
+			<FlightCriteria>
+				<AirlineCode>LA</AirlineCode>
+				<FlightNumber>2474</FlightNumber>
+				<InboundAirport>LIM</InboundAirport>
+				<DepartureDateTime>2018-01-20</DepartureDateTime>
+				<ClassOfService>J</ClassOfService>
+			</FlightCriteria>
+			<PosCriteria>LA</PosCriteria>
+		</Criteria>
+	</Report>
+</Trip_ReportsRQ>

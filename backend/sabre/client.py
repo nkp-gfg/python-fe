@@ -3,23 +3,38 @@ Sabre SOAP API client with session management.
 
 Usage:
     with SabreClient() as client:
-        status = client.get_flight_status("GF", "2006", "LHR")
+        status = client.get_flight_status("GF", "2006", "LHR", "2026-03-19")
         passengers = client.get_passenger_list("GF", "2006", "2026-03-19", "LHR")
         reservations = client.get_reservations("GF", "2006", "LHR", "2026-03-19T08:00:00")
 """
 
 import os
 import re
+import time
 import uuid
-import logging
 from datetime import datetime, timezone
 
 import requests
+import structlog
 import xmltodict
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from . import templates
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
+
+
+def _log_retry(retry_state):
+    """Log retry attempts using structlog."""
+    logger.warning("sabre_api_retry",
+                   attempt=retry_state.attempt_number,
+                   wait=f"{retry_state.next_action.sleep:.1f}s",
+                   error=str(retry_state.outcome.exception()))
 
 
 class SabreError(Exception):
@@ -29,6 +44,9 @@ class SabreError(Exception):
 
 class SabreClient:
     """Manages a Sabre SOAP session and provides methods for each API."""
+
+    # Minimum delay in seconds between consecutive Sabre API calls
+    API_CALL_DELAY = float(os.environ.get("SABRE_API_DELAY_SECONDS", "0.5"))
 
     def __init__(self):
         self._token = None
@@ -40,6 +58,7 @@ class SabreClient:
         self._pseudo_city_code = os.environ["SABRE_PSEUDO_CITY_CODE"]
         self._organization = os.environ["SABRE_ORGANIZATION"]
         self._domain = os.environ["SABRE_DOMAIN"]
+        self._last_call_time = 0.0
 
     def __enter__(self):
         self.create_session()
@@ -77,17 +96,35 @@ class SabreClient:
             "token": self._token,
         }
 
+    def _rate_limit(self):
+        """Enforce minimum delay between consecutive Sabre API calls."""
+        now = time.monotonic()
+        elapsed = now - self._last_call_time
+        if elapsed < self.API_CALL_DELAY:
+            time.sleep(self.API_CALL_DELAY - elapsed)
+        self._last_call_time = time.monotonic()
+
+    @retry(
+        retry=retry_if_exception_type(
+            (requests.ConnectionError, requests.Timeout)),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=15),
+        before_sleep=_log_retry,
+        reraise=True,
+    )
     def _post(self, action, body, timeout=30):
         """Send a SOAP POST and return (raw_response_text, http_status, duration_ms, request_body)."""
+        self._rate_limit()
         headers = {
             "Content-Type": "text/xml; charset=utf-8",
             "SOAPAction": action,
         }
-        import time
         start = time.monotonic()
         resp = requests.post(self._endpoint, data=body,
                              headers=headers, timeout=timeout)
         duration_ms = int((time.monotonic() - start) * 1000)
+        logger.info("sabre_api_call", action=action,
+                    http_status=resp.status_code, duration_ms=duration_ms)
         if resp.status_code != 200:
             raise SabreError(
                 f"{action} returned HTTP {resp.status_code}: {resp.text[:500]}")
@@ -135,7 +172,9 @@ class SabreClient:
             raise SabreError(
                 f"Session creation failed. Response: {xml_text[:500]}")
         self._token = match.group(1).strip()
-        logger.info("Sabre session created (token: %s...)", self._token[:20])
+        logger.info("sabre_session_created",
+                    token_prefix=self._token[:20],
+                    conversation_id=self._conversation_id)
         return self._token
 
     def close_session(self):
@@ -145,24 +184,27 @@ class SabreClient:
         try:
             body = templates.SESSION_CLOSE.format(**self._common_vars())
             self._post("SessionCloseRQ", body)
-            logger.info("Sabre session closed.")
+            logger.info("sabre_session_closed")
         except Exception as e:
-            logger.warning("Error closing session: %s", e)
+            logger.warning("sabre_session_close_error", error=str(e))
         finally:
             self._token = None
 
     # ── Flight Status ──────────────────────────────────────────────────────
 
-    def get_flight_status(self, airline, flight_number, origin):
+    def get_flight_status(self, airline, flight_number, origin, departure_date=None):
         """
         Call ACS_FlightDetailRQ.
         Returns (parsed_body_dict, raw_xml_string, request_meta).
         request_meta = {requestXml, httpStatus, durationMs, sessionToken, conversationId}
         """
+        if departure_date is None:
+            departure_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         body = templates.FLIGHT_STATUS.format(
             **self._common_vars(),
             airline=airline,
             flight_number=flight_number,
+            departure_date=departure_date,
             origin=origin,
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
@@ -234,15 +276,19 @@ class SabreClient:
 
     # ── Passenger Data (per-passenger detail) ─────────────────────────────
 
-    def get_passenger_data(self, airline, flight_number, departure_date, origin, last_name, pnr=None):
+    def get_passenger_data(self, airline, flight_number, departure_date, origin,
+                           last_name, first_name=None, pnr=None):
         """
         Call GetPassengerDataRQ for detailed per-passenger data.
-        Looks up by LastName + optional PNR within a flight itinerary.
+        Looks up by LastName + optional FirstName + optional PNR within a flight itinerary.
         Returns (parsed_body_dict, raw_xml_string, request_meta).
         """
+        first_name_element = ""
+        if first_name:
+            first_name_element = f'<FirstName>{first_name}</FirstName>'
         pnr_element = ""
         if pnr:
-            pnr_element = f'<v4:PNRLocator>{pnr}</v4:PNRLocator>'
+            pnr_element = f'<PNRLocator>{pnr}</PNRLocator>'
         body = templates.PASSENGER_DATA.format(
             **self._common_vars(),
             airline=airline,
@@ -250,6 +296,7 @@ class SabreClient:
             departure_date=departure_date,
             origin=origin,
             last_name=last_name,
+            first_name_element=first_name_element,
             pnr_element=pnr_element,
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
@@ -285,6 +332,39 @@ class SabreClient:
             "Trip_ReportsRQ", body, timeout=60)
         parsed = self._parse_xml(xml_text)
         data = self._extract_body(parsed, "Trip_ReportsRS")
+        meta = {
+            "requestXml": request_xml,
+            "httpStatus": http_status,
+            "durationMs": duration_ms,
+            "sessionToken": self._token,
+            "conversationId": self._conversation_id,
+        }
+        return data, xml_text, meta
+
+    # ── Verify Flight Details ──────────────────────────────────────────────
+
+    def verify_flight_details(self, airline, flight_number, departure_date,
+                              origin, destination=""):
+        """
+        Call VerifyFlightDetailsLLSRQ to get published schedule data.
+        departure_date: YYYY-MM-DD (converted to MM-DDTHH:MM for Sabre).
+        Returns (parsed_body_dict, raw_xml_string, request_meta).
+        """
+        # Sabre expects DepartureDateTime as MM-DDTHH:MM (no year)
+        mm_dd = departure_date[5:]  # "2026-03-25" → "03-25"
+        departure_datetime = f"{mm_dd}T00:00"
+        body = templates.VERIFY_FLIGHT_DETAILS.format(
+            **self._common_vars(),
+            airline=airline,
+            flight_number=flight_number,
+            departure_datetime=departure_datetime,
+            origin=origin,
+            destination=destination,
+        )
+        xml_text, http_status, duration_ms, request_xml = self._post(
+            "VerifyFlightDetailsLLSRQ", body, timeout=30)
+        parsed = self._parse_xml(xml_text)
+        data = self._extract_body(parsed, "VerifyFlightDetailsRS")
         meta = {
             "requestXml": request_xml,
             "httpStatus": http_status,

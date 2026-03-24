@@ -1,0 +1,16 @@
+<Trip_ReportsRQ Version="1.3.0" xmlns="http://webservices.sabre.com/triprecord">
+	<Report>
+		<ReportName>MLG</ReportName>
+		<ReportFormat>G</ReportFormat>
+		<Criteria>
+			<FlightCriteria>
+				<AirlineCode>LA</AirlineCode>
+				<FlightNumber>530</FlightNumber>
+				<DepartureAirport>LIM</DepartureAirport>
+				<ArrivalAirport>JFK</ArrivalAirport>				
+				<DepartureDateTime>2018-01-20</DepartureDateTime>
+			</FlightCriteria>
+			<PosCriteria>LA</PosCriteria>
+		</Criteria>
+	</Report>
+</Trip_ReportsRQ>

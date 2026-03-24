@@ -1,0 +1,162 @@
+------------------------------
+PNR example in native Sabre 
+------------------------------
+*A«                                                             
+MZMWIO                                                          
+ 1.1NOWAK/ANNA MS                                               
+ 1 AF1247Y 20NOV W WAWCDG HX1   635A  910A /DCAF*JXH7YV /E      
+TKT/TIME LIMIT                                                  
+  1.T-A                                                         
+PHONES                                                          
+  1.DFW8272728                                                  
+CUSTOMER NUMBER - 817222                                        
+SECURITY INFO EXISTS *P3D OR *P4D TO DISPLAY                    
+AA FACTS                                                        
+  1.SSR ADTK 1S TO AF BY 16NOV 0000 OTHERWISE WILL BE XLD       
+  2.SSR ADTK 1S TO AF BY 19MAY 1000 OTHERWISE WILL BE XLD       
+  3.SSR OTHS 1S AF CANCELLATION DUE TO NO TICKET                
+GENERAL FACTS                                                   
+  1.SSR BLND AF NN1 WAWCDG1247Y20NOV/GUIDE DOG                  
+  2.SSR MAAS AF NN1 WAWCDG1247Y20NOV/STH                        
+  3.SSR MAAS AF NN1 WAWCDG1247Y20NOV/STH                        
+  4.SSR MAAS AF NN1 WAWCDG1247Y20NOV/STH                        
+RECEIVED FROM - AAAL                                           ‡                                                             
+B4T0.HDQ*HM1 0627/17MAY19 MZMWIO H  
+
+------------------------------
+RQ. Seach by similar last name. Record locator criteria is optional here.
+------------------------------
+
+<Trip_SearchRQ Version="4.5.0" xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" xmlns="http://webservices.sabre.com/triprecord">
+<ReadRequests>
+<ReservationReadRequest>
+   <!--<LocatorCriteria>-->
+   <!--   <Locator Id="MZMWIO"/>-->
+   <!--</LocatorCriteria>-->
+  <NameCriteria>
+    <Name Gender="F">
+      <LastName MatchMode="SIMILAR">NWAK</LastName>
+    </Name>
+  </NameCriteria>   
+   <PosCriteria AnyBranch="false">
+      <Pcc>B4T0</Pcc>
+   </PosCriteria>
+   <ReturnOptions ResponseFormat="STL" 
+                 ViewName="TripSearchTN"
+                 SearchType="ACTIVE" 
+                 MaxItemsReturned="50">
+     <SubjectAreas>
+       <SubjectArea>NAME</SubjectArea>
+     </SubjectAreas>
+   </ReturnOptions>
+</ReservationReadRequest>
+</ReadRequests>
+</Trip_SearchRQ>
+
+------------------------------
+RS. All passengers fromt he indicated PNR are returned in the response.
+------------------------------
+
+ <Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord" xmlns:ns2="http://services.sabre.com/STL/v01" xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" xmlns:ns3="http://webservices.sabre.com/pnrbuilder" xmlns:ns6="http://tds.sabre.com/itinerary" xmlns:ns5="http://tds.sabre.com/rules" xmlns:ns8="http://services.sabre.com/STL/v02" xmlns:ns7="http://services.sabre.com/res/orr/v0" xmlns:ns13="http://www.sabre.com/eps/schemas" xmlns:tir37="http://services.sabre.com/res/tir/v3_7" xmlns:ns9="http://www.sabre.com/ssg/des/v1" xmlns:ns12="http://opentravel.org/common/v02" xmlns:ns11="http://www.OpenTravel.org/ns/OTA2/AppInfo_v01_00" xmlns:tir39="http://services.sabre.com/res/tir/v3_9" xmlns:ns10="http://services.sabre.com/STL_Header/v02_00" xmlns:stl114="http://webservices.sabre.com/pnrbuilder/v1_14" xmlns:ns15="http://webservices.sabre.com/servicesplatform/orr/rules/1.0.0" xmlns:ns14="http://tds.sabre.com/distribution" xmlns:stl115="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:stl117="http://webservices.sabre.com/pnrbuilder/v1_17" xmlns:or111="http://services.sabre.com/res/or/v1_11" xmlns:or16="http://services.sabre.com/res/or/v1_6" xmlns:or17="http://services.sabre.com/res/or/v1_7" xmlns:or18="http://services.sabre.com/res/or/v1_8" xmlns:or19="http://services.sabre.com/res/or/v1_9" TimeStamp="2019-06-13T02:45:24" Target="Production" Version="4.5.0">
+            <Success>Success</Success>
+            <ReservationsList NumberResults="32" NumberPages="1" TotalResults="32">
+                <Reservations>
+                    <Reservation Locator="MGYEQP">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="AKRZKH">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="BLOBWY">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="ILOMOH">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="XLAWLW">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="BNHRXH">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="YAKWON">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="ZXPLLT">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="XBHRHN">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="ENHGNU">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="SCJJSC">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="DDKWXR">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="YFDVSD">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="IWRJBW">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="RDZVYZ">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="IRFVCS">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="MZMWIO">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="RQVEOG">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="RVZKLK">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="GZATMH">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="JKCEFP">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="HMBIQQ">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="ZKGKGA">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="CBTDSJ">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="ZWKMZS">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="MSBLWA">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="ZAGCVF">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="CFXRCU">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="CFXIUQ">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="DDIYVD">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="GORDRG">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                    <Reservation Locator="AEVSOI">
+                        <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+                    </Reservation>
+                </Reservations>
+            </ReservationsList>
+        </Trip_SearchRS>

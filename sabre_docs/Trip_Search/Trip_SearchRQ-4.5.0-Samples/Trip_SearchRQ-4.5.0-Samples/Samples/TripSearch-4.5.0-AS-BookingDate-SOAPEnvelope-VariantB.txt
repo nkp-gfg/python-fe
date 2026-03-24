@@ -1,0 +1,35 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                  xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                  xmlns:tr="http://webservices.sabre.com/triprecord">
+  <soapenv:Header>
+    <eb:MessageHeader eb:version="1.0" soapenv:mustUnderstand="1">
+      <eb:From><eb:PartyId eb:type="URI">Client</eb:PartyId></eb:From>
+      <eb:To><eb:PartyId eb:type="URI">Server</eb:PartyId></eb:To>
+      <eb:CPAId>GF</eb:CPAId>
+      <eb:ConversationId>REPLACE_WITH_CONVERSATION_ID</eb:ConversationId>
+      <eb:Service eb:type="sabreXML">TripSearch</eb:Service>
+      <eb:Action>TripSearchRQ</eb:Action>
+      <eb:MessageData>
+        <eb:MessageId>mid:tripsearch-b-001</eb:MessageId>
+        <eb:Timestamp>2026-02-26T07:30:00</eb:Timestamp>
+      </eb:MessageData>
+    </eb:MessageHeader>
+    <wsse:Security soapenv:mustUnderstand="1">
+      <wsse:BinarySecurityToken>REPLACE_WITH_RAW_BINARY_SECURITY_TOKEN</wsse:BinarySecurityToken>
+    </wsse:Security>
+  </soapenv:Header>
+  <soapenv:Body>
+    <tr:Trip_SearchRQ Version="4.5.0" ConversationID="REPLACE_WITH_CONVERSATION_ID" TimeStamp="2026-02-26T07:30:00" Target="Production">
+      <tr:ReadRequests>
+        <tr:ReservationReadRequest>
+          <tr:DateCriteria>
+            <tr:UpdateDate After="2026-02-25T00:00:00" Before="2026-02-26T00:00:00"/>
+          </tr:DateCriteria>
+          <tr:PosCriteria AirlineCode="GF"/>
+          <tr:ReturnOptions ResponseFormat="STL" ViewName="TripSearch" SearchType="ACTIVE" MaxItemsReturned="800"/>
+        </tr:ReservationReadRequest>
+      </tr:ReadRequests>
+    </tr:Trip_SearchRQ>
+  </soapenv:Body>
+</soapenv:Envelope>

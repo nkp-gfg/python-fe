@@ -31,6 +31,8 @@ import {
   Clock,
   Briefcase,
   Ticket,
+  Star,
+  Globe,
   X,
 } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
@@ -51,12 +53,14 @@ import {
 
 import { StatePanels } from "@/components/dashboard/state-panels";
 import type { StateCardKey } from "@/components/dashboard/state-panels";
+import { PhaseTimeline } from "@/components/dashboard/phase-timeline";
+import { PhaseAlertBanner } from "@/components/dashboard/phase-alert-banner";
 import { BottomDetailPanel } from "@/components/dashboard/bottom-detail-panel";
 import type { DetailView } from "@/components/dashboard/bottom-detail-panel";
 import { PassengerTree } from "@/components/dashboard/passenger-tree";
 import { IngestionPanel } from "@/components/dashboard/ingestion-panel";
 import { TileInfoPanel, type TileInfoKey } from "@/components/dashboard/tile-info-panel";
-import { PassengerTable } from "@/components/dashboard/passenger-table";
+import { PassengerTable, type FilterCabin, type FilterStatus, type FilterType, type FilterLoyalty } from "@/components/dashboard/passenger-table";
 import { StandbyPanel } from "@/components/dashboard/standby-panel";
 import { PassengerDetailSheet } from "@/components/dashboard/passenger-detail-sheet";
 import { ChangeTimeline } from "@/components/dashboard/change-timeline";
@@ -92,6 +96,10 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [bottomView, setBottomView] = useState<DetailView | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "passengers" | "standby" | "changes" | "history" | "reservations">("overview");
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [filterCabin, setFilterCabin] = useState<FilterCabin>("all");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [filterLoyalty, setFilterLoyalty] = useState<FilterLoyalty>("all");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sidebarPanelRef = useRef<any>(null);
 
@@ -473,10 +481,10 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                               variant="outline"
                               className={cn(
                                 "text-[10px] px-1.5 font-medium border-transparent",
-                                isActive ? "bg-primary-foreground/20 text-primary-foreground" : getStatusColor(flight.status)
+                                isActive ? "bg-primary-foreground/20 text-primary-foreground" : getStatusColor(flight.flightPhase?.phase || flight.status)
                               )}
                             >
-                              {flight.status || "UNKNOWN"}
+                              {flight.flightPhase?.label || flight.status || "UNKNOWN"}
                             </Badge>
                             <span
                               role="button"
@@ -668,10 +676,10 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                               "text-[10px] px-1.5 font-medium border-transparent",
                               isActive 
                                 ? "bg-primary-foreground/20 text-primary-foreground" 
-                                : getStatusColor(flight.status)
+                                : getStatusColor(flight.flightPhase?.phase || flight.status)
                             )}
                           >
-                            {flight.status || "UNKNOWN"}
+                            {flight.flightPhase?.label || flight.status || "UNKNOWN"}
                           </Badge>
                           <span
                             role="button"
@@ -809,9 +817,9 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         </h1>
                         <Badge 
                           variant="secondary"
-                          className={cn("px-2 py-0.5 text-[11px] font-semibold", getStatusColor(dashboard.flightStatus?.status || ""))}
+                          className={cn("px-2 py-0.5 text-[11px] font-semibold", getStatusColor(dashboard.flightStatus?.status || dashboard.flightPhase?.phase || ""))}
                         >
-                          {dashboard.flightStatus?.status || "NO STATUS"}
+                          {dashboard.flightStatus?.status || dashboard.flightPhase?.label || "NO STATUS"}
                         </Badge>
                         {/* Data integrity badge */}
                         {dashboard.dataIntegrity?.valid ? (
@@ -876,7 +884,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         </div>
                         <Separator orientation="vertical" className="h-5 hidden md:block" />
                         <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
-                          <span><span className="text-foreground font-medium">{dashboard.flightStatus?.aircraft?.type || "—"}</span> / {dashboard.flightStatus?.aircraft?.registration || "—"}</span>
+                          <span><span className="text-foreground font-medium">{dashboard.flightStatus?.aircraft?.type || dashboard.schedule?.aircraftType || "—"}</span> {(dashboard.flightStatus?.aircraft?.registration) ? `/ ${dashboard.flightStatus.aircraft.registration}` : ""}</span>
                           {/* Schedule with delay indicator */}
                           <ScheduleDelay schedule={dashboard.flightStatus?.schedule} />
                         </div>
@@ -904,18 +912,133 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                     </div>
                   </div>
 
+                  {/* Stats Strip — shared across all tabs, interactive */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 mt-2">
+                    {/* Cabin */}
+                    <div className="rounded-lg border bg-card p-2.5 shadow-sm">
+                      <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Cabin</p>
+                      <div className="flex items-baseline gap-3">
+                        <button onClick={() => { setFilterCabin(filterCabin === "Y" ? "all" : "Y"); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-1", filterCabin === "Y" && "ring-1 ring-emerald-500")}>
+                          <p className="text-lg font-bold text-emerald-600">{dashboard.analysis?.economy?.total ?? 0}</p>
+                          <p className="text-[9px] text-muted-foreground">Economy</p>
+                        </button>
+                        <button onClick={() => { setFilterCabin(filterCabin === "J" ? "all" : "J"); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-1", filterCabin === "J" && "ring-1 ring-amber-500")}>
+                          <p className="text-lg font-bold text-amber-600">{dashboard.analysis?.business?.total ?? 0}</p>
+                          <p className="text-[9px] text-muted-foreground">Business</p>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Status */}
+                    <div className="rounded-lg border bg-card p-2.5 shadow-sm">
+                      <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Status</p>
+                      <div className="flex items-baseline gap-3">
+                        <button onClick={() => { setFilterStatus(filterStatus === "boarded" ? "all" : "boarded"); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-1", filterStatus === "boarded" && "ring-1 ring-emerald-500")}>
+                          <p className="text-lg font-bold text-emerald-600">{dashboard.analysis?.boarded ?? 0}</p>
+                          <p className="text-[9px] text-muted-foreground">Boarded</p>
+                        </button>
+                        <button onClick={() => { setFilterStatus(filterStatus === "checkedIn" ? "all" : "checkedIn"); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-1", filterStatus === "checkedIn" && "ring-1 ring-blue-500")}>
+                          <p className="text-lg font-bold text-blue-600">{(dashboard.analysis?.checkedIn ?? 0) - (dashboard.analysis?.boarded ?? 0)}</p>
+                          <p className="text-[9px] text-muted-foreground">Checked-In</p>
+                        </button>
+                        <button onClick={() => { setFilterStatus(filterStatus === "booked" ? "all" : "booked"); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-1", filterStatus === "booked" && "ring-1 ring-amber-500")}>
+                          <p className="text-lg font-bold text-amber-600">{dashboard.analysis?.notCheckedIn ?? 0}</p>
+                          <p className="text-[9px] text-muted-foreground">Booked</p>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Type */}
+                    <div className="rounded-lg border bg-card p-2.5 shadow-sm">
+                      <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Type</p>
+                      <div className="flex items-baseline gap-3">
+                        <button onClick={() => { setFilterType(filterType === "revenue" ? "all" : "revenue"); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-1", filterType === "revenue" && "ring-1 ring-blue-500")}>
+                          <p className="text-lg font-bold text-blue-600">{dashboard.analysis?.revenue ?? 0}</p>
+                          <p className="text-[9px] text-muted-foreground">Revenue</p>
+                        </button>
+                        <button onClick={() => { setFilterType(filterType === "nonRevenue" ? "all" : "nonRevenue"); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-1", filterType === "nonRevenue" && "ring-1 ring-purple-500")}>
+                          <p className="text-lg font-bold text-purple-600">{dashboard.analysis?.nonRevenue ?? 0}</p>
+                          <p className="text-[9px] text-muted-foreground">Non-Rev</p>
+                        </button>
+                        <button onClick={() => { setFilterType(filterType === "child" ? "all" : "child"); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-1", filterType === "child" && "ring-1 ring-amber-500")}>
+                          <p className="text-lg font-bold text-amber-500">{dashboard.analysis?.totalChildren ?? 0}</p>
+                          <p className="text-[9px] text-muted-foreground">Children</p>
+                        </button>
+                        <button onClick={() => { setFilterType(filterType === "infant" ? "all" : "infant"); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-1", filterType === "infant" && "ring-1 ring-teal-500")}>
+                          <p className="text-lg font-bold text-teal-500">{dashboard.analysis?.totalInfants ?? 0}</p>
+                          <p className="text-[9px] text-muted-foreground">w/ Infant</p>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Loyalty */}
+                    <div className="rounded-lg border bg-card p-2.5 shadow-sm">
+                      <p className="text-[10px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" /> Loyalty</p>
+                      <div className="flex items-baseline gap-2.5">
+                        {[
+                          { key: "FF" as FilterLoyalty, label: "FF", val: dashboard.analysis?.loyaltyCounts?.FF ?? 0, color: "text-amber-500" },
+                          { key: "BLU" as FilterLoyalty, label: "Blu", val: dashboard.analysis?.loyaltyCounts?.BLU ?? 0, color: "text-blue-500" },
+                          { key: "SLV" as FilterLoyalty, label: "Slv", val: dashboard.analysis?.loyaltyCounts?.SLV ?? 0, color: "text-gray-400" },
+                          { key: "GLD" as FilterLoyalty, label: "Gld", val: dashboard.analysis?.loyaltyCounts?.GLD ?? 0, color: "text-yellow-500" },
+                          { key: "BLK" as FilterLoyalty, label: "Blk", val: dashboard.analysis?.loyaltyCounts?.BLK ?? 0, color: "text-gray-900 dark:text-gray-100" },
+                        ].map((t) => (
+                          <button key={t.key} onClick={() => { setFilterLoyalty(filterLoyalty === t.key ? "all" : t.key); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-0.5", filterLoyalty === t.key && "ring-1 ring-current")}>
+                            <p className={cn("text-lg font-bold", t.color)}>{t.val}</p>
+                            <p className="text-[9px] text-muted-foreground">{t.label}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Nationality - top 5 */}
+                    <div className="rounded-lg border bg-card p-2.5 shadow-sm col-span-2 sm:col-span-2">
+                      <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Top Nationalities</p>
+                      <div className="flex items-baseline gap-3">
+                        {(() => {
+                          const nc = dashboard.analysis?.nationalityCounts ?? {};
+                          const sorted = Object.entries(nc).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                          if (sorted.length === 0) return <p className="text-xs text-muted-foreground">No data</p>;
+                          return sorted.map(([nat, count]) => (
+                            <div key={nat} className="text-center">
+                              <p className="text-lg font-bold">{count}</p>
+                              <p className="text-[9px] text-muted-foreground">{nat}</p>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Tab Navigation — now handled by vertical nav rail */}
                   <div>
                     {/* Overview Tab — compact executive dashboard */}
                     {activeTab === "overview" && (
                       <div className="mt-1 space-y-3">
+                      {/* Phase Timeline Stepper */}
+                      {dashboard.flightPhase && (
+                        <div className="rounded-lg border bg-card shadow-sm px-4 py-3">
+                          <PhaseTimeline
+                            phase={dashboard.flightPhase.phase}
+                            label={dashboard.flightPhase.label}
+                          />
+                        </div>
+                      )}
+
+                      {/* Phase Alert Banner */}
+                      {dashboard.flightPhase && (
+                        <PhaseAlertBanner flightPhase={dashboard.flightPhase} />
+                      )}
+
                       <StatePanels
                         stateSummary={dashboard.stateSummary}
+                        phase={dashboard.flightPhase?.phase ?? "SCHEDULED"}
+                        focusCard={dashboard.flightPhase?.focusCard ?? "booked"}
                         onInfoClick={openInfo}
                         onCardClick={(key: StateCardKey) => setBottomView(bottomView === key ? null : key)}
                         activeCard={(bottomView === "booked" || bottomView === "checkedIn" || bottomView === "boarded" || bottomView === "others") ? bottomView : null}
                       />
 
+                      {/* 4-Card Overview Grid */}
                       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                         {/* Demographics */}
                         <Card className="shadow-sm">
@@ -1078,6 +1201,82 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         </Card>
                       </div>
 
+                      {/* Published Schedule (from VerifyFlightDetails) */}
+                      {dashboard.schedule && dashboard.schedule.success && (
+                        <Card className="shadow-sm">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <CalendarDays className="h-3.5 w-3.5 text-sky-500" />
+                              <h3 className="text-xs font-semibold">Published Schedule</h3>
+                              <span className="ml-auto text-[10px] text-muted-foreground">{dashboard.schedule.aircraftType}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {/* Origin */}
+                              <div className="text-center min-w-[60px]">
+                                <p className="text-lg font-bold">{dashboard.schedule.origin}</p>
+                                {dashboard.schedule.originTerminal && (
+                                  <p className="text-[10px] text-muted-foreground">T{dashboard.schedule.originTerminal}</p>
+                                )}
+                                {dashboard.schedule.originTimeZone && (
+                                  <p className="text-[10px] text-muted-foreground">{dashboard.schedule.originTimeZone}</p>
+                                )}
+                              </div>
+                              {/* Departure time */}
+                              <div className="text-center">
+                                <p className="text-sm font-semibold">{dashboard.schedule.scheduledDeparture?.slice(-8, -3) || "—"}</p>
+                                <p className="text-[10px] text-muted-foreground">Depart</p>
+                              </div>
+                              {/* Arrow + duration */}
+                              <div className="flex-1 flex flex-col items-center">
+                                <div className="flex items-center gap-1 text-muted-foreground w-full">
+                                  <div className="h-px flex-1 bg-border" />
+                                  <Plane className="h-3 w-3 -rotate-0" />
+                                  <div className="h-px flex-1 bg-border" />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  {dashboard.schedule.elapsedTime || "—"}
+                                  {dashboard.schedule.airMilesFlown > 0 && ` · ${dashboard.schedule.airMilesFlown} mi`}
+                                </p>
+                              </div>
+                              {/* Arrival time */}
+                              <div className="text-center">
+                                <p className="text-sm font-semibold">{dashboard.schedule.scheduledArrival?.slice(-8, -3) || "—"}</p>
+                                <p className="text-[10px] text-muted-foreground">Arrive</p>
+                              </div>
+                              {/* Destination */}
+                              <div className="text-center min-w-[60px]">
+                                <p className="text-lg font-bold">{dashboard.schedule.destination}</p>
+                                {dashboard.schedule.destinationTerminal && (
+                                  <p className="text-[10px] text-muted-foreground">T{dashboard.schedule.destinationTerminal}</p>
+                                )}
+                                {dashboard.schedule.destinationTimeZone && (
+                                  <p className="text-[10px] text-muted-foreground">{dashboard.schedule.destinationTimeZone}</p>
+                                )}
+                              </div>
+                            </div>
+                            {/* Multi-segment indicator */}
+                            {dashboard.schedule.segments && dashboard.schedule.segments.length > 1 && (
+                              <div className="mt-2 pt-2 border-t space-y-1">
+                                <p className="text-[10px] font-semibold text-muted-foreground">{dashboard.schedule.segments.length} Segments</p>
+                                {dashboard.schedule.segments.map((seg, i) => (
+                                  <div key={i} className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                    <span className="font-medium text-foreground">{seg.origin}</span>
+                                    <ArrowRight className="h-2.5 w-2.5" />
+                                    <span className="font-medium text-foreground">{seg.destination}</span>
+                                    <span>{seg.departureDateTime?.slice(-8, -3)} → {seg.arrivalDateTime?.slice(-8, -3)}</span>
+                                    <span>{seg.aircraftType}</span>
+                                    {seg.elapsedTime && <span>({seg.elapsedTime})</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {dashboard.schedule.mealCode && (
+                              <p className="mt-1.5 text-[10px] text-muted-foreground">Meal: {dashboard.schedule.mealCode}</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )}
+
                       {/* Bottom Detail Panel */}
                       {bottomView && effectiveSelected && (
                         <BottomDetailPanel
@@ -1107,6 +1306,14 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           setDetailPnr(pnr);
                           setDetailOpen(true);
                         }}
+                        filterCabin={filterCabin}
+                        setFilterCabin={setFilterCabin}
+                        filterStatus={filterStatus}
+                        setFilterStatus={setFilterStatus}
+                        filterType={filterType}
+                        setFilterType={setFilterType}
+                        filterLoyalty={filterLoyalty}
+                        setFilterLoyalty={setFilterLoyalty}
                       />
                       </div>
                     )}
@@ -1280,13 +1487,18 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
 function getStatusColor(status: string) {
   switch (status.toUpperCase()) {
     case "PDC":
+    case "DEPARTED":
       return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
     case "OPENCI":
+    case "CHECK_IN":
       return "bg-blue-500/15 text-blue-600 dark:text-blue-400";
+    case "FINAL":
+    case "CLOSED":
+      return "bg-red-500/15 text-red-600 dark:text-red-400";
     case "BOARDING":
       return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
-    case "DEPARTED":
-      return "bg-purple-500/15 text-purple-600 dark:text-purple-400";
+    case "SCHEDULED":
+      return "bg-slate-500/15 text-slate-600 dark:text-slate-400";
     default:
       return "bg-secondary text-secondary-foreground";
   }

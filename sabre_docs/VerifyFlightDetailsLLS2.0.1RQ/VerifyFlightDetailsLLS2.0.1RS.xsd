@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:sws="http://webservices.sabre.com/sabreXML/2011/10" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:stl="http://services.sabre.com/STL/v01" targetNamespace="http://webservices.sabre.com/sabreXML/2011/10" elementFormDefault="qualified">
+	<xs:import namespace="http://services.sabre.com/STL/v01" schemaLocation="STL_For_SabreProtocol_v.1.2.0.xsd"/>
+	<xs:include schemaLocation="sws_common.xsd"/>
+	<xs:element name="VerifyFlightDetailsRS">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="stl:ApplicationResults"/>
+				<xs:element name="OriginDestinationOptions" minOccurs="0">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="OriginDestinationOption" minOccurs="0" maxOccurs="unbounded">
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="FlightSegment" minOccurs="0" maxOccurs="unbounded">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="DestinationLocation" minOccurs="0">
+														<xs:complexType>
+															<xs:attribute name="LocationCode" type="xs:string"  use="optional">
+																<xs:annotation>
+																	<xs:documentation>is used to return the destination airport code</xs:documentation>
+																</xs:annotation>
+															</xs:attribute>
+															<xs:attribute name="Terminal" type="xs:string"  use="optional">
+																<xs:annotation>
+																	<xs:documentation>is used to return the destination airport terminal</xs:documentation>
+																</xs:annotation>
+															</xs:attribute>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="Equipment" minOccurs="0">
+														<xs:complexType>
+															<xs:attribute name="AirEquipType" type="xs:string"  use="optional">
+																<xs:annotation>
+																	<xs:documentation>is used to return the aircraft equipment type associated with the particular flight segment</xs:documentation>
+																</xs:annotation>
+															</xs:attribute>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="FlightDetails" minOccurs="0">
+														<xs:complexType>
+															<xs:sequence>
+																<xs:element name="Text" minOccurs="0" maxOccurs="unbounded" type="xs:string">
+																		<xs:annotation>
+																			<xs:documentation>"Text" is used to return miscellaneous free text information</xs:documentation>
+																		</xs:annotation>
+																</xs:element>
+															</xs:sequence>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="MarketingAirline" minOccurs="0">
+														<xs:complexType>
+															<xs:attribute name="Code" type="xs:string"  use="optional">
+																<xs:annotation>
+																	<xs:documentation>is used to return the marketing airline code associated with the particular flight segment</xs:documentation>
+																</xs:annotation>
+															</xs:attribute>
+															<xs:attribute name="FlightNumber" type="xs:string"  use="optional">
+																<xs:annotation>
+																	<xs:documentation>is used to return the flight number associated with the particular flight segment</xs:documentation>
+																</xs:annotation>
+															</xs:attribute>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="Meal" minOccurs="0" maxOccurs="unbounded">
+														<xs:complexType>
+															<xs:attribute name="Code" type="xs:string"  use="optional">
+																<xs:annotation>
+																	<xs:documentation>is used to return the meal code associated with the particular flight segment if applicable</xs:documentation>
+																</xs:annotation>
+															</xs:attribute>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="OriginLocation" minOccurs="0">
+														<xs:complexType>
+															<xs:attribute name="LocationCode" type="xs:string"  use="optional">
+																<xs:annotation>
+																	<xs:documentation>is used to return the origin airport code</xs:documentation>
+																</xs:annotation>
+															</xs:attribute>
+															<xs:attribute name="Terminal" type="xs:string"  use="optional">
+																<xs:annotation>
+																	<xs:documentation>is used to return the origin airport terminal</xs:documentation>
+																</xs:annotation>
+															</xs:attribute>
+														</xs:complexType>
+													</xs:element>
+												</xs:sequence>
+												<xs:attribute name="AirMilesFlown" type="xs:string"  use="optional">
+													<xs:annotation>
+														<xs:documentation>is used to return the air miles flown associated with the particular flight segment</xs:documentation>
+													</xs:annotation>
+												</xs:attribute>
+												<xs:attribute name="ArrivalDateTime" type="sws:dateTime"  use="optional">
+													<xs:annotation>
+														<xs:documentation>is used to return the scheduled arrival date/time associated with the particular flight segment</xs:documentation>
+														<xs:documentation>follows this format: MM-DDTHH:MM</xs:documentation>
+													</xs:annotation>
+												</xs:attribute>
+												<xs:attribute name="DepartureDateTime" type="sws:dateTime"  use="optional">
+													<xs:annotation>
+														<xs:documentation>is used to return the scheduled departure date/time associated with the particular flight segment</xs:documentation>
+														<xs:documentation>follows this format: MM-DDTHH:MM</xs:documentation>
+													</xs:annotation>
+												</xs:attribute>
+												<xs:attribute name="ElapsedTime" type="xs:string"  use="optional"/>
+												<xs:attribute name="AccumulatedElapsedTime" type="xs:string"  use="optional"/>
+												<xs:attribute name="FlightNumber" type="xs:string"  use="optional">
+													<xs:annotation>
+														<xs:documentation>is used to return the flight number associated with the particular flight segment</xs:documentation>
+													</xs:annotation>
+												</xs:attribute>
+												<xs:attribute name="RPH" type="xs:string"  use="optional">
+													<xs:annotation>
+														<xs:documentation>is used as a reference place holder</xs:documentation>
+													</xs:annotation>
+												</xs:attribute>
+											</xs:complexType>
+										</xs:element>
+									</xs:sequence>
+									<xs:attribute name="DestinationTimeZone" type="xs:string"  use="optional">
+										<xs:annotation>
+											<xs:documentation>is used to return destination time zone-related information</xs:documentation>
+										</xs:annotation>
+									</xs:attribute>
+									<xs:attribute name="OriginTimeZone" type="xs:string"  use="optional">
+										<xs:annotation>
+											<xs:documentation>is used to return origin time zone-related information</xs:documentation>
+										</xs:annotation>
+									</xs:attribute>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+			<xs:attribute name="Version" type="xs:string"  use="optional"/>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

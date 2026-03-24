@@ -9,6 +9,11 @@ import {
   Ticket,
   Plane,
   ChevronRight,
+  Mail,
+  Phone,
+  MessageSquare,
+  ShieldCheck,
+  ShoppingBag,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fetchReservations } from "@/lib/api";
@@ -174,10 +179,121 @@ function ReservationCard({
             </div>
           )}
 
+          {/* SSR — Special Service Requests */}
+          {r.ssrRequests && r.ssrRequests.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3" /> Special Service Requests
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {r.ssrRequests.map((ssr, i) => (
+                  <Badge
+                    key={i}
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] px-2",
+                      ssr.status === "HK" || ssr.status === "KK"
+                        ? "border-emerald-300 text-emerald-600"
+                        : ssr.status === "UC" || ssr.status === "UN"
+                        ? "border-red-300 text-red-600"
+                        : ""
+                    )}
+                  >
+                    <span className="font-semibold">{ssr.code}</span>
+                    {ssr.text && <span className="ml-1 text-muted-foreground">{ssr.text}</span>}
+                    {ssr.status && <span className="ml-1 opacity-60">[{ssr.status}]</span>}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Contact Info — Email & Phone */}
+          {((r.emails && r.emails.length > 0) || (r.phones && r.phones.length > 0)) && (
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <Mail className="h-3 w-3" /> Contact Info
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {r.emails?.map((email, i) => (
+                  <Badge key={`e-${i}`} variant="secondary" className="text-[10px] px-2">
+                    <Mail className="h-3 w-3 mr-1" />
+                    {email}
+                  </Badge>
+                ))}
+                {r.phones?.map((ph, i) => (
+                  <Badge key={`p-${i}`} variant="secondary" className="text-[10px] px-2">
+                    <Phone className="h-3 w-3 mr-1" />
+                    {ph.number}
+                    {ph.type && <span className="ml-1 opacity-60">({ph.type})</span>}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Remarks */}
+          {r.remarks && r.remarks.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <MessageSquare className="h-3 w-3" /> Remarks
+              </h4>
+              <div className="space-y-1">
+                {r.remarks.map((rm, i) => (
+                  <div key={i} className="text-xs rounded border p-2 flex items-start gap-2">
+                    {rm.type && (
+                      <Badge variant="outline" className="text-[9px] px-1 shrink-0">{rm.type}</Badge>
+                    )}
+                    <span className="text-muted-foreground">{rm.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Ancillary Services */}
+          {r.ancillaryServices && r.ancillaryServices.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <ShoppingBag className="h-3 w-3" /> Ancillary Services
+              </h4>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead>Service</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Group</TableHead>
+                    <TableHead>EMD</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {r.ancillaryServices.map((anc, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs font-medium">{anc.code}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn(
+                          "text-[9px]",
+                          anc.status === "HD" || anc.status === "HI"
+                            ? "border-emerald-300 text-emerald-600"
+                            : ""
+                        )}>{anc.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{anc.quantity}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{anc.groupCode}{anc.subGroupCode ? `/${anc.subGroupCode}` : ""}</TableCell>
+                      <TableCell className="font-mono text-[10px]">{anc.emdNumber || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
           {/* Meta */}
           <div className="flex gap-4 text-[10px] text-muted-foreground pt-1">
             <span>Created: {formatDate(r.createdAt)}</span>
             <span>Updated: {formatDate(r.updatedAt)}</span>
+            {r.receivedFrom && <span>Agent: {r.receivedFrom}</span>}
           </div>
         </CardContent>
       )}

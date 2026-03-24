@@ -1,0 +1,14 @@
+<Trip_ReportsRQ Version="1.3.0" xmlns="http://webservices.sabre.com/triprecord">
+	<Report>
+		<ReportName>MLBT</ReportName>
+		<Criteria>
+			<FlightCriteria>
+				<AirlineCode>LA</AirlineCode>
+				<FlightNumber>2474</FlightNumber>
+				<DepartureDateTime>2018-01-12</DepartureDateTime>
+				<ClassOfService>Y</ClassOfService>
+			</FlightCriteria>
+			<PosCriteria>LA</PosCriteria>
+		</Criteria>
+	</Report>
+</Trip_ReportsRQ>

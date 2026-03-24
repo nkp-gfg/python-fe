@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="http://webservices.sabre.com/triprecord" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	targetNamespace="http://webservices.sabre.com/triprecord" elementFormDefault="qualified">
+
+	<xs:include schemaLocation="TR_CommonTypes_1.3.0.xsd" />
+
+	<xs:element name="Trip_ReportsRQ">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="BaseTripRequest">
+					<xs:sequence>
+						<xs:element name="Report" minOccurs="0" maxOccurs="1">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="ReportName" type="xs:string" minOccurs="1" />
+									<xs:element name="ReportFormat" type="xs:string" minOccurs="0" />
+									<xs:element name="Criteria" minOccurs="1" maxOccurs="1">
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="FlightCriteria" type="FlightCriteria" minOccurs="0" maxOccurs="unbounded"/>
+												<xs:element name="NameCriteria" type="NameCriteria" minOccurs="0" />
+												<xs:element name="PosCriteria" type="xs:string" minOccurs="0" />
+												<xs:choice minOccurs="0" maxOccurs="1">
+													<xs:element name="SSRCriteria" type="SSRCriteria" minOccurs="0" maxOccurs="1"/>
+													<xs:element name="OSICriteria" type="OSICriteria" minOccurs="0" maxOccurs="1"/>												
+												</xs:choice>
+												<xs:element name="DateCriteria" type="DateCriteria" minOccurs="0" />
+												<xs:element name="BookingCriteria" type="BookingCriteria" minOccurs="0" />
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+								<xs:attribute name="MaxItemsReturned" type="xs:int" use="optional" />
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+
+	<xs:complexType name="FlightCriteria">
+		<xs:sequence>
+			<xs:element name="AirlineCode" type="xs:string" minOccurs="0" maxOccurs="1" />
+			<xs:element name="FlightNumber" type="xs:string" minOccurs="0" maxOccurs="1" />
+			<xs:element name="DepartureAirport" type="xs:string" minOccurs="0" />
+			<xs:element name="ArrivalAirport" type="xs:string" minOccurs="0" maxOccurs="1" />
+			<xs:element name="InboundAirport" type="xs:string" minOccurs="0" maxOccurs="1" />
+			<xs:element name="OutboundAirport" type="xs:string" minOccurs="0" maxOccurs="1"/>						
+			<xs:element name="DepartureDateTime" type="xs:date" minOccurs="0" maxOccurs="1" />
+			<xs:element name="EndDateTime" type="xs:date" minOccurs="0" maxOccurs="1" />
+			<xs:element name="StatusCode" type="xs:string" minOccurs="0" maxOccurs="1" />
+			<xs:element name="ClassOfService" type="xs:string" minOccurs="0" maxOccurs="1" />
+			<xs:element name="Frequency" type="DaysOfWeek" minOccurs="0" maxOccurs="1"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="SSRCriteria">
+		<xs:sequence>
+			<xs:element name="SpecialServiceRequest" minOccurs="0" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Code" type="xs:string" minOccurs="1" maxOccurs="1"/>
+						<xs:element name="ActionCode" type="xs:string" minOccurs="0" maxOccurs="1" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="OperationType" type="JunctionType" default="OR"/>
+		<xs:attribute name="PresentInPNR" type="YesNoType"  default="Y"/>
+		<xs:attribute name="Type" type="SSRType" default="ALL" />
+	</xs:complexType>
+	
+	<xs:complexType name="OSICriteria">
+		<xs:sequence>
+			<xs:element name="OtherSupplementaryInformation" minOccurs="1" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Code" type="xs:string" minOccurs="1" maxOccurs="1"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="OperationType" type="JunctionType" default="OR"/>
+		<xs:attribute name="PresentInPNR" type="YesNoType"  default="Y"/>
+	</xs:complexType>
+	
+	<xs:complexType name="NameCriteria">
+		<xs:sequence>
+			<xs:element name="Name" minOccurs="1" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="LastName" type="TextWithMatchMode" minOccurs="1" maxOccurs="1"/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	
+	<xs:complexType name="BookingCriteria">
+		<xs:sequence>
+			<xs:element name="Station" type="xs:string" minOccurs="0" maxOccurs="1" />
+			<xs:element name="AgentHomeCity" type="xs:string" minOccurs="0" maxOccurs="1" />
+			<xs:element name="AgentSine" type="xs:string" minOccurs="0" maxOccurs="1" />
+		</xs:sequence>
+	</xs:complexType>
+	
+	<xs:complexType name="DateCriteria">
+		<xs:sequence>
+			<xs:element name="StartDate" type="xs:date" minOccurs="0" />
+			<xs:element name="EndDate" type="xs:date" minOccurs="0" />
+		</xs:sequence>
+	</xs:complexType>
+	
+	<xs:complexType name="TextWithMatchMode">
+		<xs:simpleContent>
+			<xs:extension base="xs:string">
+				<xs:attribute name="MatchMode" default="EXACT" type="TextMatchMode" use="optional" />
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+
+	<xs:simpleType name="TextMatchMode">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="EXACT" />
+			<xs:enumeration value="START" />
+		</xs:restriction>
+	</xs:simpleType>	
+
+	<xs:simpleType name="JunctionType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="OR"></xs:enumeration>
+			<xs:enumeration value="AND"></xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="YesNoType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Y"></xs:enumeration>
+			<xs:enumeration value="N"></xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	
+	<xs:simpleType name="DayOfWeek">
+		<xs:restriction base="xs:int">
+			<xs:minInclusive value="1" />
+			<xs:maxInclusive value="7" />
+		</xs:restriction>
+	</xs:simpleType>
+	
+	<xs:simpleType name="DaysOfWeek">
+  		<xs:list itemType="DayOfWeek"/>
+	</xs:simpleType>
+
+	<xs:simpleType name="SSRType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="AFX" />
+			<xs:enumeration value="GFX" />
+			<xs:enumeration value="ALL" />
+		</xs:restriction>
+	</xs:simpleType>		
+
+</xs:schema>

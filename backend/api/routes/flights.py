@@ -1,12 +1,12 @@
 """Flight status API endpoints."""
 
-import logging
+import structlog
 from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import PyMongoError
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_origin
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["flights"])
 
 
@@ -97,6 +97,8 @@ def _analyze_passengers(passengers, gender_lookup=None):
             "checkedIn": _empty_state_bucket(),
             "boarded": _empty_state_bucket(),
         },
+        "loyaltyCounts": {"FF": 0, "BLU": 0, "SLV": 0, "GLD": 0, "BLK": 0},
+        "nationalityCounts": {},
     }
     for p in passengers:
         cabin = p.get("cabin", "Y")
@@ -171,6 +173,17 @@ def _analyze_passengers(passengers, gender_lookup=None):
             bucket["adults"] += 1
         if has_infant:
             bucket["infants"] += 1
+
+        # Loyalty tier counts
+        for tier in ("FF", "BLU", "SLV", "GLD", "BLK"):
+            if tier in edit_codes:
+                result["loyaltyCounts"][tier] += 1
+
+        # Nationality counts
+        nat = p.get("nationality") or p.get("countryCode", "")
+        if nat:
+            result["nationalityCounts"][nat] = result["nationalityCounts"].get(
+                nat, 0) + 1
 
     return result
 
@@ -613,6 +626,7 @@ def _summarize_flight_for_list(flight_status_doc, passenger_doc):
         "infantCount": passenger_doc.get("infantCount", 0) if passenger_doc else 0,
         "totalSouls": passenger_doc.get("totalSouls", 0) if passenger_doc else 0,
     }
+    phase = _derive_flight_phase(flight_status_doc, analysis)
     return {
         "destination": destination,
         "passengerSummary": passenger_summary,
@@ -624,6 +638,7 @@ def _summarize_flight_for_list(flight_status_doc, passenger_doc):
             "economySouls": analysis.get("cabinTotals", {}).get("economy", {}).get("souls", 0) if analysis else 0,
             "businessSouls": analysis.get("cabinTotals", {}).get("business", {}).get("souls", 0) if analysis else 0,
         },
+        "flightPhase": phase,
     }
 
 
@@ -668,7 +683,142 @@ def _validate_counts(passenger_summary, analysis, state_breakdown):
     }
 
 
-def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_doc=None, trip_report_doc=None):
+def _derive_flight_phase(fs, analysis):
+    """Derive the operational flight phase from Sabre status + passenger data.
+
+    Returns a dict with:
+      - phase: SCHEDULED | CHECK_IN | BOARDING | CLOSED | DEPARTED
+      - label: Human-readable label
+      - focusCard: Which StatePanels card is primary for this phase
+      - alertColor: Tailwind color token for the phase
+      - alertIcon: Icon name hint for frontend
+      - description: One-line operational summary
+    """
+    status = (fs or {}).get("status", "")
+    boarding_indicator = (fs or {}).get("boarding", {}).get("indicator", "")
+    boarded = analysis.get("boarded", 0) if analysis else 0
+    checked_in = analysis.get("checkedIn", 0) if analysis else 0
+    not_checked_in = analysis.get("notCheckedIn", 0) if analysis else 0
+    total = (analysis.get("stateBreakdown", {}).get("booked", {}).get("totalPassengers", 0)
+             + analysis.get("stateBreakdown", {}).get("checkedIn",
+                                                      {}).get("totalPassengers", 0)
+             + analysis.get("stateBreakdown", {}).get("boarded", {}).get("totalPassengers", 0)) if analysis else 0
+    gate = (fs or {}).get("gate", "")
+    ci_not_boarded = analysis.get("stateBreakdown", {}).get(
+        "checkedIn", {}).get("totalPassengers", 0) if analysis else 0
+
+    if status == "PDC":
+        return {
+            "phase": "DEPARTED",
+            "label": "Departed",
+            "focusCard": "others",
+            "alertColor": "gray",
+            "alertIcon": "plane-departure",
+            "description": "Flight has departed — PDC reconciliation complete.",
+        }
+    if status == "FINAL":
+        exceptions = []
+        if not_checked_in > 0:
+            exceptions.append(
+                f"{not_checked_in} no-show{'s' if not_checked_in != 1 else ''}")
+        if ci_not_boarded > 0:
+            exceptions.append(
+                f"{ci_not_boarded} offload{'s' if ci_not_boarded != 1 else ''}")
+        desc = "Flight closed"
+        if exceptions:
+            desc += f" — {', '.join(exceptions)}"
+        else:
+            desc += " — clean departure"
+        return {
+            "phase": "CLOSED",
+            "label": "Closed",
+            "focusCard": "others",
+            "alertColor": "red" if exceptions else "green",
+            "alertIcon": "door-closed",
+            "description": desc,
+        }
+    if status == "OPENCI":
+        # Distinguish CHECK_IN vs BOARDING
+        if boarding_indicator == "BDG" or boarded > 0:
+            pending = ci_not_boarded + not_checked_in
+            desc = f"Boarding in progress — {boarded}/{total} boarded"
+            if pending > 0:
+                desc += f" | {pending} pending"
+            if gate:
+                desc += f" | Gate {gate}"
+            return {
+                "phase": "BOARDING",
+                "label": "Boarding",
+                "focusCard": "boarded",
+                "alertColor": "amber",
+                "alertIcon": "scan-line",
+                "description": desc,
+            }
+        # Still in check-in phase
+        desc = f"Check-in open — {checked_in + boarded}/{total} checked in"
+        if not_checked_in > 0:
+            desc += f" | {not_checked_in} pending"
+        if gate:
+            desc += f" | Gate {gate}"
+        return {
+            "phase": "CHECK_IN",
+            "label": "Check-In Open",
+            "focusCard": "checkedIn",
+            "alertColor": "blue",
+            "alertIcon": "user-check",
+            "description": desc,
+        }
+    # No status or unknown — infer from passenger data
+    if total > 0 and boarded > 0:
+        # Has passengers and boardings but no status — treat as post-departure if mostly boarded
+        boarded_pct = boarded / total if total else 0
+        if boarded_pct > 0.8:
+            return {
+                "phase": "DEPARTED",
+                "label": "Departed (inferred)",
+                "focusCard": "others",
+                "alertColor": "gray",
+                "alertIcon": "plane-departure",
+                "description": f"Flight likely departed — {boarded}/{total} boarded, status unavailable.",
+            }
+    if total > 0 and checked_in > 0:
+        # Has checked-in passengers but no Sabre status — infer CHECK_IN
+        if boarded > 0:
+            desc = f"Boarding in progress — {boarded}/{total} boarded"
+            if gate:
+                desc += f" | Gate {gate}"
+            return {
+                "phase": "BOARDING",
+                "label": "Boarding (inferred)",
+                "focusCard": "boarded",
+                "alertColor": "amber",
+                "alertIcon": "scan-line",
+                "description": desc,
+            }
+        desc = f"Check-in open — {checked_in}/{total} checked in"
+        if not_checked_in > 0:
+            desc += f" | {not_checked_in} pending"
+        if gate:
+            desc += f" | Gate {gate}"
+        return {
+            "phase": "CHECK_IN",
+            "label": "Check-In Open (inferred)",
+            "focusCard": "checkedIn",
+            "alertColor": "blue",
+            "alertIcon": "user-check",
+            "description": desc,
+        }
+    return {
+        "phase": "SCHEDULED",
+        "label": "Scheduled",
+        "focusCard": "booked",
+        "alertColor": "slate",
+        "alertIcon": "calendar",
+        "description": "Flight scheduled — awaiting check-in open.",
+    }
+
+
+def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_doc=None, trip_report_doc=None, schedule_doc=None):
     if pl:
         passengers = pl.get("passengers", [])
         passenger_summary = {
@@ -681,6 +831,15 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
         }
         gender_lookup = _build_gender_lookup(reservation_doc)
         analysis = _analyze_passengers(passengers, gender_lookup)
+        # Enrich nationality counts from reservations (nationality isn't in passenger_list)
+        if reservation_doc and "nationalityCounts" in analysis:
+            nat_counts = {}
+            for rv in reservation_doc.get("reservations", []):
+                for pax in rv.get("passengers", []):
+                    nat = pax.get("nationality", "")
+                    if nat:
+                        nat_counts[nat] = nat_counts.get(nat, 0) + 1
+            analysis["nationalityCounts"] = nat_counts
     else:
         passenger_summary = {}
         analysis = {}
@@ -748,6 +907,16 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
     # Last-fetched timestamp from passenger list document
     fetched_at = (pl or {}).get("fetchedAt", "")
 
+    # Enrich aircraft from schedule/passenger list when FlightStatus is empty
+    aircraft = (fs or {}).get("aircraft", {})
+    if not aircraft.get("type"):
+        sched_type = (schedule_doc or {}).get("aircraftType",
+                                              "") or (pl or {}).get("aircraftType", "")
+        if sched_type:
+            aircraft = {**aircraft, "type": sched_type}
+            if fs:
+                fs["aircraft"] = aircraft
+
     return {
         "flightStatus": fs,
         "route": {
@@ -768,6 +937,7 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
         },
         "dataIntegrity": data_integrity,
         "fetchedAt": fetched_at,
+        "flightPhase": _derive_flight_phase(fs, analysis),
         "stateSummary": {
             "booked": booked_breakdown,
             "checkedIn": checked_in_breakdown,
@@ -786,6 +956,7 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
             },
         },
         "tree": tree,
+        "schedule": _strip_id(schedule_doc) if schedule_doc else None,
     }
 
 
@@ -858,6 +1029,38 @@ def list_flights(
         for r in passenger_results
     }
 
+    # Schedule data (VerifyFlightDetailsRS)
+    schedule_pipeline = [
+        {"$match": match} if match else {"$match": {}},
+        {"$sort": {"fetchedAt": -1}},
+        {
+            "$group": {
+                "_id": {
+                    "airline": "$airline",
+                    "flightNumber": "$flightNumber",
+                    "departureDate": "$departureDate",
+                },
+                "origin": {"$first": "$origin"},
+                "destination": {"$first": "$destination"},
+                "scheduledDeparture": {"$first": "$scheduledDeparture"},
+                "scheduledArrival": {"$first": "$scheduledArrival"},
+                "aircraftType": {"$first": "$aircraftType"},
+                "elapsedTime": {"$first": "$elapsedTime"},
+                "airMilesFlown": {"$first": "$airMilesFlown"},
+            }
+        },
+    ]
+    schedule_results = list(
+        db["flight_schedules"].aggregate(schedule_pipeline))
+    schedule_by_key = {
+        (
+            r["_id"].get("airline"),
+            r["_id"].get("flightNumber"),
+            r["_id"].get("departureDate"),
+        ): r
+        for r in schedule_results
+    }
+
     flights = []
     for r in results:
         fid = r["_id"]
@@ -870,6 +1073,24 @@ def list_flights(
             )
         )
         summary = _summarize_flight_for_list(r, passenger_doc)
+        schedule_data = schedule_by_key.get(
+            (
+                fid.get("airline", "GF"),
+                fid.get("flightNumber"),
+                fid.get("departureDate", ""),
+            )
+        )
+        sched_info = None
+        if schedule_data:
+            sched_info = {
+                "origin": schedule_data.get("origin", ""),
+                "destination": schedule_data.get("destination", ""),
+                "scheduledDeparture": schedule_data.get("scheduledDeparture", ""),
+                "scheduledArrival": schedule_data.get("scheduledArrival", ""),
+                "aircraftType": schedule_data.get("aircraftType", ""),
+                "elapsedTime": schedule_data.get("elapsedTime", ""),
+                "airMilesFlown": schedule_data.get("airMilesFlown", 0),
+            }
         flights.append({
             "airline": fid.get("airline", "GF"),
             "flightNumber": fid.get("flightNumber", ""),
@@ -884,6 +1105,8 @@ def list_flights(
             "jumpSeat": r.get("jumpSeat"),
             "passengerSummary": summary["passengerSummary"],
             "operationalSummary": summary["operationalSummary"],
+            "flightPhase": summary["flightPhase"],
+            "publishedSchedule": sched_info,
             "fetchedAt": str(r.get("fetchedAt", "")),
         })
     return flights
@@ -957,11 +1180,21 @@ def get_flight_dashboard(
     change_results = list(db["changes"].aggregate(change_pipeline))
     change_summary = {r["_id"]: r["count"] for r in change_results}
 
+    # Flight schedule
+    sched_query = {"flightNumber": flight_number}
+    if date:
+        sched_query["departureDate"] = date
+    schedule_doc = db["flight_schedules"].find_one(
+        sched_query, sort=[("fetchedAt", -1)])
+    if schedule_doc:
+        schedule_doc.pop("_id", None)
+        schedule_doc.pop("_raw", None)
+
     if not fs and not pl:
         raise HTTPException(status_code=404, detail="Flight not found")
 
     return _build_dashboard_payload(fs, pl, origin, date, change_summary,
-                                    reservation_doc, trip_report_doc)
+                                    reservation_doc, trip_report_doc, schedule_doc)
 
 
 @router.get("/{flight_number}/tree")
@@ -1017,7 +1250,7 @@ def get_flight_tree(
         raise HTTPException(status_code=404, detail="Flight not found")
 
     payload = _build_dashboard_payload(fs, pl, origin, date, {},
-                                       reservation_doc, trip_report_doc)
+                                       reservation_doc, trip_report_doc, None)
     return payload.get("tree") or {
         "title": "Aircraft Humans Breakdown Tree",
         "badge": "Sabre Live",

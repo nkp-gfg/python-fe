@@ -1,0 +1,841 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns="http://services.sabre.com/checkin/getPassengerData/v4" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:STL="http://services.sabre.com/STL/v3" targetNamespace="http://services.sabre.com/checkin/getPassengerData/v4" version="4.0.0">
+	<xsd:import namespace="http://services.sabre.com/STL/v3" schemaLocation="SabreTypeLibrary_v.3.0.0.xsd"/>
+	<xsd:element name="GetPassengerDataRQ" type="GetPassengerDataRQ.ACS"/>
+	<xsd:element name="GetPassengerDataRS" type="GetPassengerDataRS.ACS"/>
+	<xsd:complexType name="GetPassengerDataRQ.ACS">
+		<xsd:annotation>
+			<xsd:documentation>This service returns the details of a passenger if an exact match was found or a list of passengers matching the last name or part of it.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:choice>
+				<xsd:element name="PNRLocator" type="STL:UpperCaseAlphaLength6">
+					<xsd:annotation>
+						<xsd:documentation>passenger name record locator</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="ItineraryAndPassengerInfo" type="ItineraryAndPassengerInfo.ACS">
+					<xsd:annotation>
+						<xsd:documentation>Itinerary and Passenger Info</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="BagTagNumber" type="STL:AlphaNumericStringLength1to25">
+					<xsd:annotation>
+						<xsd:documentation>passenger bag tag number</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+			</xsd:choice>
+			<xsd:element name="AncillaryInfoList" type="AncillaryInfoListRQ.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Ancillary Information to be retrieved</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Client" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>client issuing the request</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="STL:UpperCaseString">
+						<xsd:enumeration value="KIOSK"/>
+						<xsd:enumeration value="WEB"/>
+						<xsd:enumeration value="MOBILE"/>
+						<xsd:enumeration value="INTERACT_CHECKIN"/>
+						<xsd:enumeration value="INTERACT_REFRESH"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute name="validateCheckInRequirements" type="xsd:boolean" default="false">
+			<xsd:annotation>
+				<xsd:documentation>Determine what passenger information is required to complete a seat check in request</xsd:documentation>
+			</xsd:annotation>
+		</xsd:attribute>
+		<xsd:attribute name="includeTimaticInfo" type="xsd:boolean" default="false">
+			<xsd:annotation>
+				<xsd:documentation>Set this flag to true to include Timatic Details in the response</xsd:documentation>
+			</xsd:annotation>
+		</xsd:attribute>
+		<xsd:attribute name="version" use="optional">
+			<xsd:annotation>
+				<xsd:documentation>Request version</xsd:documentation>
+			</xsd:annotation>
+			<xsd:simpleType>
+				<xsd:restriction base="xsd:string">
+					<xsd:enumeration value="4.0.0"/>
+					<xsd:enumeration value="4.0.1"/>
+					<xsd:enumeration value="4.0.2"/>
+					<xsd:enumeration value="4.0.3"/>
+					<xsd:enumeration value="4.0.4"/>
+				</xsd:restriction>
+			</xsd:simpleType>
+		</xsd:attribute>
+	</xsd:complexType>
+	<xsd:complexType name="ItineraryAndPassengerInfo.ACS">
+		<xsd:annotation>
+			<xsd:documentation>Itinerary and Passenger Information</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element name="Itinerary" type="Itinerary.ACS">
+				<xsd:annotation>
+					<xsd:documentation>Itinerary Information</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<!-- GroupID Version ONE S-327301-->
+			<xsd:choice>
+				<xsd:element name="Seat" type="STL:UpperCaseAlphaNumericLength1to3">
+					<xsd:annotation>
+						<xsd:documentation>Seat number</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="GroupCode" type="STL:UpperCaseAlphaNumericLength1to4">
+					<xsd:annotation>
+						<xsd:documentation>Group Code assigned</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="PassengerList" type="PassengerList.ACS">
+					<xsd:annotation>
+						<xsd:documentation>List of requested Passengers</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+			</xsd:choice>
+			<!-- End -->
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="Itinerary.ACS">
+		<xsd:annotation>
+			<xsd:documentation>Itinerary Information</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element name="Airline" type="STL:AirlineCode.IATA">
+				<xsd:annotation>
+					<xsd:documentation>airline code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Flight" type="STL:FlightNumber.Base" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>airline flight number</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="DepartureDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight departure date</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Origin" type="STL:AirportCode">
+				<xsd:annotation>
+					<xsd:documentation>flight departure city code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="AncillaryInfoListRQ.ACS">
+		<xsd:annotation>
+			<xsd:documentation>Ancillary Info shopping list for all passengers who have the same itinerary and/or the same PNRs</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element name="AirlineOverride" type="STL:AirlineCode.IATA" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Carrier Override for Baggage Allowance</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Currency" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Override currency code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Destination" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Destination</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:choice>
+				<xsd:element name="ALLGroupCodes" fixed="ALL">
+					<xsd:annotation>
+						<xsd:documentation>ALL Group Code - ALL</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="GroupCode" maxOccurs="9">
+					<xsd:annotation>
+						<xsd:documentation>Group Code - BG for bags, ML for meal, PT for pet, SA for seat</xsd:documentation>
+					</xsd:annotation>
+					<xsd:complexType>
+						<xsd:simpleContent>
+							<xsd:extension base="STL:UpperCaseAlphaNumericLength1to3">
+								<xsd:attribute name="category" type="STL:UpperCaseAlphaNumericLength1to3" default="ALL">
+									<xsd:annotation>
+										<xsd:documentation>Sub Group - XS for baggage excess, CY for carry-on, IN for infant baggage, ALL for all categories</xsd:documentation>
+									</xsd:annotation>
+								</xsd:attribute>
+							</xsd:extension>
+						</xsd:simpleContent>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:choice>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="PassengerList.ACS">
+		<xsd:sequence>
+			<xsd:element name="Passenger" type="Passenger.ACS" maxOccurs="15">
+				<xsd:annotation>
+					<xsd:documentation>passenger specific data</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="Passenger.ACS">
+		<xsd:sequence>
+			<xsd:element name="LastName" type="STL:UpperCaseStringLength1to30">
+				<xsd:annotation>
+					<xsd:documentation>passenger's last name</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FirstName" type="STL:UpperCaseStringLength1to64" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>passenger's first name</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PassengerID" type="STL:UpperCaseAlphaNumericLength12" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>string of characters uniquely identifying the passenger</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PNRLocator" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>passenger name record locator</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="STL:UpperCaseAlphaLength6">
+							<xsd:attribute name="nameAssociationID" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>PNR name association ID</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="VCRNumber" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>electronic ticket number</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="xsd:string">
+							<xsd:attribute name="couponNumber" type="xsd:short">
+								<xsd:annotation>
+									<xsd:documentation>coupon number for vcr</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<!--  ACS passenger data response starts here -->
+	<xsd:complexType name="GetPassengerDataRS.ACS">
+		<xsd:annotation>
+			<xsd:documentation>This response is mapped to PD7IF100 on an exact match and PD7IA011 on a list of matched passengers.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element name="PassengerDataResponseList" type="PassengerDataResponseList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>List of matched passengers</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="AncillaryItinInfoList" type="STL:AncillaryItinInfoListRS.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>List of applicable ancillaries</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Result" type="STL:ResultRecord">
+				<xsd:annotation>
+					<xsd:documentation>Result status</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute name="timeStamp" type="xsd:dateTime">
+			<xsd:annotation>
+				<xsd:documentation>Same goes to Redsponse as well</xsd:documentation>
+			</xsd:annotation>
+		</xsd:attribute>
+		<xsd:attribute name="trackingId" type="xsd:string">
+			<xsd:annotation>
+				<xsd:documentation>tracking id for the client</xsd:documentation>
+			</xsd:annotation>
+		</xsd:attribute>
+		<xsd:attribute name="version" type="xsd:string" use="optional">
+			<xsd:annotation>
+				<xsd:documentation>version number for the service</xsd:documentation>
+			</xsd:annotation>
+		</xsd:attribute>
+	</xsd:complexType>
+	<xsd:complexType name="PassengerDataResponseList.ACS">
+		<xsd:sequence>
+			<xsd:element name="PassengerDataResponse" type="PassengerDataResponse.ACS" minOccurs="0" maxOccurs="unbounded">
+				<xsd:annotation>
+					<xsd:documentation>Individual Passenger data</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute name="similarNameFound" use="optional">
+			<xsd:annotation>
+				<xsd:documentation>Similar Name List</xsd:documentation>
+			</xsd:annotation>
+			<xsd:simpleType>
+				<xsd:restriction base="xsd:boolean"/>
+			</xsd:simpleType>
+		</xsd:attribute>
+	</xsd:complexType>
+	<xsd:complexType name="PassengerDataResponse.ACS">
+		<xsd:sequence>
+			<xsd:element name="LineNumber" type="xsd:short" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>ACS passenger sequence no. in response list, when multiple passengers exist</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="LastName" type="xsd:string">
+				<xsd:annotation>
+					<xsd:documentation>passenger's last name</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FirstName" type="xsd:string">
+				<xsd:annotation>
+					<xsd:documentation>passenger's first name</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PassengerID" type="xsd:string">
+				<xsd:annotation>
+					<xsd:documentation>string of characters uniquely identifying the passenger</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PNRLocator" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>passenger name record locator</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="xsd:string">
+							<xsd:attribute name="nameAssociationID" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>PNR name association ID</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+							<xsd:attribute name="nameRefNumber" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>PNR name Reference Number</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="MCPPNRLocator" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>MCP PNR locator</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="GroupCode" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>ACS assigned code when passenger is part of group/party.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="VCRNumber" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>electronic ticket number</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="xsd:string">
+							<xsd:attribute name="couponNumber" type="xsd:short">
+								<xsd:annotation>
+									<xsd:documentation>coupon number for electronic ticket</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="ATPCOPassengerType" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>identifying the ATPCO compliant passenger type ADT INS</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BagPoolID" type="xsd:short" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>bag id no. when pooled as group</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BoardingPassFlag" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>
+						This is always null and should be ignored. Refer to actual boarding flag indicator in PassengerItineraryResponse node.
+						Contains ‘*’ or ‘-‘ when populated on exact passenger name match.
+						- Means passenger was issued a boarding pass, checked-in and boarded.
+						* Means passenger was issued a boarding pass and checked in, but NOT boarded yet.
+					</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BaggageRouteList" type="STL:BaggageRouteList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>List of applicable baggage route details</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PassengerItineraryList" type="PassengerItineraryList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>	On exact passenger name match, this is a list when outbound connections exist.
+						On similar passenger name list, this is only the first segment of the passenger.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="RequiredInfoSumList" type="RequiredInfoList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>CheckIn Requirements Summary</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PassengerEditList" type="STL:PassengerEditsType" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Passenger Edit code list</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FreeTextInfoList" type="STL:FreeTextInfoList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Additional free text information. Contains details of edit codes etc</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="TimaticInfoList" type="TimaticInfoList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>CheckIn Requirements</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="PassengerItineraryList.ACS">
+		<xsd:sequence>
+			<xsd:element name="PassengerItinerary" type="PassengerItinerary.ACS" minOccurs="0" maxOccurs="99">
+				<xsd:annotation>
+					<xsd:documentation>Passenger Itinerary details</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="PassengerItinerary.ACS">
+		<xsd:sequence>
+			<xsd:element name="SegmentID" type="xsd:short" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Segment no. when multiple itinerary exists or when exact passenger name match occurs.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Priority" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>priority code used for priority listing</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Airline" type="STL:AirlineCode.IATA" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>airline code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Flight" type="STL:FlightNumber.Base" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight number</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="OperatingAirline" type="STL:AirlineCode.IATA" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>operating airline code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="OperatingFlight" type="STL:FlightNumber.Base" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>operating flight number</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="MarketingAirline" type="STL:AirlineCode.IATA" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>marketing airline code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="MarketingFlight" type="STL:FlightNumber.Base" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>marketing flight number</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="ThirdPartyGroundHandled" type="xsd:boolean" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flag to indicate that this flight is ground handled by a third party</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="IATCIFlag" type="xsd:boolean" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flag to indicate that this is an IATCI flight</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BookingClass" type="STL:StringLength1to2" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>booking class of service</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="MarketingBookingClass" type="STL:StringLength1to2" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Marketing airline booking class of service</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="OperatingBookingClass" type="STL:StringLength1to2" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Operating airline booking class of service</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Origin" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight departure city code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Destination" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight arrival city code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="DepartureDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight departure date</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="EstimatedDepartureTime" type="STL:Time_hhmma" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight Estimated Departure Time</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="DepartureGate" type="STL:GateName" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight Departure Gate</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="AircraftType" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Aircraft type </xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Cabin" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight cabin</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Seat" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>seat assigned</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BoardingPassFlag" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Boarding pass flag indicator
+						Contains ‘*’ or ‘-‘ when populated on exact passenger name match.
+						- Means passenger was issued a boarding pass, checked-in and boarded.
+						* Means passenger was issued a boarding pass and checked in, but NOT boarded yet.
+					</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PassengerType" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>
+						Code for the passenger type, as follows:
+						F - Full Fare
+						S - Standby Revenue
+						P - Positive Space Non Revenue
+						E - Non Revenue
+					</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BagCount" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>total no. of bags checked in</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="TotalBagWeightAndUnit" type="STL:WeightAndUnit.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>total weight of all bags and the unit of measure if available</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="EditCodeList" type="STL:EditCodeList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>passenger's list of edit codes</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="CheckInNumber" type="xsd:short" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>passenger sequence number when checked in to the flight</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="UpgradeCode" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>upgrade priority code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="SeniorityDate" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>for airlines using Seniority Date priority listing</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="ThruIndicator" type="xsd:boolean" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>passenger thru flight indicator</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BookedInventoryIndicator" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>booked inventory indicator</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="TierLevel" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>frequent travel tier level</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FreeTextInfoList" type="STL:FreeTextInfoList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>free text information</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BagTagInfoList" type="BagTagDetailsList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Bag Tag Details. This will be available only for the 1st itinerary.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="AEDetailsList" type="STL:AEDetailsList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>AE details are present only on exact passenger name match.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="VCRInfoList" type="VCRInfoList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Virtual Control Record info.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="SSRInfoList" type="SSRInfoList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>SSR Branded Fare.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="RequiredInfoList" type="RequiredInfoList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>CheckIn Requirements</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TimaticInfoList.ACS">
+		<xsd:sequence>
+			<xsd:element name="TimaticInfo" minOccurs="0" maxOccurs="99">
+				<xsd:annotation>
+					<xsd:documentation>Timatic Details for the passener</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:complexContent>
+						<xsd:extension base="TimaticInfo.ACS">
+							<xsd:attribute name="timaticStatus" type="xsd:string"/>
+							<xsd:attribute name="infant" type="xsd:boolean"/>
+						</xsd:extension>
+					</xsd:complexContent>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TimaticInfo.ACS">
+		<xsd:sequence>
+			<xsd:element name="TimaticCountryInfo" minOccurs="0" maxOccurs="99">
+				<xsd:annotation>
+					<xsd:documentation>Timatic Details for the passener</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:complexContent>
+						<xsd:extension base="TimaticCountryInfo.ACS">
+							<xsd:attribute name="timaticStatus" type="xsd:string"/>
+						</xsd:extension>
+					</xsd:complexContent>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="TimaticCountryInfo.ACS">
+		<xsd:sequence>
+			<xsd:element name="Country">
+				<xsd:annotation>
+					<xsd:documentation>Country Name for the Timatic response</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="xsd:string">
+							<xsd:attribute name="countryName" type="xsd:string"/>
+							<xsd:attribute name="countryCode" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>Country code for the timatic detail</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="SectionInfo" type="SectionInfo.ACS" minOccurs="0" maxOccurs="99">
+				<xsd:annotation>
+					<xsd:documentation>Section Info from Timatic response</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="SectionInfo.ACS">
+		<xsd:sequence>
+			<xsd:element name="SectionName" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Section Name</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="SectionType" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Section Type</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="SectionText" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Section Text</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="SubSectionInfo" type="SubSectionInfo.ACS" minOccurs="0" maxOccurs="99">
+				<xsd:annotation>
+					<xsd:documentation>Timatic Detail for a document type with INFORMATION or REQUIREMENT etc...</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="SubSectionInfo.ACS">
+		<xsd:sequence>
+			<xsd:element name="SubSectionName" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Timatic Subsection Name</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="SubSectionType" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Timatic Subsection Type</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="SubSectionText" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Timatic Subsection Text</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="RequiredInfoList.ACS">
+		<xsd:sequence>
+			<xsd:element name="RequiredInfo" type="RequiredInfo.ACS" minOccurs="0" maxOccurs="99">
+				<xsd:annotation>
+					<xsd:documentation>Individual checkin requirement details</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:simpleType name="DetailStatus.ACS">
+		<xsd:restriction base="xsd:string">
+			<xsd:enumeration value="ValidationRequired"/>
+			<xsd:enumeration value="ValidationFailed"/>
+			<xsd:enumeration value="WithDOCRequired"/>
+		</xsd:restriction>
+	</xsd:simpleType>
+	<xsd:complexType name="RequiredInfo.ACS">
+		<xsd:sequence>
+			<xsd:element name="Code" type="xsd:string">
+				<xsd:annotation>
+					<xsd:documentation>Code that is required to permit the passenger to checkin</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="DetailStatus" type="DetailStatus.ACS" minOccurs="0" maxOccurs="3">
+				<xsd:annotation>
+					<xsd:documentation>Status State - ValidationRequired, ValidationFailed, WithDOCRequired</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FreeText" type="xsd:string">
+				<xsd:annotation>
+					<xsd:documentation>Outcome of the code request</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="VCRInfoList.ACS">
+		<xsd:sequence>
+			<xsd:element name="VCRInfo" type="VCRInfo.ACS" minOccurs="0" maxOccurs="99">
+				<xsd:annotation>
+					<xsd:documentation>VCR details list</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="VCRInfo.ACS">
+		<xsd:sequence>
+			<xsd:element name="VCRNumber" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>VCR number and coupon number.</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="xsd:string">
+							<xsd:attribute name="couponNumber" type="xsd:short">
+								<xsd:annotation>
+									<xsd:documentation>coupon number of vcr</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="CreateDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>VCR create date.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FareBasisCode" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Fare Basis Code.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FareCalculation" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Fare Calculation.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BagAllowance" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>VCR Bag Allowance.</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="xsd:string">
+							<xsd:attribute name="unit" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>Free bag allowance unit (P - piece, LB - Pound, KG - Kilogram.</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="SSRInfoList.ACS">
+		<xsd:sequence>
+			<xsd:element name="BrandedFare" type="xsd:string" maxOccurs="99">
+				<xsd:annotation>
+					<xsd:documentation>Branded Fare data</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="BagTagDetailsList.ACS">
+		<xsd:sequence>
+			<xsd:element name="BagTagInfo" type="STL:BagTagInfo.ACS" minOccurs="0" maxOccurs="99">
+				<xsd:annotation>
+					<xsd:documentation>Bag tag details</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

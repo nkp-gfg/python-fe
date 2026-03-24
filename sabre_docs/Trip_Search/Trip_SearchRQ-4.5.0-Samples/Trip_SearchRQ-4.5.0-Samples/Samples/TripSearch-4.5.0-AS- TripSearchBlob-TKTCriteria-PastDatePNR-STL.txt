@@ -1,0 +1,271 @@
+RQ RQ. Search by ticket number for AS Past Date PNRs.
+
+<Trip_SearchRQ Version="4.5.0" xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" xmlns="http://webservices.sabre.com/triprecord">
+<ReadRequests>
+<ReservationReadRequest>
+   <TicketCriteria>
+     <Ticket>
+       <TicketNumber MatchMode="EXACT">0452541268034</TicketNumber>
+     </Ticket>
+   </TicketCriteria>
+<PosCriteria AirlineCode="LA"/>
+<ReturnOptions ViewName="TripSearchBlob" 
+                    MaxItemsReturned="500" 
+                    ResponseFormat="STL"
+                    SearchType="INACTIVE"/> 
+</ReservationReadRequest>
+</ReadRequests>
+</Trip_SearchRQ>
+
+RS. A simple STL response for TripSearchBlob BLOB view
+
+<Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord" xmlns:ns2="http://services.sabre.com/STL/v01" xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" xmlns:ns3="http://webservices.sabre.com/pnrbuilder" xmlns:ns6="http://tds.sabre.com/itinerary" xmlns:ns5="http://tds.sabre.com/rules" xmlns:ns8="http://services.sabre.com/STL/v02" xmlns:ns7="http://services.sabre.com/res/orr/v0" xmlns:ns13="http://www.sabre.com/eps/schemas" xmlns:tir37="http://services.sabre.com/res/tir/v3_7" xmlns:ns9="http://www.sabre.com/ssg/des/v1" xmlns:ns12="http://opentravel.org/common/v02" xmlns:ns11="http://www.OpenTravel.org/ns/OTA2/AppInfo_v01_00" xmlns:tir39="http://services.sabre.com/res/tir/v3_9" xmlns:ns10="http://services.sabre.com/STL_Header/v02_00" xmlns:stl114="http://webservices.sabre.com/pnrbuilder/v1_14" xmlns:ns15="http://webservices.sabre.com/servicesplatform/orr/rules/1.0.0" xmlns:ns14="http://tds.sabre.com/distribution" xmlns:stl115="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:stl117="http://webservices.sabre.com/pnrbuilder/v1_17" xmlns:or111="http://services.sabre.com/res/or/v1_11" xmlns:or16="http://services.sabre.com/res/or/v1_6" xmlns:or17="http://services.sabre.com/res/or/v1_7" xmlns:or18="http://services.sabre.com/res/or/v1_8" xmlns:or19="http://services.sabre.com/res/or/v1_9" TimeStamp="2019-06-13T02:13:46" Target="Production" Version="4.5.0">
+    <Success>Success</Success>
+    <ReservationsList NumberResults="1" NumberPages="1" TotalResults="1">
+        <Reservations>
+            <Reservation Locator="QWSZBQ" PastDate="true" PurgeDate="2018-06-10T00:00:00">
+                <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0">
+                    <stl19:Reservation NumberInSegment="2" isMultiCarrierPlatform="true" numberInParty="2" numberOfInfants="0">
+                        <stl19:BookingDetails>
+                            <stl19:RecordLocator>QWSZBQ</stl19:RecordLocator>
+                            <stl19:CreationTimestamp>2018-05-16T08:59:00</stl19:CreationTimestamp>
+                            <stl19:SystemCreationTimestamp>2018-05-16T08:59:00</stl19:SystemCreationTimestamp>
+                            <stl19:UpdateTimestamp>2018-05-17T10:25:45</stl19:UpdateTimestamp>
+                            <stl19:PNRSequence>13</stl19:PNRSequence>
+                            <stl19:DivideSplitDetails>
+                                <stl19:DividedRecord>
+                                    <stl19:DivideTimestamp>2018-05-16T11:27:00</stl19:DivideTimestamp>
+                                    <stl19:RecordLocator>RVNTEP</stl19:RecordLocator>
+                                    <stl19:AgentSine>TTY.PLT</stl19:AgentSine>
+                                </stl19:DividedRecord>
+                                <stl19:SplitToRecord>
+                                    <stl19:DivideTimestamp>2018-05-16T11:27:12</stl19:DivideTimestamp>
+                                    <stl19:RecordLocator>RVNTEP</stl19:RecordLocator>
+                                    <stl19:OriginalNumberOfPax>07</stl19:OriginalNumberOfPax>
+                                    <stl19:CurrentNumberOfPax>06</stl19:CurrentNumberOfPax>
+                                    <stl19:CurrentPassengerNames>DIVANO/JOSE</stl19:CurrentPassengerNames>
+                                </stl19:SplitToRecord>
+                                <stl19:DividedRecord>
+                                    <stl19:DivideTimestamp>2018-05-17T10:12:00</stl19:DivideTimestamp>
+                                    <stl19:RecordLocator>GFXQRJ</stl19:RecordLocator>
+                                    <stl19:AgentSine>TTY.PLT</stl19:AgentSine>
+                                </stl19:DividedRecord>
+                                <stl19:SplitToRecord>
+                                    <stl19:DivideTimestamp>2018-05-17T10:12:05</stl19:DivideTimestamp>
+                                    <stl19:RecordLocator>GFXQRJ</stl19:RecordLocator>
+                                    <stl19:OriginalNumberOfPax>06</stl19:OriginalNumberOfPax>
+                                    <stl19:CurrentNumberOfPax>04</stl19:CurrentNumberOfPax>
+                                    <stl19:CurrentPassengerNames>DIVANO/JOSE</stl19:CurrentPassengerNames>
+                                </stl19:SplitToRecord>
+                                <stl19:DividedRecord>
+                                    <stl19:DivideTimestamp>2018-05-17T10:18:00</stl19:DivideTimestamp>
+                                    <stl19:RecordLocator>QNVIQH</stl19:RecordLocator>
+                                    <stl19:AgentSine>TTY.PLT</stl19:AgentSine>
+                                </stl19:DividedRecord>
+                                <stl19:SplitToRecord>
+                                    <stl19:DivideTimestamp>2018-05-17T10:18:43</stl19:DivideTimestamp>
+                                    <stl19:RecordLocator>QNVIQH</stl19:RecordLocator>
+                                    <stl19:OriginalNumberOfPax>04</stl19:OriginalNumberOfPax>
+                                    <stl19:CurrentNumberOfPax>02</stl19:CurrentNumberOfPax>
+                                    <stl19:CurrentPassengerNames>JOHNS/JULIOVI</stl19:CurrentPassengerNames>
+                                </stl19:SplitToRecord>
+                            </stl19:DivideSplitDetails>
+                            <stl19:EstimatedPurgeTimestamp>2018-06-10T00:00:00</stl19:EstimatedPurgeTimestamp>
+                            <stl19:UpdateToken>5f8cdfc92c5d5e895a97fb2fca656f931ef4fd29423225fb</stl19:UpdateToken>
+                        </stl19:BookingDetails>
+                        <stl19:POS>
+                            <stl19:Source AirlineVendorID="LA" BookingSource="A0A0" HomePseudoCityCode="TTY" ISOCountry="AR" PseudoCityCode="TTY">
+                                <stl19:TTYRecordLocator>
+                                    <stl19:CRSLocator>MUC</stl19:CRSLocator>
+                                    <stl19:CRSCode>1A</stl19:CRSCode>
+                                    <stl19:RecordLocator>LDOPFJ</stl19:RecordLocator>
+                                    <stl19:AgencyId>BUEC32101</stl19:AgencyId>
+                                    <stl19:IataNumber>5557878</stl19:IataNumber>
+                                    <stl19:AgencyLocation>BUE</stl19:AgencyLocation>
+                                    <stl19:UserType>T</stl19:UserType>
+                                    <stl19:CountryCode>AR</stl19:CountryCode>
+                                    <stl19:Currency/>
+                                </stl19:TTYRecordLocator>
+                            </stl19:Source>
+                        </stl19:POS>
+                        <stl19:PassengerReservation>
+                            <stl19:Passengers>
+                                <stl19:Passenger elementId="pnr-6.3" id="6" nameAssocId="3" nameId="01.01" nameType="S">
+                                    <stl19:LastName>JOHNS</stl19:LastName>
+                                    <stl19:FirstName>JULIO VICENTE</stl19:FirstName>
+                                    <stl19:SpecialRequests>
+                                        <stl19:GenericSpecialRequest id="46" msgType="S" type="A">
+                                            <stl19:Code>FOID</stl19:Code>
+                                            <stl19:FreeText>/NI24365130</stl19:FreeText>
+                                            <stl19:ActionCode>HK</stl19:ActionCode>
+                                            <stl19:NumberInParty>1</stl19:NumberInParty>
+                                            <stl19:AirlineCode>LA</stl19:AirlineCode>
+                                            <stl19:FullText>FOID LA HK1/NI24365130</stl19:FullText>
+                                        </stl19:GenericSpecialRequest>
+                                    </stl19:SpecialRequests>
+                                    <stl19:Seats/>
+                                </stl19:Passenger>
+                                <stl19:Passenger elementId="pnr-10.7" id="10" nameAssocId="7" nameId="02.01" nameType="S">
+                                    <stl19:LastName>SMITH</stl19:LastName>
+                                    <stl19:FirstName>BRUNO</stl19:FirstName>
+                                    <stl19:SpecialRequests>
+                                        <stl19:GenericSpecialRequest id="45" msgType="S" type="A">
+                                            <stl19:Code>FOID</stl19:Code>
+                                            <stl19:FreeText>/NI35094100</stl19:FreeText>
+                                            <stl19:ActionCode>HK</stl19:ActionCode>
+                                            <stl19:NumberInParty>1</stl19:NumberInParty>
+                                            <stl19:AirlineCode>LA</stl19:AirlineCode>
+                                            <stl19:FullText>FOID LA HK1/NI35094100</stl19:FullText>
+                                        </stl19:GenericSpecialRequest>
+                                    </stl19:SpecialRequests>
+                                    <stl19:Seats/>
+                                </stl19:Passenger>
+                            </stl19:Passengers>
+                            <stl19:Segments/>
+                            <stl19:TicketingInfo>
+                                <stl19:AlreadyTicketed elementId="pnr-49" id="49" index="1">
+                                    <stl19:Code>T-17MAY</stl19:Code>
+                                </stl19:AlreadyTicketed>
+                                <stl19:ETicketNumber elementId="pnr-62" id="62" index="2">TE 0452541268033 SMITH/B SYSSYS 0918/17MAY*</stl19:ETicketNumber>
+                                <stl19:ETicketNumber elementId="pnr-65" id="65" index="3">TE 0452541268034 JOHNS/J SYSSYS 0918/17MAY*</stl19:ETicketNumber>
+                                <stl19:ETicketNumber elementId="pnr-83" id="83" index="3">TV 0452541268033   *VOID* SYSSYS 1024/17MAY*</stl19:ETicketNumber>
+                                <stl19:ETicketNumber elementId="pnr-84" id="84" index="3">TV 0452541268034   *VOID* SYSSYS 1024/17MAY*</stl19:ETicketNumber>
+                                <stl19:TicketDetails elementId="pnr-62" id="62" index="2">
+                                    <stl19:OriginalTicketDetails>TE 0452541268033 SMITH/B SYSSYS 0918/17MAY*</stl19:OriginalTicketDetails>
+                                    <stl19:TransactionIndicator>TE</stl19:TransactionIndicator>
+                                    <stl19:TicketNumber>0452541268033</stl19:TicketNumber>
+                                    <stl19:PassengerName>SMITH/B</stl19:PassengerName>
+                                    <stl19:AgencyLocation>SYS</stl19:AgencyLocation>
+                                    <stl19:DutyCode/>
+                                    <stl19:AgentSine>SYS</stl19:AgentSine>
+                                    <stl19:Timestamp>2018-05-17T09:18:00</stl19:Timestamp>
+                                    <stl19:PaymentType>*</stl19:PaymentType>
+                                </stl19:TicketDetails>
+                                <stl19:TicketDetails elementId="pnr-65" id="65" index="3">
+                                    <stl19:OriginalTicketDetails>TE 0452541268034 JOHNS/J SYSSYS 0918/17MAY*</stl19:OriginalTicketDetails>
+                                    <stl19:TransactionIndicator>TE</stl19:TransactionIndicator>
+                                    <stl19:TicketNumber>0452541268034</stl19:TicketNumber>
+                                    <stl19:PassengerName>JOHNS/J</stl19:PassengerName>
+                                    <stl19:AgencyLocation>SYS</stl19:AgencyLocation>
+                                    <stl19:DutyCode/>
+                                    <stl19:AgentSine>SYS</stl19:AgentSine>
+                                    <stl19:Timestamp>2018-05-17T09:18:00</stl19:Timestamp>
+                                    <stl19:PaymentType>*</stl19:PaymentType>
+                                </stl19:TicketDetails>
+                                <stl19:TicketDetails elementId="pnr-83" id="83" index="3">
+                                    <stl19:OriginalTicketDetails>TV 0452541268033   *VOID* SYSSYS 1024/17MAY*</stl19:OriginalTicketDetails>
+                                    <stl19:TransactionIndicator>TV</stl19:TransactionIndicator>
+                                    <stl19:TicketNumber>0452541268033</stl19:TicketNumber>
+                                    <stl19:PassengerName/>
+                                    <stl19:AgencyLocation>SYS</stl19:AgencyLocation>
+                                    <stl19:DutyCode/>
+                                    <stl19:AgentSine>SYS</stl19:AgentSine>
+                                    <stl19:Timestamp>2018-05-17T10:24:00</stl19:Timestamp>
+                                    <stl19:PaymentType>*</stl19:PaymentType>
+                                </stl19:TicketDetails>
+                                <stl19:TicketDetails elementId="pnr-84" id="84" index="3">
+                                    <stl19:OriginalTicketDetails>TV 0452541268034   *VOID* SYSSYS 1024/17MAY*</stl19:OriginalTicketDetails>
+                                    <stl19:TransactionIndicator>TV</stl19:TransactionIndicator>
+                                    <stl19:TicketNumber>0452541268034</stl19:TicketNumber>
+                                    <stl19:PassengerName/>
+                                    <stl19:AgencyLocation>SYS</stl19:AgencyLocation>
+                                    <stl19:DutyCode/>
+                                    <stl19:AgentSine>SYS</stl19:AgentSine>
+                                    <stl19:Timestamp>2018-05-17T10:24:00</stl19:Timestamp>
+                                    <stl19:PaymentType>*</stl19:PaymentType>
+                                </stl19:TicketDetails>
+                            </stl19:TicketingInfo>
+                            <stl19:ItineraryPricing/>
+                        </stl19:PassengerReservation>
+                        <stl19:ReceivedFrom>
+                            <stl19:Name>EDIRM1A16135920 3B5DCE76-001</stl19:Name>
+                        </stl19:ReceivedFrom>
+                        <stl19:Remarks>
+                            <stl19:Remark elementId="pnr-15" id="15" index="1" type="HS">
+                                <stl19:RemarkLines>
+                                    <stl19:RemarkLine>
+                                        <stl19:Text>PLS ADV TKT NBR BEFORE 17MAY18 1059 BUE LT OR AUTO CNL</stl19:Text>
+                                    </stl19:RemarkLine>
+                                </stl19:RemarkLines>
+                            </stl19:Remark>
+                            <stl19:Remark elementId="pnr-35" id="35" index="2" type="REG">
+                                <stl19:RemarkLines>
+                                    <stl19:RemarkLine>
+                                        <stl19:Text>DIVIDED/TTY.PLT 1127/16MAY18 RVNTEP</stl19:Text>
+                                    </stl19:RemarkLine>
+                                </stl19:RemarkLines>
+                            </stl19:Remark>
+                            <stl19:Remark elementId="pnr-36" id="36" index="3" type="HS">
+                                <stl19:RemarkLines>
+                                    <stl19:RemarkLine>
+                                        <stl19:Text>SPLIT TO/112712/16MAY18 RVNTEP 07/07 06/06 DIVANO/JOSE</stl19:Text>
+                                    </stl19:RemarkLine>
+                                </stl19:RemarkLines>
+                            </stl19:Remark>
+                            <stl19:Remark elementId="pnr-37" id="37" index="4" type="HS">
+                                <stl19:RemarkLines>
+                                    <stl19:RemarkLine>
+                                        <stl19:Text>DUE PNR CHNG NEW TTL 17MAY18 1327 BUE LT OR AUTO CNL</stl19:Text>
+                                    </stl19:RemarkLine>
+                                </stl19:RemarkLines>
+                            </stl19:Remark>
+                            <stl19:Remark elementId="pnr-79" id="79" index="5" type="REG">
+                                <stl19:RemarkLines>
+                                    <stl19:RemarkLine>
+                                        <stl19:Text>DIVIDED/TTY.PLT 1012/17MAY18 GFXQRJ</stl19:Text>
+                                    </stl19:RemarkLine>
+                                </stl19:RemarkLines>
+                            </stl19:Remark>
+                            <stl19:Remark elementId="pnr-80" id="80" index="6" type="HS">
+                                <stl19:RemarkLines>
+                                    <stl19:RemarkLine>
+                                        <stl19:Text>SPLIT TO/101205/17MAY18 GFXQRJ 06/06 04/04 DIVANO/JOSE</stl19:Text>
+                                    </stl19:RemarkLine>
+                                </stl19:RemarkLines>
+                            </stl19:Remark>
+                            <stl19:Remark elementId="pnr-81" id="81" index="7" type="REG">
+                                <stl19:RemarkLines>
+                                    <stl19:RemarkLine>
+                                        <stl19:Text>DIVIDED/TTY.PLT 1018/17MAY18 QNVIQH</stl19:Text>
+                                    </stl19:RemarkLine>
+                                </stl19:RemarkLines>
+                            </stl19:Remark>
+                            <stl19:Remark elementId="pnr-82" id="82" index="8" type="HS">
+                                <stl19:RemarkLines>
+                                    <stl19:RemarkLine>
+                                        <stl19:Text>SPLIT TO/101843/17MAY18 QNVIQH 04/04 02/02 JOHNS/JULIO VI</stl19:Text>
+                                    </stl19:RemarkLine>
+                                </stl19:RemarkLines>
+                            </stl19:Remark>
+                        </stl19:Remarks>
+                        <stl19:EmailAddresses/>
+                        <stl19:GenericSpecialRequests id="11" msgType="O" type="A">
+                            <stl19:Code>CTCT</stl19:Code>
+                            <stl19:FreeText>BUE  541155529999 BUZIOS TOURS</stl19:FreeText>
+                            <stl19:AirlineCode>LA</stl19:AirlineCode>
+                            <stl19:FullText>LA CTCT BUE  541155529999 BUZIOS TOURS</stl19:FullText>
+                        </stl19:GenericSpecialRequests>
+                        <stl19:GenericSpecialRequests id="19" msgType="S" type="A">
+                            <stl19:Code>SEAT</stl19:Code>
+                            <stl19:FreeText>LK7 EZEGRU8009G08JUN.21D21E22D20D20F20E21F/RS</stl19:FreeText>
+                            <stl19:AirlineCode>LA</stl19:AirlineCode>
+                            <stl19:FullText>SEAT LA LK7 EZEGRU8009G08JUN.21D21E22D20D20F20E21F/RS</stl19:FullText>
+                        </stl19:GenericSpecialRequests>
+                        <stl19:GenericSpecialRequests id="20" msgType="S" type="A">
+                            <stl19:Code>SEAT</stl19:Code>
+                            <stl19:FreeText>LK7 GRUEZE8018G10JUN.22A22B22D21A21C21B22C/RS</stl19:FreeText>
+                            <stl19:AirlineCode>LA</stl19:AirlineCode>
+                            <stl19:FullText>SEAT LA LK7 GRUEZE8018G10JUN.22A22B22D21A21C21B22C/RS</stl19:FullText>
+                        </stl19:GenericSpecialRequests>
+                        <stl19:GenericSpecialRequests id="12" msgType="O" type="G">
+                            <stl19:Code>CTCT</stl19:Code>
+                            <stl19:FreeText>BUE  541155529999 BUZIOS TOURS</stl19:FreeText>
+                            <stl19:AirlineCode>YY</stl19:AirlineCode>
+                            <stl19:FullText>YY CTCT BUE  541155529999 BUZIOS TOURS</stl19:FullText>
+                        </stl19:GenericSpecialRequests>
+                    </stl19:Reservation>
+                </stl19:GetReservationRS>
+            </Reservation>
+        </Reservations>
+    </ReservationsList>
+</Trip_SearchRS>

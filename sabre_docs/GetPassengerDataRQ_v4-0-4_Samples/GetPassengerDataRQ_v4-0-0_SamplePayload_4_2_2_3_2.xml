@@ -1,0 +1,85 @@
+<SamplePayloads>
+<!--Request-->
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sec="http://schemas.xmlsoap.org/ws/2002/12/secext" xmlns:mes="http://www.ebxml.org/namespaces/messageHeader" xmlns:v4="http://services.sabre.com/checkin/getPassengerData/v4">
+   <soapenv:Header>
+      <eb:MessageHeader eb:id="" eb:version="1.0" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader">
+         <eb:From>
+            <eb:PartyId eb:type="URI">Client</eb:PartyId>
+         </eb:From>
+         <eb:To>
+            <eb:PartyId eb:type="URI">Server</eb:PartyId>
+         </eb:To>
+         <eb:CPAId>IPCC</eb:CPAId>
+         <eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId>
+         <eb:Service>GetPassengerDataRQ</eb:Service>
+         <eb:Action>GetPassengerDataRQ</eb:Action>
+         <eb:MessageData>
+            <eb:MessageId>mid:1</eb:MessageId>
+            <eb:Timestamp>2008-03-03T12:45:52</eb:Timestamp>
+         </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+         <wsse:BinarySecurityToken EncodingType="wsse:Base64Binary" valueType="String">Shared/IDL:IceSess\/SessMgr:1\.0.IDL/Common/!ICESMS\/STSB!ICESMSLB\/STS.LB!-3425610328287561312!824609!0</wsse:BinarySecurityToken>
+      </wsse:Security>
+   </soapenv:Header>
+   <soapenv:Body>
+      <v4:GetPassengerDataRQ validateCheckInRequirements="true">
+         <!--You have a CHOICE of the next 2 items at this level-->
+         <ItineraryAndPassengerInfo>
+            <Itinerary>
+               <Airline>AZ</Airline>
+             <Flight>316</Flight>
+               <DepartureDate>2016-03-18</DepartureDate>
+               <Origin>FCO</Origin>
+            </Itinerary>
+            <PassengerList>
+               <Passenger>
+                  <LastName>BOLT</LastName>
+               <PNRLocator nameAssociationID="2">JJNQHX</PNRLocator>
+               </Passenger>
+            </PassengerList>
+         </ItineraryAndPassengerInfo>
+      </v4:GetPassengerDataRQ>
+   </soapenv:Body>
+</soapenv:Envelope>
+<!--Response-->
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+   <soap-env:Header>
+      <eb:MessageHeader eb:version="1.0" soap-env:mustUnderstand="1" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader">
+         <eb:From>
+            <eb:PartyId eb:type="URI">Server</eb:PartyId>
+         </eb:From>
+         <eb:To>
+            <eb:PartyId eb:type="URI">Client</eb:PartyId>
+         </eb:To>
+         <eb:CPAId>IPCC</eb:CPAId>
+         <eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId>
+         <eb:Service>GetPassengerDataRQ</eb:Service>
+         <eb:Action>GetPassengerDataRS</eb:Action>
+         <eb:MessageData>
+            <eb:MessageId>f240bcba-afa7-44f5-a030-e37148d837c4@61</eb:MessageId>
+            <eb:Timestamp>2016-03-18T06:42:56</eb:Timestamp>
+            <eb:RefToMessageId>mid:1</eb:RefToMessageId>
+         </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+         <wsse:BinarySecurityToken valueType="String" EncodingType="wsse:Base64Binary">Shared/IDL:IceSess\/SessMgr:1\.0.IDL/Common/!ICESMS\/STSB!ICESMSLB\/STS.LB!-3425610328287561312!824609!0</wsse:BinarySecurityToken>
+      </wsse:Security>
+   </soap-env:Header>
+   <soap-env:Body>
+      <ns3:GetPassengerDataRS xmlns:ns3="http://services.sabre.com/checkin/getPassengerData/v4" xmlns:ns2="http://services.sabre.com/STL/v3">
+         <Result messageId="ID-acs-int2-sgdcelab-sabre-com-36628-1458280791014-2-5786" timeStamp="2016-03-18T06:42:56.370Z">
+            <ns2:ErrorSource>CKI</ns2:ErrorSource>
+            <ns2:Status>BusinessLogicError</ns2:Status>
+            <ns2:CompletionStatus>Incomplete</ns2:CompletionStatus>
+            <ns2:System>ACS-BSO</ns2:System>
+            <ns2:SystemSpecificResults>
+               <ns2:ErrorMessage code="1211">One or More Passengers Data Not Found</ns2:ErrorMessage>
+               <ns2:ShortText>One or More Passengers Data Not Found</ns2:ShortText>
+               <ns2:RecordID>ID-acs-int2-sgdcelab-sabre-com-36628-1458280791014-2-5783</ns2:RecordID>
+            </ns2:SystemSpecificResults>
+         </Result>
+      </ns3:GetPassengerDataRS>
+   </soap-env:Body>
+</soap-env:Envelope>
+</SamplePayloads>

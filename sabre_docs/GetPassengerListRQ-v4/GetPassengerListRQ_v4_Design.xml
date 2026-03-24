@@ -1,0 +1,44 @@
+<v4:GetPassengerListRQ version="string" timeStamp="2008-09-29T07:19:45" messageID="string" serviceOption="Stateful" xmlns:v4="http://services.sabre.com/checkin/getPassengerList/v4">
+	<v4:Itinerary>
+		<!--Iata Airline code-->
+		<v4:Airline>K0</v4:Airline>
+		<!-- Flight number-->
+		<v4:Flight>118</v4:Flight>
+		<!--Optional:-->
+		<v4:DepartureDate>2019-02-09</v4:DepartureDate>
+		<!--Departure Aiport code-->
+		<v4:Origin>AUH</v4:Origin>
+		<!--Optional:-->
+		<v4:Destination>BLR</v4:Destination>
+		<!--Optional:-->
+		<v4:ClassOfService>Y</v4:ClassOfService>
+	</v4:Itinerary>
+	<!--You have a CHOICE of the next 2 items at this level-->
+	<v4:DisplayCodeRequest>
+		<!--condition can be "AND" or "OR". "AND" returns a list matching all the display codes
+		while "OR" returns a list matching any of the display codes-->
+		<v4:DisplayCodes condition="AND">
+			<!--1 to 20 repetitions:-->
+			<v4:DisplayCode>RV</v4:DisplayCode>
+		</v4:DisplayCodes>
+		<!--Defult Sort sequence is by last name -->
+		<!--Optional:-->
+		<v4:SortSequence>Name</v4:SortSequence>
+	</v4:DisplayCodeRequest>
+	<v4:AncillaryCodeRequest>
+		<v4:GroupCode>BG</v4:GroupCode>
+		<!--Optional:-->
+		<v4:Status>HK</v4:Status>
+	</v4:AncillaryCodeRequest>
+	<!-- The element under Transaction_Details is for internal purpose the caller can ignore this section-->
+	<!--Optional:-->
+	<v4:Transaction_Details>
+		<v4:Client>TerminalGateway</v4:Client>
+		<!--Optional:-->
+		<v4:RequestType>WebService</v4:RequestType>
+		<!--Optional:-->
+		<v4:Host_Entry>string</v4:Host_Entry>
+	</v4:Transaction_Details>
+	<!--Optional:-->
+	<v4:ClientContext name="KIOSK"/>
+</v4:GetPassengerListRQ>

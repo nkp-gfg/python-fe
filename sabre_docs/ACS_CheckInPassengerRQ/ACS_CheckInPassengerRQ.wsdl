@@ -1,0 +1,53 @@
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader" xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext" xmlns:acsrqrs="http://services.sabre.com/ACS/BSO/checkInPassenger/v3" xmlns:acs="http://acsservice" name="ACSServices" targetNamespace="http://acsservice">
+
+	<types>
+		<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+			<xsd:import namespace="http://services.sabre.com/ACS/BSO/checkInPassenger/v3" schemaLocation="ACS_CheckInPassenger.xsd"/>
+			<xsd:import namespace="http://www.ebxml.org/namespaces/messageHeader" schemaLocation="msg-header-2_0.xsd"/>
+			<xsd:import namespace="http://schemas.xmlsoap.org/ws/2002/12/secext" schemaLocation="wsse.xsd"/>
+		</xsd:schema>
+	</types>
+
+	<message name="ACS_CheckInPassengerInput">
+		<part name="header" element="eb:MessageHeader"/>
+		<part name="header2" element="wsse:Security"/>
+		<part name="body" element="acsrqrs:ACS_CheckInPassengerRQ"/>
+	</message>
+
+	<message name="ACS_CheckInPassengerOutput">
+		<part name="header" element="eb:MessageHeader"/>
+		<part name="header2" element="wsse:Security"/>
+		<part name="body" element="acsrqrs:ACS_CheckInPassengerRS"/>
+	</message>
+
+	<portType name="ACS_CheckInPassengerPortType">
+		<operation name="ACS_CheckInPassengerRQ">
+			<input message="acs:ACS_CheckInPassengerInput"/>
+			<output message="acs:ACS_CheckInPassengerOutput"/>
+		</operation>
+	</portType>
+
+	<binding name="ACS_CheckInPassengerSoapBinding" type="acs:ACS_CheckInPassengerPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="ACS_CheckInPassengerRQ">
+			<soap:operation soapAction="OTA"/>
+			<input>
+				<soap:header message="acs:ACS_CheckInPassengerInput" part="header" use="literal"/>
+				<soap:header message="acs:ACS_CheckInPassengerInput" part="header2" use="literal"/>
+				<soap:body parts="body" use="literal"/>
+			</input>
+			<output>
+				<soap:header message="acs:ACS_CheckInPassengerOutput" part="header" use="literal"/>
+				<soap:header message="acs:ACS_CheckInPassengerOutput" part="header2" use="literal"/>
+				<soap:body parts="body" use="literal"/>
+			</output>
+		</operation>
+	</binding>
+
+	<service name="ACSCheckInPassengerService">
+		<port name="ACS_CheckInPassengerPortType" binding="acs:ACS_CheckInPassengerSoapBinding">
+			<soap:address location="https://webservices.platform.sabre.com/websvc"/>
+		</port>
+	</service>
+
+</definitions>

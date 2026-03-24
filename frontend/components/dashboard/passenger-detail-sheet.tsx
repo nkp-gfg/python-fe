@@ -39,6 +39,23 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
+/** Safely render a value that may be an XML-to-JSON object like {"@unit":"KG","#text":"23"} */
+function safeText(val: unknown): string {
+  if (val == null) return "";
+  if (typeof val === "string" || typeof val === "number") return String(val);
+  if (typeof val === "object") {
+    const obj = val as Record<string, unknown>;
+    // Handle XML attr pattern: {"@unit": "KG", "#text": "23"} → "23 KG"
+    if ("#text" in obj) {
+      const text = String(obj["#text"] ?? "");
+      const unit = obj["@unit"] ?? obj["@Unit"] ?? "";
+      return unit ? `${text} ${unit}` : text;
+    }
+    return JSON.stringify(val);
+  }
+  return String(val);
+}
+
 interface PassengerDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -98,7 +115,7 @@ function ItinerarySection({ segments }: { segments: ItinerarySegment[] }) {
               <span>Class: {seg.bookingClass}</span>
               <span>Departs: {seg.departureDate}</span>
               {seg.aircraftType && <span>Aircraft: {seg.aircraftType}</span>}
-              {seg.bagCount > 0 && <span>Bags: {seg.bagCount} ({seg.totalBagWeight})</span>}
+              {seg.bagCount > 0 && <span>Bags: {seg.bagCount} ({safeText(seg.totalBagWeight)})</span>}
             </div>
             {seg.editCodes.length > 0 && (
               <div className="flex flex-wrap gap-1">
@@ -114,7 +131,7 @@ function ItinerarySection({ segments }: { segments: ItinerarySegment[] }) {
                   <div key={bt.bagTagNumber} className="flex items-center gap-2 text-xs pl-2">
                     <Tag className="h-3 w-3 text-muted-foreground" />
                     <span className="font-mono">{bt.bagTagNumber}</span>
-                    <span>{bt.weight}{bt.unit}</span>
+                    <span>{safeText(bt.weight)} {safeText(bt.unit)}</span>
                     <span className="text-muted-foreground">{bt.origin}→{bt.destination}</span>
                   </div>
                 ))}
@@ -236,6 +253,7 @@ function AncillarySection({ segments }: { segments: ItinerarySegment[] }) {
               <TableHead>Status</TableHead>
               <TableHead>Qty</TableHead>
               <TableHead>Price</TableHead>
+              <TableHead>EMD</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -246,10 +264,87 @@ function AncillarySection({ segments }: { segments: ItinerarySegment[] }) {
                 <TableCell><Badge variant="secondary" className="text-[10px]">{ae.statusCode}</Badge></TableCell>
                 <TableCell className="text-xs">{ae.quantity}</TableCell>
                 <TableCell className="text-xs">{ae.price} {ae.currency}</TableCell>
+                <TableCell className="font-mono text-[10px]">{ae.usedEMD || "—"}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FareBaggageSection({ segments }: { segments: ItinerarySegment[] }) {
+  const allVcr = segments.flatMap((s) =>
+    s.vcrInfo.map((v) => ({ ...v, flight: `${s.airline}${s.flight}`, origin: s.origin, destination: s.destination }))
+  );
+  if (allVcr.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Tag className="h-4 w-4 text-muted-foreground" />
+          Fare &amp; Baggage Allowance
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30">
+              <TableHead>Flight</TableHead>
+              <TableHead>Route</TableHead>
+              <TableHead>Fare Basis</TableHead>
+              <TableHead>Bag Allowance</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {allVcr.map((v, i) => (
+              <TableRow key={i}>
+                <TableCell className="font-mono text-xs">{v.flight}</TableCell>
+                <TableCell className="text-xs">{v.origin}→{v.destination}</TableCell>
+                <TableCell className="font-mono text-xs font-medium">{safeText(v.fareBasisCode) || "—"}</TableCell>
+                <TableCell className="text-xs">{safeText(v.bagAllowance) || "—"}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CheckInRequirementsSection({ requirements }: { requirements: { code: string; detailStatus: string; freeText: string }[] }) {
+  if (requirements.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          Check-In Requirements
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1">
+        {requirements.map((r, i) => (
+          <div key={i} className="flex items-center gap-2 text-xs">
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[9px] px-1",
+                r.detailStatus === "OK" || r.detailStatus === "Satisfied"
+                  ? "border-emerald-300 text-emerald-600"
+                  : r.detailStatus === "Required"
+                  ? "border-red-300 text-red-600"
+                  : "border-muted-foreground"
+              )}
+            >
+              {r.code}
+            </Badge>
+            <span className={cn(
+              r.detailStatus === "OK" || r.detailStatus === "Satisfied" ? "text-emerald-600" : "text-red-600"
+            )}>{r.detailStatus}</span>
+            {r.freeText && <span className="text-muted-foreground truncate">{r.freeText}</span>}
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
@@ -339,6 +434,8 @@ function PassengerDetailContent({
 
         <TabsContent value="extras" className="mt-4 space-y-4">
           <AncillarySection segments={pax.itinerary} />
+          <FareBaggageSection segments={pax.itinerary} />
+          <CheckInRequirementsSection requirements={pax.requiredInfo} />
           {pax.freeText.length > 0 && (
             <Card>
               <CardHeader className="pb-2">

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:sws="http://webservices.sabre.com/sabreXML/2011/10" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://webservices.sabre.com/sabreXML/2011/10" elementFormDefault="qualified">
+	<xs:include schemaLocation="sws_common.xsd"/>
+	<xs:element name="VerifyFlightDetailsRQ">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="AvailabilityDetails" minOccurs="0">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Line" minOccurs="0" maxOccurs="unbounded">
+								<xs:complexType>
+									<xs:attribute name="EndNumber" type="xs:string"  use="optional"/>
+									<xs:attribute name="Number" type="xs:string"  use="required"/>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="OriginDestinationInformation" minOccurs="0">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="FlightSegment" minOccurs="0">
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="DestinationLocation" minOccurs="0">
+											<xs:complexType>
+												<xs:attribute name="LocationCode" type="xs:string"  use="optional"/>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="MarketingAirline" minOccurs="0">
+											<xs:complexType>
+												<xs:attribute name="Code" type="xs:string"  use="optional"/>
+												<xs:attribute name="FlightNumber" type="xs:string"  use="optional"/>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="OriginLocation" minOccurs="0">
+											<xs:complexType>
+												<xs:attribute name="LocationCode" type="xs:string"  use="optional"/>
+											</xs:complexType>
+										</xs:element>
+									</xs:sequence>
+									<xs:attribute name="DepartureDateTime" type="sws:dateTime"  use="optional"/>
+									<xs:attribute name="FlightNumber" type="xs:string"  use="optional"/>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+			<xs:attribute name="ReturnHostCommand" type="xs:boolean"  use="optional"/>
+			<xs:attribute name="TimeStamp" type="xs:dateTime"  use="optional"/>
+			<xs:attribute name="Version" type="xs:string" fixed="2.0.1" use="required"/>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

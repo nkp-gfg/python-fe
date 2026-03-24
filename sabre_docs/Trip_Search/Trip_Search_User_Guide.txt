@@ -1,0 +1,5769 @@
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Sabre APIs – PNR Services 
+Technical Documentation 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+User Guide 
+
+Trip_SearchRQ 
+
+ 
+
+Schema Version 4.5.0 
+
+March 2020 
+
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Reference 
+
+ 
+
+Prepared for 
+
+Sabre Web Services – PNR Services Clients 
+
+Prepared by 
+
+Sabre Inc. 
+
+Date 
+
+11 March 2020 
+
+ 
+
+© 2020, Sabre Inc. All rights reserved. 
+
+This documentation is the confidential and proprietary intellectual 
+property of Sabre Inc. Any unauthorized use, reproduction, 
+preparation of derivative works, performance, or display of this 
+document, or software represented by this document, without the 
+express written permission of Sabre Inc. is strictly prohibited. 
+
+Sabre, the Sabre logo design, and Product Name are trademarks 
+and/or service marks of an affiliate of Sabre Inc. All other 
+trademarks, service marks, and trade names are owned by their 
+respective companies. 
+
+ 
+
+PNR Services Web Serv ice Technical Guide 
+
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+• • • 
+
+
+ 
+
+D o c u m e n t R e v i s i o n I n f o r m a t i o n 
+
+ 
+
+Version 
+
+Date 
+
+Author 
+
+Comments 
+
+1.0 
+
+Mar 6, 2020 
+
+Sabre Team 
+
+Document created. 
+
+
+
+
+Sabre Inc. Confidential/A ll Rights Reserv ed v 
+Table of Contents 
+D o c u m e n t R e v i s i o n I n f o r m a t i o n ................................................................................ 
+iv 
+T a b l e o f C o n t e n t s ................................................................................................................. v 
+O v e r v i e w ..................................................................................................................................... 7 
+1.1. Introduction ..................................................................................................................................... 7 
+1.2. Purpose .......................................................................................................................................... 7 
+1.3. High-level solution concept ............................................................................................................. 8 
+1.4. Activation ........................................................................................................................................ 8 
+1.5. Changes to Trip_SearchRQ after 4.3.0 .......................................................................................... 8 
+S p e c i f i c a t i o n ......................................................................................................................... 10 
+2.1. Searchable data ............................................................................................................................ 10 
+2.2. Service version ............................................................................................................................. 10 
+2.3. Pr imary and secondary search criteria ......................................................................................... 11 
+2.4. Filtering qualifiers .......................................................................................................................... 12 
+Combining many search criteria at a time ..................................................................................... 12 
+Match Modes ................................................................................................................................ 12 
+Date & Time criteria ...................................................................................................................... 13 
+2.5. Request and response structures ................................................................................................. 13 
+Trip_SearchRQ request message (RQ) ........................................................................................ 13 
+Trip_SearchRS response message (RS) ...................................................................................... 14 
+2.6. View s ........................................................................................................................................... 16 
+2.7. Subject Areas ............................................................................................................................... 19 
+2.8. Past Date PNR searches ............................................................................................................. 20 
+2.9. Asynchronous searches ............................................................................................................... 22 
+2.10. Service Security ...................................................................................................................... 23 
+2.11. Performance ............................................................................................................................ 24 
+R e q u e s t d a t a e l e m e n t s d e s c r i b e d w i t h s a m p l e s ........................................... 25 
+3.1. Trip_SearchRQ main block ........................................................................................................... 25 
+3.2. Client Context ............................................................................................................................... 26 
+3.3. PNR Record Locator Search Criter ia ........................................................................................... 26 
+3.4. Reservation Date Search Criteria ................................................................................................. 29 
+3.5. Reservation Search Criteria ......................................................................................................... 31 
+3.6. Segment Search Criteria .............................................................................................................. 31 
+3.7. Tic ket Search Criteria .................................................................................................................. 33 
+3.8. EMD Search Criteria .................................................................................................................... 35 
+3.9. Passegner Name Search Criteria................................................................................................. 35 
+
+Sabre Inc. Confidential/A ll Rights Reserv ed vi 
+3.10. Email Search Criteria .............................................................................................................. 41 
+3.11. Service Search Criteria ........................................................................................................... 42 
+3.12. Document Search Criteria ....................................................................................................... 42 
+3.13. OSI Search Criteria ................................................................................................................. 43 
+3.14. Pr ofile Search Criteria ............................................................................................................ 44 
+3.15. Phone Search Criteria ............................................................................................................. 45 
+3.16. Frequent Flyer Search Criteria ................................................................................................ 46 
+3.17. Flight Details Search Criteria .................................................................................................. 47 
+3.18. POS Search Criter ia ............................................................................................................... 49 
+3.19. Destination Search Criteria ..................................................................................................... 50 
+3.20. Token Criteria ......................................................................................................................... 51 
+3.21. Result Action ........................................................................................................................... 51 
+3.22. Return Options ........................................................................................................................ 52 
+C o m p l e t e p a y l o a d s a m p l e s ........................................................................................... 53 
+4.1. Sample RQ/RS for STL file format ................................................................................................ 53 
+E r r o r a n d w a r n i n g m e s s a g e s ....................................................................................... 55 
+5.1. List of Codes ................................................................................................................................ 55 
+5.2. Samples........................................................................................................................................ 56 
+G l o s s a r y .................................................................................................................................... 58 
+T e c h n i c a l S u p p o r t .............................................................................................................. 59 
+7.1. Telephone..................................................................................................................................... 59 
+7.2. Email ............................................................................................................................................ 61 
+7.3. Links ............................................................................................................................................. 62 
+
+Overview 1 
+
+1 . 1 . I n t r o d u c t i o n 
+
+ 
+
+This guide is for architects and developers to learn how to compose XML formatted requests for 
+Trip_SearchRQ service version 4.5.0. The document may be beneficial for business users as it contains 
+a couple of service request samples presenting use cases. 
+
+The User Guide describes the Trip_SearchRQ 4.5.0 current functionalities. Some of the search options 
+may require dedicated activations, what is mentioned in this specification accordingly. The baseline 
+pre-requisite for using Trip_SearchRQ is having PNRs stored in the Trip Services databases. 
+
+ 
+
+ 
+
+This chapter contains general information about the service. In chapter 2 the available search 
+capabilities available, both for the Sabre Airline carriers and Sabre Travel Network users. Chapter 3 
+presents the search criteria in more details, with use cases attached. In the next chapter there is a list of 
+error and warning messages that Trip_SearchRQ may produce. At the end of the User Guide you can 
+find a glossary of terms used, as well as how to reach Technical Support, if needed. 
+
+Both WSDL and XSD files are published separately to the User Guide, although those files are 
+complementary to this document. The complete requests and responses are published separately too. 
+
+ 
+
+1 . 2 . P u r p o s e 
+
+ 
+
+ 
+
+Once a PNR has been created on the Sabre Host, the Trip_SearchRQ web service offers functionality to 
+allow the Airline or Agency to search for bookings by many different criteria. The service can be used 
+as an alternative to host searches available in native Sabre system, however the capabilities of 
+Trip_SearchRQ service are a little bit different and more complex. 
+
+Trip_SearchRQ allows you to search for most common data elements that are in a PNR. It is a highly 
+efficient solution that is designed for maximum reliability. 
+
+The main goals of Trip_SearchRQ service is to search for the bookings. If you are interested in 
+retrieving PNR data only having the PNR locator already known, it might be an option to use 
+GetReservationRQ service alternatively. 
+
+
+1 . 3 . H i g h - l e v e l s o l u t i o n c o n c e p t 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+1 . 4 . A c t i v a t i o n 
+
+ 
+
+ 
+
+Before you start using Trip_SearchRQ service in the production environment, we do recommend 
+contacting our Technical Support. It will allow us setting up the service fit for your purposes and to 
+ensure the search process will run smoothly. 
+
+ 
+
+ 
+
+ 
+
+1 . 5 . C h a n g e s t o T r i p _ S e a r c h RQ i n 4. 5 .0 
+• In version 4.5.0 Trip_SearchRQ uses STL format version 1.19 
+• For all Trip_SearchRQ versions we introduced a default limit of 800 PNRs in the response, 
+unless defined differently in the request view (@ViewName). 
+
+
+
+
+
+ 
+
+ 
+
+The following is changing in Trip_SearchRQ 4.5.0 User Guide when compared to the recent previous 
+version of the service: 
+
+In Trip_SearchRQ it will not be allowed to receive more than 800 items in the response. If you 
+request more with use of the attribute MaxItemsReturned, the response will be throttled by the 
+application. 
+
+The following warning messages will be returned in case of improper usage of the API: 
+
+1. “Max number of requested PNRs exceeded view limit [800]” – appears if user requests 
+more PNRs than allowed by the ViewName (e.g. 800) but there are less results. All results will 
+be returned in the response. 
+
+
+
+2. “Number of results exceeded view limit or requested PNRs limit” – appears if there are 
+more results than allowed in the response. The number of presented results will be truncated to 
+800. If you wish to receive more results in the response, please use the asynchronous search. To 
+activate the asynchronous search, please contact your Sabre Representative. 
+
+
+
+Specification 2 
+
+2 . 1 . S e a r c h a b l e d a t a 
+
+
+When using Trip_SearchRQ there are certain PNR elements that have been stored in the database to 
+allow PNR searching and retrieving. The following chart shows the PNR data that have been stored for 
+searching. Sabre uses Sabre Airline Solutions (AS) for Carrier data and Sabre Travel Network (TN) for 
+Agency data. 
+
+ 
+
+Element 
+
+Searchable for AS/TN 
+DB 
+
+Description 
+
+NAME 
+
+AS 
+
+TN 
+
+Passenger data 
+
+NAME_HSTRY 
+
+AS 
+
+TN 
+
+Passenger data history 
+
+ITIN 
+
+AS 
+
+TN 
+
+Air segment data 
+
+ITIN_HSTRY 
+
+AS 
+
+TN 
+
+Air segment data history 
+
+CAR 
+
+AS 
+
+- 
+
+Car segment data 
+
+HOTEL 
+
+AS 
+
+- 
+
+Hotel segment data 
+
+PHONE 
+
+AS 
+
+TN 
+
+Passenger’s phone number 
+
+EMAIL 
+
+AS 
+
+TN 
+
+Passenger’s email address 
+
+LOYALTY 
+
+AS 
+
+TN 
+
+Passenger’s frequent flyer data 
+
+ 
+
+ 
+
+FACTS 
+
+AS 
+
+ 
+
+- 
+
+Special Service Request code (SSR) is used by airlines to 
+capture information requests from the carrier that require 
+some sort of action to be taken. Some SSR codes are used 
+across the air travel industry, and some are airline specific. 
+
+TICKETS 
+
+AS 
+
+TN 
+
+Ticket details 
+
+PROFILE 
+
+- 
+
+TN 
+
+Passenger’s profile 
+
+SEGMENT 
+
+AS 
+
+TN 
+
+Car, rail and hotel segment data 
+
+SEGMENT_HSTRY 
+
+AS 
+
+TN 
+
+Car, rail and hotel segment data history 
+
+ 
+
+DOCUMENTS 
+
+AS 
+
+TN 
+
+Passenger’s documents like national id card, driver license, 
+passport 
+
+DESTINATION 
+
+AS 
+
+TN 
+
+Departure/arrival data 
+
+
+
+ 
+
+ 
+
+ 
+
+ 
+
+2 . 2 . S e r v i c e v e r s i o n 
+
+ 
+
+ 
+
+Trip_SearchRQ 4.4.0 service must be invoked having the “4.4.0” version specified in the request. The 
+version attribute value should not contain any additional prefixes nor suffixes. Only digits and dots should 
+be provided as version attribute value. 
+
+ 
+
+The default service version is always the most recent available version. 
+
+
+ 
+
+<Trip_SearchRQ Version="4.5.0" ... > 
+
+... 
+
+</Trip_SearchRQ> 
+
+ 
+
+2 . 3 . P r i m a r y a n d s e c o n d a r y s e a r c h c r i t e r i a 
+
+ 
+
+ 
+
+User needs to specify at least one Primary search criteria in the search request. All other criteria are 
+named Secondary, and are optional. Trip_SearchRQ call without any Primary criteria will result in 
+“There is no primary criteria specified” error response. 
+
+The following is the list of primary search criteria that can be used in the service request: 
+
+• LocatorCriteria/Locator/Id 
+• DateCriteria/UpdateDate 
+• NameCriteria/LastName 
+• TelephoneCriteria/PhoneNumber 
+• EmailCriteria/EmailAddress 
+• TicketCriteria/TicketNumber 
+• EMDCriteria/EMD/EMDNumber/EMDType 
+• LoyaltyCriteria/Loyalty/ProgramID 
+• ProfileCriteria/Profile/ProfileID 
+• FlightCriteria/Flight/DepartureAirport 
+• FlightCriteria/Flight/DepartureCountry 
+• FlightCriteria/Flight/DepartureCity 
+• FlightCriteria/Flight/ArrivalAirport 
+• FlightCriteria/Flight/ArrivalCountry 
+• FlightCriteria/Flight/ArrivalCity 
+• FlightCriteria/Flight/FlightNumber; 
+• FlightCriteria/Flight/MarketingFlightNumber; 
+• FlightCriteria/Flight/OperatingFLightNumber; 
+• FlightCriteria/Flight/DepartureDateTime; 
+• FlightCriteria/Flight/AirlineCode 
+• FlightCriteria/Flight/MarketingAirlineCode; 
+• FlightCriteria/Flight/OperatingAirlineCode; 
+
+
+ 
+
+ 
+
+Primary search criteria cannot be used in combination with MatchMode=“ANYWHERE” and “END”. 
+If used, following error response will appear: “There is no primary criteria specified”. 
+
+
+2 . 4 . F i l t e r i n g q u a l i f i e r s 
+
+ 
+
+ 
+
+C o m b i n i n g m a n y s e a r c h c r i t e r i a a t a t i m e 
+
+Most search criteria in the request payload are in ‘AND’ relation, which means that the PNR response 
+will be accordingly narrowed down. The exception to this rule is an option to provide multiple PNR 
+record locators at a time that may result in returning many bookings in the response. Please review the 
+WSDL and XSD files for more details. 
+
+When a combination of search criteria returns “Too many results” message, it usually means the search 
+criteria are too weak. In the service request, it is possible to specify the MaxItemReturned attribute too. 
+Given the boundary for maximum number of results reached, the mentioned message occurs. Please 
+note that the service engine tries to predict the number of results prior to producing the response. If the 
+number of expected results is huge, the service response may contain the indicated warning message 
+too. In case of such warning messages, please adjust the request payload. 
+
+ 
+
+M a t c h M ode s 
+
+ 
+
+For several search criteria MatchMode attribute is defined. It means that searching engine is not 
+constrained only to EXACT searches but provides also START, END, ANYWHERE, SIMILAR, 
+EXACT_NO_COMPRESS search capabilities as well. There may be a different set of MatchMode 
+options for each filtering criteria. 
+
+ 
+
+ 
+
+MatchMode option 
+
+Description 
+
+EXACT 
+
+EXACT searches for spelling based on compressed names (without 
+white spaces) e.g., a search for the LastName Mc Donald would have 
+an entry that looks like 
+
+<LastName MatchMode="EXACT">MCDONALD</LastName> 
+
+START 
+
+START would be used to search without spelling the entire word out 
+
+(in Native Sabre this search is using wildcard characters) e.g., 
+
+<LastName MatchMode="START">SM</LastName> 
+
+END 
+
+END can return a very large amount of data which will cause the return 
+
+to error. It can be used as a secondary condition to limit the number of 
+responses e.g., searching for the names SMYTH/ME 
+(SMYTH/FIRSTNAME, SMYTH/KIME, SMYTH/NAME etc) 
+
+<FirstName MatchMode="END">ME</FirstName> 
+
+<LastName MatchMode="EXACT">SMYTH</LastName> 
+
+ANYWHERE 
+
+ANYWHERE can return a very large amount of data which will cause 
+
+the return to error. It can be used as a secondary condition to limit the 
+number of responses e.g., searching for the names SMYTH/ME 
+(SMYTH/FIRSTNAME, SMYTH/NAME, SMYTH/MENU, 
+
+SMYTH/JAMES etc.). MatchMode ANYWHERE cannot be used in 
+combination with Primary Search Criteria. 
+
+
+
+
+ 
+
+<FirstName MatchMode="ANYWHERE">ME</FirstName> 
+
+<LastName MatchMode="EXACT">SMYTH</LastName> 
+
+SIMILAR 
+
+SIMILAR lets you compare words that are spelled differently, but 
+
+sound alike in English (SMITH and SMYTH). 
+
+ 
+
+<LastName MatchMode="SIMILAR">SMITH</LastName> 
+
+EXACT_NO_COMPRESS 
+
+EXACT_NO_COMPRESS looks for spelling based on non-compressed 
+
+names (with white spaces) e.g., a search for the LastName of Mc 
+Donald would have an entry that looks like 
+
+<LastName MatchMode="EXACT_NO_COMPRESS">MC 
+DONALD</LastName> 
+
+
+
+ 
+
+ 
+
+D a t e & T i m e c r i t e r i a 
+
+DateTime format is using the following format specified by ISO 8601 
+
+YYYY-MM-DDThh:mm:ss 
+
+with time values using the 24-hour clock (e.g. 20 November 2003, 1:59:38 pm UTC becomes 2003-11- 
+20T13:59:38Z). Time format follows the pattern HH:MM:SS 
+
+“After”, “Before” and “Is” match modes accept DateTime format. “TimeAfter”, “TimeBefore” and 
+“TimeIs” accept Time format only. In case of the “Is” attribute the time isn’t taken into consideration in 
+search logic because the time is truncated. 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+2 . 5 . Re q u e s t a n d r e s p o n s e s t r u c t u r e s 
+
+ 
+
+ 
+
+T r i p _ S e a r c h R Q r e q u e s t m e s s a g e ( R Q ) 
+
+An overview on the Trip_SearchRQ service design, with the key XML sections highlighted, is 
+presented below. Please use TripSearchSoapBinding for Trip_SearchRQ. For more information please 
+refer to next paragraphs as well as to the corresponding WSDL and XSD files. 
+
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Specific filtering rules, where at least a single primary filtering criteria is required. 
+Each block may contain additional sub-blocks and additional attributes. 
+
+Sections: <LocatorCriteria>, <DateCriteria>, <ReservationCriteria>, 
+
+<SegmentCriteria>, <TicketCriteria>, <EMDCriteria>, <NameCriteria>, 
+
+<EmailCriteria>, <ServiceCriteria>, <DocumentCriteria>, <OsiCriteria>, 
+
+<RemarkCriteria>, <ProfileCriteria>, <TelephoneCriteria>, <LoyaltyCriteria>, 
+
+<FlightCriteria>. 
+
+Some of the criteria may be specific for Airline or Agencies searches 
+hence some criteria combination may result in empty or inappropriate 
+responses. 
+
+<PosCriteria> required block 
+
+In this section it will be determined what airline partition will be searched, or what 
+travel agencies will be in scope. 
+
+<DestinationCriteria> optional block 
+
+<TokenCriteria> optional block 
+
+<PreviousSearch> optional block 
+
+<ResultAction> optional block 
+
+
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+BODY: 
+
+<T rip_SearchRQ> required block, some its attributes like Version are required too. 
+
+<ReadRequests> required block 
+
+<ReservationReadRequest> required block 
+
+<ReturnOptions> mandatory block. It is required to provide here e.g. view name and 
+response format. This is the place to specify STL as response format. 
+
+<SubjectAreas> optional blocks, if needed and supported by given view 
+
+<ClientContext> optional block 
+
+HEADER: 
+
+It contains e.g. BinarySecurityToken obtained when authorizing user’s web service session. 
+
+T r i p _ S e a r c h R S r e s p o n s e m e s s a g e ( R S ) 
+
+The response is an XML file that contains list of PNRs with details. Unless no PNRs meeting the search 
+criteria an empty list is returned. PNR data which might be present in response message depends also 
+on the security defined by ViewName which is required for each service request. 
+
+Trip_SearchRQ 4.5.0 service supports the following schema version for below formats composing the 
+response message: 
+
+• STL – 1.19.0 
+
+
+ 
+
+ 
+
+The response format is required in the web service request. It must be either STL file format and it should 
+be supported by the view used. 
+
+ 
+
+<Trip_SearchRQ ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+... 
+
+
+ 
+
+<ReturnOptions ResponseFormat="STL" ... /> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+For more information please refer to corresponding XSD files and review the samples published 
+separately to this document 
+
+
+2 . 6 . V i e w s 
+
+ 
+
+ 
+
+It is required to provision the view name with every web service request. The view determines 
+especially what dataset will be searched and how the response will be organized. All standard views are 
+presented in the table below. Additional comments below the table. 
+
+
+ 
+
+ 
+
+ 
+
+View Name 
+
+Business Area 
+
+View Type 
+
+Allow Custom Subject Areas 
+
+ 
+
+ 
+
+Default Subject Areas 
+
+Supports search by Migrated Locator 
+
+Search for inactive PNRs 
+
+isLimit 
+
+isCount 
+
+Supported formats 
+
+Response limitation 
+
+TripSearch 
+
+AS 
+
+DB 
+
+N 
+
+Record Locator 
+
+N 
+
+Y 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+TripSearchTN 
+
+TN 
+
+DB 
+
+N 
+
+Record Locator 
+
+N 
+
+Y 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+TripSearchBlob 
+
+AS 
+
+BLO 
+B 
+
+N 
+
+All Active 
+(STL does not 
+show ARNKs 
+and OPEN 
+
+segments)* 
+
+Y 
+
+Y 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+TripSearchBlobTN 
+
+TN 
+
+BLO 
+B 
+
+N 
+
+All Active 
+
+N 
+
+Y 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+TripSearchBlobLimitSimple 
+
+AS 
+
+BLO 
+
+B 
+
+Y 
+
+HEADER 
+
+N 
+
+N 
+
+Y 
+
+N 
+
+ST L 
+
+800 
+
+TripSearchBlobLimitFull 
+
+AS 
+
+BLO 
+B 
+
+N 
+
+All Active 
+(STL does not 
+show ARNKs 
+and OPEN 
+
+segments)* 
+
+N 
+
+Y 
+
+Y 
+
+N 
+
+STL 
+
+800 
+
+TripSearchBasic 
+
+AS 
+
+BLO 
+B 
+
+N 
+
+HEADER, 
+NAME, PHONE, 
+PASSENGERDE 
+
+TAILS 
+
+N 
+
+Y 
+
+Y 
+
+N 
+
+STL 
+
+800 
+
+TripSearchBlobX 
+
+AS 
+
+BLO 
+B 
+
+N 
+
+All Active 
+
+N 
+
+Y 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+TripSearchBlobXFull 
+
+AS 
+
+BLO 
+B 
+
+Y 
+
+All Active 
+
+N 
+
+Y 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+FlightSearch 
+
+AS 
+
+BLO 
+B 
+
+Y 
+
+All Active + 
+
+Historical 
+(STL does not 
+show ARNKs 
+
+and OPEN 
+segments)* 
+
+N 
+
+N 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+FlightSearchActive 
+(search for PNRs with active 
+
+flights) 
+
+AS 
+
+BLO 
+B 
+
+Y 
+
+All Active + 
+
+Historical 
+(STL does not 
+show ARNKs 
+
+and OPEN 
+
+segments)* 
+
+N 
+
+Y 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+FlightSearchHistory 
+(search for PNRs with 
+cancelled flights) 
+
+AS 
+
+BLO 
+B 
+
+Y 
+
+All Active + 
+
+Historical 
+(STL does not 
+show ARNKs 
+
+and OPEN 
+
+segments)* 
+
+N 
+
+Y 
+
+N 
+
+Y 
+
+ST L 
+
+800 
+
+Simple 
+
+AS 
+
+BLO 
+B 
+
+Y 
+
+HEADER 
+
+N 
+
+Y 
+
+N 
+
+N 
+
+ST L 
+
+800 
+
+
+
+
+Default 
+
+AS 
+
+BLO 
+B 
+
+N 
+
+All Active 
+(STL does not 
+show ARNKs 
+and OPEN 
+
+segments)* 
+
+N 
+
+Y 
+
+N 
+
+N 
+
+STL 
+
+800 
+
+DefaultX 
+
+AS 
+
+BLO 
+B 
+
+N 
+
+HEADER 
+
+Active 
+
+N 
+
+Y 
+
+N 
+
+N 
+
+STL 
+
+800 
+
+Full 
+
+AS 
+
+BLO 
+B 
+
+N 
+
+All Active + 
+
+Historical 
+(STL does not 
+show ARNKs 
+
+and OPEN 
+
+segments)* 
+
+N 
+
+Y 
+
+N 
+
+N 
+
+STL 
+
+800 
+
+FullX 
+
+AS 
+
+BLO 
+B 
+
+N 
+
+All Active + 
+Historical 
+
+N 
+
+Y 
+
+N 
+
+N 
+
+STL 
+
+800 
+
+PastDate-AS 
+
+AS 
+
+BLO 
+B 
+
+Y 
+
+All Active + 
+Historical 
+
+N 
+
+Y 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+PastDate-TN 
+
+TN 
+
+BLO 
+B 
+
+Y 
+
+All Active + 
+Historical 
+
+N 
+
+Y 
+
+N 
+
+Y 
+
+STL 
+
+800 
+
+
+
+* STL does not show ARNKs and OPEN segments for some View Names listed in the table above. 
+• View Name – this is the name that should be specified in the request. View name is case- 
+• Business area - it can be either AS or TN. The view type will indicate the search will be 
+applied on AS or TN database accordingly. It does not limit the option e.g. to get TN PNRs 
+through AS PNR record locator provisioning. This is a technical information that does not 
+have to be specified in the web service request. 
+• View Type – it can be either DB (Trip DB tables) or BLOB (data file blob) and it 
+determines what data is retrieved. The DB views are usually faster, but they allow returning 
+less data elements in the response. This is a technical information that does not have to be 
+specified in the web service request. 
+• Allow Custom Subject areas – for selected views it is possible to determine what types of 
+data are presented in the web service response by defining SubjectAreas in the request. 
+• Default Subject Areas – there are some pre-defined areas exposed in web service 
+responses. For the complete sets of Active/Inactive subject areas please review one of the 
+next sections. There is also the explanation of each subject area. 
+• Few View Names allow to show the PNR History in the Trip_Search response. The history 
+display content may differ depending on the selected View Name. 
+• Supports search by Migrated Locator – Migrated Locator identifies a PNR which was 
+converted to Sabre from a different GDS. Searches by migrated record locators are 
+available for selected views only and upon a quest for specific carriers only. 
+• isLimit – the flag “Y” means that there is a limitation on the size of the database results set 
+available prior to producing the final response, “N” means the limitation on the number of 
+PNRs is applied to the final response. 
+
+
+
+
+
+This functionality is consistent with previous Trip_SearchRQ versions. 
+Descriptions of headers for the above table: 
+
+sensitive. 
+
+
+• isCount- the flag “Y” means that the count query is performed before database search to 
+detect or exclude potentially long running searches. 
+• Supported formats – list of response formats supported for given view. See the section 
+describing response formats to get more details. 
+• Response limitation – presents maximum number of PNRs allowed to be returned in the 
+response in specified view. 
+• TripSearch and TripSearchTN views are the simplest views. Use one of those views to 
+get a list of PNR record locators that meet the search criteria defined in the web service 
+request. Having the list of PNR locators you can invoke GetReservationRQ service to get 
+all the details. Use one of those views also if you need only a specific PNR data element 
+through specifying the subject areas you are interested in. 
+• TripSearchBlob – it is a popular view for Sabre Airline Solutions providing multiple PNR 
+data elements in the response. 
+• TripSearchBlobXFull – it is a popular view for Sabre Airline Solutions. This view can 
+return both Past Date and Active PNRs as SearchType attribute is ignored. 
+• TripSearchBlobTN – it is the most popular view for Sabre Travel Network providing 
+multiple PNR data elements in the response. 
+• Full – Displays full PNR including PNR history (STL without ARNKs and OPEN 
+segments). 
+• FullX – Displays full PNR without inactive segments (STL without ARUNKs, OPEN 
+segments). 
+• PastDate-AS – this view is dedicated to retrieve Past Date PNRs for AS, however Past 
+Date PNRs can be searched with other AS views too. 
+• PastDate-TN – this view is dedicated to retrieve Past Date PNRs for TN, however Past 
+Date PNRs can be searched with any other TN view described in this document. 
+
+
+
+
+
+ 
+
+ 
+
+Additional details of the most popular views offered: 
+
+ 
+
+ 
+
+Each view, if permitted, can be extended by SubjectAreas. Information from SubjectAreas will be 
+provided in response message if they were stored in PNR. The most common views and SubjectAreas 
+are listed in the next section. For those clients that require specific custom-made searches with either 
+new views or subject areas, or both, please contact our Technical Web Service Support. 
+
+ 
+
+2 . 7 . S u b j e c t A r e a s 
+
+ 
+
+ 
+
+The Subject Areas define what parts of PNR data can be additionally presented in the web service 
+response. Provisioning of Subject Areas in the web service request is optional. Unless Subject Areas are 
+specified in the request, the default Subject Areas are applied. Subject Areas can be only applied to 
+BLOB views. 
+
+
+The following are the supported Subject Areas for BLOB views: 
+
+ 
+
+Subject Area Identifier 
+
+Description 
+
+HEADER 
+
+PNR header (rloc and create date are minimum possible to return, based on file 
+format). It is always present. 
+
+RECORD_LOCATOR 
+
+PNR Record locator (rloc) 
+
+NAME 
+
+Passenger Name 
+
+RECEIVED 
+
+Received from 
+
+PHONE 
+
+Phone number(s) 
+
+FQTV 
+
+Frequent Traveler Number 
+
+EXT_FQTV 
+
+External Frequent Traveler Number 
+
+ADDRESS 
+
+Address data 
+
+DKNUMBER 
+
+Customer number - agencies use the DK number primarily as an account 
+reference identifier for billing purposes 
+
+CUST_INSIGHT_PROFILE 
+
+Customer Profile Number 
+
+CORPORATE_ID 
+
+Agency ID for corporate client 
+
+PASSENGERDETAILS 
+
+Profile data, passenger type, email address 
+
+PRERESERVEDSEAT 
+
+Pre-reserved seat data 
+
+AFAX 
+
+All facts stored in the PNR 
+
+GFAX 
+
+General facts stored in PNR 
+
+REMARKS 
+
+All remarks in PNR 
+
+BSGPROCESSING 
+
+Block Space Group information. Not a standard offering. 
+
+ACCOUNTING_LINE 
+
+Agency accounting line(s). Not a standard offering. 
+
+ITINERARY 
+
+Full itinerary including Air, Car, Hotel etc. 
+
+*the “ full itinerary” can only be presented in xml response when using BLOB 
+search. 
+
+
+
+ 
+
+2 . 8 . P a s t D a t e P N R s e a r c h e s 
+
+ 
+
+ 
+
+The Past Date PNR searches allow to look for PNRs which are no longer available to users and have 
+been purged from the system. 
+
+Past Date PNR search is a standard offering for travel agencies (TN) and does not require additional 
+activation. 
+
+This functionality is made available to all airlines however, it is not a standard offering and requires 
+customer activation. 
+
+The Past Date PNR search is narrowed down using SearchType=”INACTIVE” option present in the 
+ReturnOptions tag of the Trip_SearchRQ. You can specify whether the search should be done against 
+active or Past Date PNRs. 
+
+The allowed values for the SearchType option within the ReturnOptions Trip_SearchRQ tag are 
+presented in the following table. This attribute is optional; if provided, a single value can be assigned. 
+
+ 
+
+ 
+
+Search Type 
+
+Definition 
+
+ACTIVE 
+
+Use this option to search for active PNRs only. 
+
+INACTIVE 
+
+Use this option to search for Past Date PNRs only. 
+
+
+
+
+BOTH 
+
+Use this option to search across the sets of both active and Past Date PNRs. 
+
+
+
+ 
+
+To search Past Date PNRs by PNR record locator, you must specify in the request both the PNR locator 
+and PNR creation date. PNR creation date needs to be specified with time, as follows: T00:00:00. The 
+00:00:00 will cover PNRs created at any time of the indicated date. 
+
+ 
+
+ 
+
+USE CASE 
+
+Given the AS’s PNR record locator known, retrieve AS’s Past Date PNRs created on 06 March 2017 in 
+LA partition. If there is such PNR, its details will be returned in the response. The same use case can be 
+done through GetReservationRQ service too. 
+
+ 
+
+ 
+
+Request: 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LocatorCriteria> 
+
+<Locator Id="EFXBMB" CreateDate="2017 -03-06T00:00:00"/> 
+
+</LocatorCriteria> 
+
+<PosCriteria AirlineCode="LA"/> 
+
+<ReturnOptions MaxItemsReturned="100" 
+
+ResponseFormat="STL" 
+ViewName="Full" 
+SearchType="INACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Past Date PNRs are identified by indicator PastDate=”true” in Trip_Search response for both TN and 
+AS in all available view types. 
+
+Response: 
+
+ 
+
+<Trip_SearchRS Version="x.x.x" ... > 
+
+<Success>Success</Success> 
+
+<ReservationsList NumberResults=" 1" NumberPages="1" TotalResults="1"> 
+
+<Reservations> 
+
+<Reservation Locator="EFXBMB" PastDate="true"> 
+
+... 
+
+</Reservations> 
+
+</ReservationsList> 
+
+</Trip_SearchRS> 
+
+
+2 . 9 . A s y n c h r o n o u s s e a r c h e s 
+
+ 
+
+ 
+
+The asynchronous searches are dedicated for the long running searches that in normal (synchronous) 
+mode could result in timeouts. The asynchronous search mode is enabled on search view configuration 
+level. Although the asynchronous searches support long running queries, there is a limit on the number 
+of such queries invoked per hour. 
+
+All the standard views are not asynchronous; however, it is possible to request an asynchronous one as 
+a special service. If you are interested in such kind of searches please contact Technical Support / 
+Development Team. 
+
+The samples / use cases presented below uses the following keywords: 
+
+• <async_search_view> - search view name with enabled async search option. For async 
+mode there is also possibility to enable pagination of the result, it is enabled from search 
+view configuration level. 
+• PageSize attribute from ReturnOptions – it allows control of the size of page in case of 
+pagination enabled, it is optional and default size could be customized on search view level 
+by Dev team. The pagination is supported for all asynchronous views and only for 
+asynchronous views. 
+
+
+ 
+
+ 
+
+USE CASE 
+
+Search using name criteria while there are only three first characters of passenger last name provided. 
+This is a popular scenario that may end with a timeout. Thus, for such cases an asynchronous search 
+could be applied. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ...> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<NameCriteria> 
+
+<Name> 
+
+<LastName MatchMode="START">SMI</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<PosCriteria AirlineCode="B6"/> 
+
+<ReturnOptions MaxItemsReturned="10000" 
+
+ResponseFormat="STL" 
+PageSize="5" 
+ViewName="<async_search view>"> 
+
+<SubjectAreas> 
+
+<SubjectArea>HEADER</SubjectArea> 
+
+<SubjectArea>NAME</SubjectArea> 
+
+</SubjectAreas> 
+
+</ReturnOptions> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+The token is returned in the response for the above request. The token will be used in next step to 
+retrieve piece of the result (if pagination is supported) or whole result. 
+
+
+ 
+
+<Trip_SearchRS Version="x.x.x" ... > 
+
+<Success>Success</Success> 
+
+<ReservationsList Token="dec6c835 -c7ec-4033-a5ff-efc95f70f4ea"> 
+
+<Reservations/> 
+
+</ReservationsList> 
+
+</Trip_SearchRS> 
+
+ 
+
+Now let’s get second page, using Page element from TokenCriteria. 
+Request: 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<TokenCriteria> 
+
+<Token>dec6c835-c7ec-4033-a5ff-efc95f70f4ea </Token> 
+
+<Page>2</Page> 
+
+</TokenCriteria> 
+
+<ReturnOptions ViewName="<sync_view_name>" /> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+Response: 
+
+ 
+
+<Trip_SearchRS Version="x.x.x" ... > 
+
+<Success>Success</Success> 
+
+<ReservationsList NumberResults="5" NumberPages="145" TotalResults="725"> 
+
+<Reservations> 
+
+... 
+
+</Reservations> 
+
+</ReservationsList> 
+
+</Trip_SearchRS> 
+
+ 
+
+USE CASE 
+
+The asynchronous search is performed by Trip application in the “background”, so in case of requesting 
+result for the search that isn’t completed and its result ready then the following error response is 
+returned. 
+
+ 
+
+<Trip_SearchRS Version="x.x.x" ... > 
+
+<Errors> 
+
+<Error ErrorCode="200302" Severity="MODERATE" ErrorMessage="Response is not ready 
+yet"/> 
+
+</Errors> 
+
+</Trip_SearchRS> 
+
+ 
+
+2 . 1 0 . S e r v i c e S e c u r i t y 
+
+ 
+
+ 
+
+The PNR search options are available only to authorized users that provided a valid token in the web 
+service request. For most service views, the Trip_SearchRQ supports branch access and global branch 
+access rules in a consistent manner as the native Sabre application. 
+
+
+Users can retrieve data only from the partitions and/or pseudos they have access to. In a common case it 
+means that a user of given Airline cannot access data of any other carrier unless it is allowed in the 
+native Sabre system. 
+
+There are viewership rules implemented in the service, although Trip_SearchRQ does not inherit the 
+viewership rules from the native Sabre application automatically. 
+
+The authorization based on OACs (Office Accounting Codes) is not supported with the service. 
+
+ 
+
+2 . 1 1 . P e r f o r m a n c e 
+
+
+ 
+
+ 
+
+Search criteria defined in this User Guide should work in less than a few seconds. For the search 
+queries that lasts a longer than 20 seconds, the queries will be cancelled, and a timeout will be returned 
+to the client. 
+
+For those clients that require long running queries we have a semi real time request, token-based option 
+(see a section describing asynchronous searches). Please contact out Technical Support if you found 
+any performance issues with the service. 
+
+
+Request data elements described 3 
+
+with samples 
+
+3 . 1 . T r i p _ S e a r c h R Q m a i n b l o c k 
+
+
+ 
+
+ 
+
+Elements: 
+
+ClientContext, ReadRequests 
+
+Attributes: 
+
+ConversationID; Compression; EchoToken; TimeStamp; Target; 
+Version; SequenceNumber; PrinaryLangID; AltLangID; ReturnContent 
+
+• ConversationID - is a string identifying the set of related messages that make up a 
+
+
+conversation between two Parties. The Party initiating a conversation determines the 
+value of the ConversationId element that shall be reflected in all messages pertaining to 
+that conversation. It remains constant for all messages within a conversation. 
+
+• Compression - attribute (true/false) allows control compression of response. Switching to 
+“true” value results in returning the result ZIPed Trip_SearchRS payload, so the response 
+looks like ‘<Message>ZIPed Trip_SearchRQ payload</Message>’. 
+• EchoToken - sequence number for additional message clarification assigned by the 
+requesting host system. When a request message includes an EchoToken then 
+corresponding response message MUST include an EchoToken with an identical value. 
+• TimeStamp – indicates the creation date and time of the message in UTC using the 
+following format specified by ISO 8601; YYYY-MM-DDThh:mm:ss with time values 
+using the 24 hour clock (e.g. 20 November 2003, 1:59:38 pm UTC becomes 2003-11- 
+20T13:59:38). 
+• Target - used to indicate whether the request is for the Test or Production system. 
+• Version - for all versioned messages the version of the message is indicated by a decimal 
+value. 
+• SequenceNmbr - used to identify the sequence number of the transaction as assigned by 
+the sending system; allows for an application to process messages in a certain order or to 
+request a resynchronization of messages if a system has been off-line and needs to 
+retrieve messages that were missed. 
+• PrimaryLangID - identifies the primary language preference for the form of travel 
+represented in a collection. The human language is identified by ISO 639 codes. 
+• AltLangID - identifies the primary language preference for the form of travel represented 
+in a collection. The human language is identified by ISO 639 codes. 
+
+
+
+
+
+3 . 2 . C l i e n t C o n t e x t 
+
+ 
+
+ 
+
+Elements: 
+
+ClientContext 
+
+• Name allows users to provide information about the caller to the service. 
+• This parameter is currently only available with customization and it is not a standard 
+service. In the ClientContext section it will be possible to store additional attributes that 
+can help when e.g. searching reservations by foreign record locators is used. 
+
+
+
+
+ 
+
+USE CASE 
+
+Given a non-Sabre PNR locator associated with the given carrier, find Sabre record locator for this 
+booking and display some PNR details. Please note this search option requires a dedicated activation. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" xmlns="http://webservices.sabre.com/triprecord "> 
+
+<ClientContext> 
+
+<Name>SSWEB</Name> 
+
+</ClientContext> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LocatorCriteria> 
+
+<Locator Id="226ACB"/> 
+
+</LocatorCriteria> 
+
+<PosCriteria AirlineCode="EY"/> 
+
+<ReturnOptions MaxItemsReturned="800" 
+
+ResponseFormat="STL" 
+ViewName="TripSearchBlob"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+3 . 3 . P N R R e c o r d L o c a t o r S e a r ch C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Locator 
+
+Locator Attributes: 
+
+Id, CreateDate, Source 
+
+The user is able to request XML response with PNRs containing provided locator numbers. 
+
+• Id – PNR record locator that must be in uppercase. 
+• CreateDate – PNR creation date, optional. 
+• Source – optional attribute to define the locator's source e.g., Sabre hosted airline locator 
+or booking source reference (TTY) 
+
+
+
+
+ 
+
+USE CASE 
+
+Given the TN’s PNR record locator known, retrieve TN’s PNRs created on 25 Nov, 2016 in the 
+indicated branch office B4T0 while the PNR record locator is known. If there is such PNR and it is still 
+
+
+an active PNR its details will be returned in the response. The same use case can be done through 
+GetReservationRS service too. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LocatorCriteria> 
+
+<Locator Id="ABCDEF" CreateDate="2016 -11-25T00:00:00"/> 
+
+</LocatorCriteria> 
+
+<PosCriteria AnyBranch="false"> 
+
+<Pcc>B4T0</Pcc> 
+
+</PosCriteria> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchBlobTN" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+ 
+
+USE CASE 
+
+Return baseline details of multiple booking for given carrier for which we know the PNR record 
+locators of active PNRs. Unless any of the PNR record locators is found, such booking will not be 
+included in the response. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LocatorCriteria> 
+
+<Locator Id="ABCDEA"/> 
+
+<Locator Id="ABCDEB"/> 
+
+<Locator Id="ABCDEC"/> 
+
+<Locator Id="ABCDEE"/> 
+
+<Locator Id="ABCDEF"/> 
+
+</LocatorCriteria> 
+
+<PosCriteria AirlineCode="B6"/> 
+
+<ReturnOptions MaxItemsReturned="10" 
+
+ResponseFormat="STL" 
+ViewName="Full"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Check whether there is any TN’s active PNR identified by given record locator and for the passenger 
+with the indicated first name and salutation. If all the filtering rules are met together, a simple response 
+payload will be returned thanks to indicating the TripSearchTN view. Otherwise, the service will return 
+zero results and it will mean there are no PNRs meeting the search criteria. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LocatorCriteria> 
+
+
+ 
+
+<Locator Id="ABCDEF"/> 
+
+</LocatorCriteria> 
+
+<NameCriteria> 
+
+<Name Gender="M"> 
+
+<FirstName MatchMode="EXACT">MARTIN/MR</FirstName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<PosCriteria AnyBranch="false"> 
+
+<Pcc>B4T0</Pcc> 
+
+</PosCriteria> 
+
+<ReturnOptions ResponseFormat=" STL" 
+
+ViewName="TripSearchTN" 
+SearchType="ACTIVE" 
+MaxItemsReturned="1"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Given PNR record locator, Search for AS active PNRs through provisioning the TTY record locator. 
+The request indicates the response format is STL. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LocatorCriteria> 
+
+<Locator Id="L2F4ZW" Source="TTY"/> 
+
+</LocatorCriteria> 
+
+<NameCriteria> 
+
+<Name> 
+
+<LastName MatchMode="SIMILAR">SMITH</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<PosCriteria AirlineCode="HM"/> 
+
+<ReturnOptions ResponseFormat=" STL" 
+
+ViewName="Simple" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Given Past Date TN’s PNR record locator, retrieve the booking details. The alternative for this case is 
+to invoke GetReservationRS service directly. Please note the PNR retrieval used with INACTIVE 
+SearchType may not work if applied both for record location and some other filtering criteria at a time. 
+Please review the next use case too. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LocatorCriteria> 
+
+<Locator Id="NVIWUJ"/> 
+
+</LocatorCriteria> 
+
+
+ 
+
+<PosCriteria AnyBranch="true"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchBlobTN" 
+SearchType="INACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Given Past Date TN’s PNR record locator and its creation date (time of creation ignored), verify 
+whether such PNR exists in a sample B4T0 agency. Please note that the access to Past Date PNRs 
+retrieval functionality may require a subscription. In this case the record locator filtering criteria is 
+
+applied together with the PNR creation date criteria what causes the INACTIVE SearchType attribute 
+in the ResponseOptions is no longer needed. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LocatorCriteria> 
+
+<Locator Id="NVIWUJ" CreateDate="2016 -11-02T00:00:00"/> 
+
+</LocatorCriteria> 
+
+<PosCriteria AnyBranch="false"> 
+
+<Pcc>B4T0</Pcc> 
+
+</PosCriteria> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchBlobTN"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+3 . 4 . R e s e r v a t i on D a t e S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+ReservationStartDate, ReservationEndDate, StartDate, EndDate, 
+
+UpdateDate 
+
+The user can request an XML response with the PNRs which have been changed in a given time period. 
+
+For example, if trying to search using date criteria, adding flight criteria will look for PNRs with 
+specific flight criteria during the time range. ReservationStartDate and ReservationEndDate have a 
+higher priority than StartDate or EndDate. When a value for ReservationStartDate is given, any values 
+in StartDate will be ignored. The same is valid for pair EndDate/ReservationEndDate. 
+
+Elements: 
+
+• ReservationStartDate attributes include: After, Before, Is, TimeBefore, TimeAfter, Timels 
+• ReservationEndDate attributes include: After, Before, Is, TimeBefore, TimeAfter, Timels 
+• UpdateDate attributes include: After, Before, Is, TimeBefore, TimeAfter, Timels 
+
+
+
+
+
+USE CASE 
+
+Search for all the TN bookings associated with the indicated branch office and where the flights are 
+
+within the defined date boundaries. While processing, the date attributes from for ReservationStartDate 
+
+/ ReservationEndDate are considered, while the time attributes are ignored. 
+
+In this case there was only a single PNR that meets the search criteria. The returned PNR contained 3 
+segments with dates accordingly: (1) AIR segment, 18JAN 830A 1100A, (2) AIR segment 20JAN 
+1150A 400P, (3) OTH segment 31AUG. The reservation date filtering rule intentionally skipped OTH 
+segment in the processing. The focus was put on validating the date range for the flights. 
+
+If there was a very similar request to the one presented below, but with the ReservationEndDate one 
+day earlier only, the service would return zero results. 
+
+Request: 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<DateCriteria> 
+
+<ReservationStartDate After="2017-01-17T07:00:00"/> 
+
+<ReservationEndDate Before="2017-01-18T11:00:00"/> 
+
+</DateCriteria> 
+
+<NameCriteria> 
+
+<Name> 
+
+<LastName MatchMode="EXACT">SURNAME</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<PosCriteria AnyBranch="false"> 
+
+<Pcc>1ABC</Pcc> 
+
+</PosCriteria> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchTN" 
+SearchType="ACTIVE" 
+MaxItemsReturned="10"> 
+
+</ReturnOptions> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+Response: 
+
+ 
+
+<Trip_SearchRS ... > 
+
+<Success>Success</Success> 
+
+<ReservationsList NumberResults="1" NumberPages="1" TotalResults="1"> 
+
+<Reservations> 
+
+<Reservation Locator="ABCDER"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+</Reservations> 
+
+</ReservationsList> 
+
+</Trip_SearchRS> 
+
+
+USE CASE 
+
+Given flight details such as flight number and departure airport, find all the active LA’s PNRs for 
+SMITH as last name, which were recently updated on Dec 26 or Dec 27. Present the response in STL 
+format. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<DateCriteria> 
+
+<UpdateDate After="2016-12-26T00:00:00" Before="2016-12-27T00:00:00"/> 
+
+</DateCriteria> 
+
+<NameCriteria> 
+
+<Name> 
+
+<FirstName MatchMode="ANYWHERE">JOHN</FirstName> 
+
+<LastName MatchMode="EXACT">SMITH</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<FlightCriteria> 
+
+<Flight> 
+
+<FlightNumber>2464</FlightNumber> 
+
+<DepartureAirport>LIM</DepartureAirport> 
+
+</Flight> 
+
+</FlightCriteria> 
+
+<PosCriteria AirlineCode="LA"/> 
+
+<ReturnOptions ViewName="Default" 
+MaxItemsReturned="800" ResponseFormat=" STL"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+3 . 5 . R e s e r v a t i on S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+TtyAirline, Source, TtyGds 
+
+The user can request an XML response with the PNRs containing provided Source information. This 
+
+search is not a standard service. 
+
+
+
+ 
+
+3 . 6 . S e g m e n t S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Air, Car, Hotel, Rail, Cruise, Insurance, OTH, Other (other segments 
+
+available), Segment 
+
+The user can request an XML response with the PNRs containing provided segment types and other 
+
+segment related details. 
+
+Elements: 
+
+
+
+
+ 
+
+• Air, Car, Hotel, Rail, Cruise, Insurance, OTH and Other include attributes: Exists, MoreThan 
+• Segment – consists of following elements: 
+▪ StartCityCode, StartDateTime (with attributes After, Before, Is, TimeBefore, 
+TimeAfter, Timels), 
+▪ EndCityCode, EndDateTime (with attributes After, Before, Is, TimeBefore, 
+TimeAfter, Timels), 
+▪ Source – allow values CAR, RAIL and HOTEL only. 
+▪ Type – allow values CAR, RAIL and HOTEL only. 
+▪ VendorCode. 
+
+
+
+• Dates can be specified as search criteria only for RAIL, HOTEL, and CAR segments. 
+This is supported by searching SegmentCriteria/Segment. Please note that to retrieve 
+PNRs containing AIR segments within specified dates, please specify FlightCriteria 
+element. 
+• Segment number is used to return the PNRs having this specified number within the 
+segment types. It can be used in searches of Air, Cruise, Insurance, OTH, etc. This is 
+supported by searching SegmentCriteria/Air, SegmentCriteria/Car, etc. 
+
+
+
+
+
+and Is. 
+
+ 
+
+USE CASE 
+
+Given flight details such as departure airport, find all LA’s PNRs, which contain both Air and Hotel 
+segments. Present the response is STL format. Search against active and past date PNRs. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<SegmentCriteria> 
+
+<Air Exists="true"/> 
+
+<Hotel Exists="true"/> 
+
+</SegmentCriteria> 
+
+<FlightCriteria> 
+
+<Flight> 
+
+<DepartureAirport>JFK</DepartureAirport> 
+
+</Flight> 
+
+</FlightCriteria> 
+
+<PosCriteria AirlineCode="LA"/> 
+
+<ReturnOptions MaxItemsReturned="3000" 
+
+ResponseFormat="STL" 
+ViewName="TripSearchBlobX" 
+SearchType="BOTH"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+
+ 
+
+ 
+
+ 
+
+USE CASE 
+
+Given flight details such as departure airport, find all the active TN PNRs, which contain both Air and 
+Hotel segment and Vendor Code is MC (Marriott Hotels). Present the response is STL format. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<SegmentCriteria> 
+
+<Air Exists="true"/> 
+
+<Hotel Exists="true"/> 
+
+<Segment><VendorCode>MC</VendorCode></Segment> 
+
+</SegmentCriteria> 
+
+<FlightCriteria> 
+
+<Flight> 
+
+<DepartureAirport>JFK</DepartureAirport> 
+
+</Flight> 
+
+</FlightCriteria> 
+
+<PosCriteria AnyBranch="true"/> 
+
+<ReturnOptions MaxItemsReturned="3000" 
+
+ResponseFormat="STL" 
+ViewName="TripSearchTN" 
+SearchType="BOTH"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+3 . 7 . T i c k e t S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+HasBeenTicketed (at least one segment in the PNR), OnHold, Ticket, 
+
+The user can request an XML response with the PNRs containing ticketing information. 
+
+• Ticket contains element of TicketNumber with the attribute of MatchMode. 
+• Ticket OnHold criteria uses Ticketing Time Limit field in the background. It searches for 
+all PNRs that have “TL” element in the *P8 field. 
+
+
+
+
+ 
+
+USE CASE 
+
+Given the 13-digit ticket number, find all the Past Date PNRs of the indicated TN agency. Please note 
+the search for TN PNRs by ticket number assumes that ticket numbers consist of 13 digits and it is 
+stored in the standard ticket number PNR field. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<TicketCriteria> 
+
+<Ticket> 
+
+<TicketNumber MatchMode="EXACT">0017867018272</TicketNumber> 
+
+</Ticket> 
+
+</TicketCriteria> 
+
+
+ 
+
+<PosCriteria AnyBranch="false"> 
+
+<Pcc>B4T0</Pcc> 
+
+</PosCriteria> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchBlobTN" 
+SearchType="INACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Given a couple of leading characters of the ticket number, find all the active bookings for the indicated 
+carrier. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<TicketCriteria> 
+
+<Ticket> 
+
+<TicketNumber MatchMode="START"> 001211007</TicketNumber> 
+
+</Ticket> 
+
+</TicketCriteria> 
+
+<PosCriteria AirlineCode="AA"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="Full" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Search for active TN PNRs with Ticketing Time Limit field set to TL and last name Test. Perform 
+search across all branch locations and present response in the STL format. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<TicketCriteria> 
+
+<OnHold>true</OnHold> 
+
+</TicketCriteria> 
+
+<NameCriteria> 
+
+<Name> 
+
+<LastName>TEST</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<PosCriteria AnyBranch="true"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchTN" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+
+3 . 8 . E M D S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+EMD 
+
+Attributes: 
+
+EMDNumber, EMDCouponNumber 
+
+The user can request an XML response with the PNRs containing EMD information. 
+
+• EMD contains element of EMDNumber and EMDCouponNumber with the attribute of 
+
+
+MatchMode. 
+
+
+
+USE CASE 
+
+Search for active airline PNRs to find all PNRs that include EMD which starts with specified numbers. 
+Present the response in the STL file format with baseline PNR details. The response will contain both 
+the number of PNRs as well as all the PNR record locators that meet the search criteria. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<EMDCriteria> 
+
+<EMD> 
+
+<EMDNumber MatchMode="START">79515049434</EMDNumber> 
+
+</EMD> 
+
+</EMDCriteria> 
+
+<PosCriteria AirlineCode="VA"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearch" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+ 
+
+3 . 9 . P a s s e g n e r N a m e S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Name 
+
+Attributes: 
+
+Gender, Type 
+
+The user can request an XML response with the PNRs containing provided First Names and/or Last 
+
+Names. 
+
+• Gender - acceptable values are: M (Male), F (Female). Names with no gender provided 
+will be included both in case of specifying M or F value. 
+• The gender is decoded from name title. Titles which are listed in the “Not Defined” 
+column below will be included in both - Male and Female search requests. Following are 
+titles which define the gender element: 
+
+
+
+
+
+ 
+
+Male 
+
+Female 
+
+Not Defined 
+
+ 
+
+BROTHER 
+
+LADY 
+
+ADM 
+
+FATHER 
+
+MADAM 
+
+CAPT 
+
+MAST 
+
+MADAME 
+
+CH 
+
+MASTER 
+
+MISS 
+
+CHD 
+
+MR 
+
+MISTRESS 
+
+COL 
+
+MSTR 
+
+MLLE 
+
+CPL 
+
+PERE 
+
+MM 
+
+CPT 
+
+SIR 
+
+MME 
+
+CPTN 
+
+ 
+
+MOTHER 
+
+DR 
+
+ 
+
+MRS 
+
+GEN 
+
+ 
+
+MS 
+
+HON 
+
+ 
+
+MSS 
+
+INF 
+
+ 
+
+SIS 
+
+JDG 
+
+ 
+
+SIST 
+
+JR 
+
+ 
+
+SISTER 
+
+JUDGE 
+
+ 
+
+SOEUR 
+
+JUGE 
+
+ 
+
+ 
+
+LT 
+
+ 
+
+ 
+
+MAJ 
+
+ 
+
+ 
+
+PFC 
+
+ 
+
+ 
+
+PROF 
+
+ 
+
+ 
+
+RABBI 
+
+ 
+
+ 
+
+RABBIN 
+
+ 
+
+ 
+
+REV 
+
+ 
+
+ 
+
+SEN 
+
+ 
+
+ 
+
+SGT 
+
+ 
+
+ 
+
+SR 
+
+• Type - acceptable values are: A (Adult), C (Corp), B(BSG Group), I (Infant) 
+• Name element consists of FirstNme (the given name of the traveler), LastName (the 
+family name or last name of the traveler), both FirstName and LastName attributes allow 
+the following match modes: EXACT, START, END, ANYWHERE, SIMILAR, 
+EXACT_NO_COMPRESS. 
+
+
+
+
+ 
+
+USE CASE 
+
+Search for active AA’s PNRs related to the specified flight and passenger with KOWALSKI last name 
+and first name that contains ROG set of characters. The response in STL file format to contain only 
+baseline data describing PNRs because of using TripSearch view, however with passenger names 
+included too, thanks to specifying the NAME subject area in the request body. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<NameCriteria> 
+
+<Name> 
+
+<FirstName MatchMode="ANYWHERE">ROG</FirstName> 
+
+<LastName MatchMode="EXACT">KOWALSKI</LastName 
+
+
+ 
+
+</Name> 
+
+</NameCriteria> 
+
+<FlightCriteria> 
+
+<Flight> 
+
+<FlightNumber>0288</FlightNumber> 
+
+<DepartureAirport>FRA</DepartureAirport> 
+
+<DepartureDateTime Is="2016-12-22T12:50:00"/> 
+
+<AirlineCode>CX</AirlineCode> 
+
+</Flight> 
+
+</FlightCriteria> 
+
+<PosCriteria AirlineCode="AA"/> 
+
+<ReturnOptions 
+
+ResponseFormat="STL" 
+ViewName="TripSearch" 
+SearchType="ACTIVE" 
+MaxItemsReturned="100"> 
+
+<SubjectAreas> 
+
+<SubjectArea>NAME</SubjectArea> 
+
+</SubjectAreas> 
+
+</ReturnOptions> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Search for active airline PNRs to find several infants travelling on the indicated flight. Present the 
+response in the STL file format with baseline PNR details. The response will contain both the number 
+of PNRs as well as all the PNR record locators that meet the search criteria. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<NameCriteria> 
+
+<Name Type="I"/> 
+
+</NameCriteria> 
+
+<FlightCriteria> 
+
+<Flight> 
+
+<FlightNumber>1234</FlightNumber> 
+
+<DepartureAirport>FRA</DepartureAirport> 
+
+<DepartureDateTime Is="2017-12-22T12:50:00"/> 
+
+<AirlineCode>ET</AirlineCode> 
+
+</Flight> 
+
+</FlightCriteria> 
+
+<PosCriteria AirlineCode="ET"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearch" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+
+USE CASE 
+
+Search for active airline PNRs with Females having last name like KOWALSKI. 
+Sample request: 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LocatorCriteria> 
+
+<Locator Id="GLJTMQ"/> 
+
+</LocatorCriteria> 
+
+<NameCriteria> 
+
+<Name> 
+
+<LastName MatchMode="SIMILAR">KOWALSKI</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<PosCriteria AirlineCode="AA"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="Simple" 
+SearchType="ACTIVE" 
+MaxItemsReturned="10"> 
+
+<SubjectAreas> 
+
+<SubjectArea>NAME</SubjectArea> 
+
+</SubjectAreas> 
+
+</ReturnOptions> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+Trip_SearchRQ will list all PNRs that match specified search criteria and apply Gender Type filtering. 
+The list will contain all PNRs with Gender Type defined as Female and Not Defined ones. 
+
+Sample response: 
+
+ 
+
+<Trip_SearchRS Version="x.x.x" ... > 
+
+<Success>Success</Success> 
+
+<ReservationsList NumberResults=" 4" NumberPages="1" TotalResults="4"> 
+
+<Reservations> 
+
+<Reservation Locator="GLJTMQ"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"> 
+
+<stl19:Reservation numberInParty="3" numberOfInfants="0" 
+NumberInSegment="3"> 
+
+<stl19:BookingDetails> 
+
+<stl19:RecordLocator>GLJTMQ</stl19:RecordLocator> 
+
+<stl19:CreationTimestamp>2017-03- 
+24T06:35:00</stl19:CreationTimestamp> 
+
+<stl19:SystemCreationTimestamp>2017-03- 
+24T06:35:00</stl19:SystemCreationTimestamp> 
+
+<stl19:CreationAgentID>HQX</stl19:CreationAgentID> 
+
+<stl19:UpdateTimestamp>2017-03-24T06:35:04</stl19:UpdateTimestamp> 
+
+<stl19:PNRSequence>1</stl19:PNRSequence> 
+
+<stl19:DivideSplitDetails/> 
+
+<stl19:EstimatedPurgeTimestamp>2017-05- 
+23T00:00:00</stl19:EstimatedPurgeTimestamp> 
+
+ 
+
+<stl19:UpdateToken>f9d5c13970984f25fb06e2236448ed7eb6925804cd3964f</ stl19:UpdateToke 
+n> 
+
+</stl19:BookingDetails> 
+
+<stl19:POS> 
+
+
+<stl19:Source BookingSource="A0A0" AgentSine="HQX" 
+PseudoCityCode="HDQ" ISOCountry="US" AgentDutyCode="8" AirlineVendorID="AA" 
+HomePseudoCityCode="HDQ"/> 
+
+</stl19:POS> 
+
+<stl19:PassengerReservation> 
+
+<stl19:Passengers> 
+
+<stl19:Passenger id="3" nameType="S" nameId="01.01" 
+nameAssocId="1" elementId="pnr-3.1"> 
+
+<stl19:LastName>KOWALSKI</stl19:LastName> 
+
+<stl19:FirstName>JAN MR</stl19:FirstName> 
+
+<stl19:Seats/> 
+
+</stl19:Passenger> 
+
+<stl19:Passenger id="4" nameType="S" nameId="02.01" 
+nameAssocId="2" elementId="pnr-4.2"> 
+
+<stl19:LastName>KOWALSKI</stl19:LastName> 
+
+<stl19:FirstName>ELISABETH MS</stl19:FirstName> 
+
+<stl19:Seats/> 
+
+</stl19:Passenger> 
+
+<stl19:Passenger id="5" nameType="S" nameId="03.01" 
+nameAssocId="3" elementId="pnr-5.3"> 
+
+<stl19:LastName>KOWALSKA</stl19:LastName> 
+
+<stl19:FirstName>ANNA MRS</stl19:FirstName> 
+
+<stl19:Seats/> 
+
+</stl19:Passenger> 
+
+</stl19:Passengers> 
+
+<stl19:Segments/> 
+
+<stl19:TicketingInfo/> 
+
+<stl19:ItineraryPricing/> 
+
+</stl19:PassengerReservation> 
+
+<stl19:ReceivedFrom/> 
+
+<stl19:EmailAddresses/> 
+
+</stl19:Reservation> 
+
+</stl19:GetReservationRS> 
+
+</Reservation> 
+
+<Reservation Locator="GLPNAA"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"> 
+
+<stl19:Reservation numberInParty="1" numberOfInfants="0" 
+NumberInSegment="1"> 
+
+<stl19:BookingDetails> 
+
+<stl19:RecordLocator>GLPNAA</stl19:RecordLocator> 
+
+<stl19:CreationTimestamp>2017-03- 
+21T00:17:00</stl19:CreationTimestamp> 
+
+<stl19:SystemCreationTimestamp>2017-03- 
+21T00:17:00</stl19:SystemCreationTimestamp> 
+
+<stl19:CreationAgentID>AXZ</stl19:CreationAgentID> 
+
+<stl19:UpdateTimestamp>2017-03-21T00:18:03</stl19:UpdateTimestamp> 
+
+<stl19:PNRSequence>2</stl19:PNRSequence> 
+
+<stl19:DivideSplitDetails/> 
+
+<stl19:EstimatedPurgeTimestamp>2017-04- 
+11T00:00:00</stl19:EstimatedPurgeTimestamp> 
+
+ 
+
+<stl19:UpdateToken>6ab0d6cf92f33a2aab5a085a8016adcb1a1fa5f81f103178</ stl19:UpdateTok 
+en> 
+
+</stl19:BookingDetails> 
+
+<stl19:POS> 
+
+<stl19:Source BookingSource="A2FE" AgentSine="AXZ" 
+PseudoCityCode="A2FE" ISOCountry="US" AgentDutyCode="*" AirlineVendorID="AA" 
+HomePseudoCityCode="A2FE"/> 
+
+</stl19:POS> 
+
+<stl19:PassengerReservation> 
+
+<stl19:Passengers> 
+
+<stl19:Passenger id="4" nameType="S" nameId="01.01" 
+nameAssocId="1" elementId="pnr-4.1"> 
+
+
+<stl19:LastName>KOWALSKA</stl19:LastName> 
+
+<stl19:FirstName>JANINA</stl19:FirstName> 
+
+<stl19:Seats/> 
+
+</stl19:Passenger> 
+
+</stl19:Passengers> 
+
+<stl19:Segments/> 
+
+<stl19:TicketingInfo/> 
+
+<stl19:ItineraryPricing/> 
+
+</stl19:PassengerReservation> 
+
+<stl19:ReceivedFrom/> 
+
+<stl19:EmailAddresses/> 
+
+</stl19:Reservation> 
+
+</stl19:GetReservationRS> 
+
+</Reservation> 
+
+<Reservation Locator="GEQQAB"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"> 
+
+<stl19:Reservation numberInParty="2" numberOfInfants="1" 
+NumberInSegment="1"> 
+
+<stl19:BookingDetails> 
+
+<stl19:RecordLocator>GEQQAB</stl19:RecordLocator> 
+
+<stl19:CreationTimestamp>2017-03- 
+22T05:54:00</stl19:CreationTimestamp> 
+
+<stl19:SystemCreationTimestamp>2017-03- 
+22T05:54:00</stl19:SystemCreationTimestamp> 
+
+<stl19:UpdateTimestamp>2017-03-22T05:55:33</stl19:UpdateTimestamp> 
+
+<stl19:PNRSequence>5</stl19:PNRSequence> 
+
+<stl19:DivideSplitDetails/> 
+
+<stl19:EstimatedPurgeTimestamp>2017-03- 
+23T00:00:00</stl19:EstimatedPurgeTimestamp> 
+
+ 
+
+<stl19:UpdateToken>708383d4527d5fb007fc65aac31af8d8ba63c66fc4e630a0</ stl19:UpdateTok 
+en> 
+
+</stl19:BookingDetails> 
+
+<stl19:POS> 
+
+<stl19:Source BookingSource="A0A0" PseudoCityCode="PLT" 
+AirlineVendorID="AA" HomePseudoCityCode=" PLT"/> 
+
+</stl19:POS> 
+
+<stl19:PassengerReservation> 
+
+<stl19:Passengers> 
+
+<stl19:Passenger id="5" nameType="S" nameId="01.01" 
+nameAssocId="1" elementId="pnr-5.1"> 
+
+<stl19:LastName>KOWALSKI</stl19:LastName> 
+
+<stl19:FirstName>JAN MR</stl19:FirstName> 
+
+<stl19:Seats/> 
+
+</stl19:Passenger> 
+
+<stl19:Passenger id="6" nameType="I" nameId="02.01" 
+nameAssocId="2" elementId="pnr-6.2"> 
+
+<stl19:LastName>KOWALSKI</stl19:LastName> 
+
+<stl19:FirstName>TOMUS</stl19:FirstName> 
+
+<stl19:Seats/> 
+
+</stl19:Passenger> 
+
+</stl19:Passengers> 
+
+<stl19:Segments/> 
+
+<stl19:TicketingInfo/> 
+
+<stl19:ItineraryPricing/> 
+
+</stl19:PassengerReservation> 
+
+<stl19:ReceivedFrom/> 
+
+<stl19:EmailAddresses/> 
+
+</stl19:Reservation> 
+
+</stl19:GetReservationRS> 
+
+</Reservation> 
+
+<Reservation Locator="FGUDMB"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"> 
+
+
+<stl19:Reservation numberInParty="1" numberOfInfants="0" 
+NumberInSegment="1"> 
+
+<stl19:BookingDetails> 
+
+<stl19:RecordLocator>FGUDMB</stl19:RecordLocator> 
+
+<stl19:CreationTimestamp>2017-03- 
+14T06:07:00</stl19:CreationTimestamp> 
+
+<stl19:SystemCreationTimestamp>2017-03- 
+
+14T06:07:00</stl19:SystemCreationTimestamp> 
+
+<stl19:CreationAgentID>ATW</stl19:CreationAgentID> 
+
+<stl19:UpdateTimestamp>2017-03-16T06:05:12</stl19:UpdateTimestamp> 
+
+<stl19:PNRSequence>3</stl19:PNRSequence> 
+
+<stl19:DivideSplitDetails/> 
+
+<stl19:EstimatedPurgeTimestamp>2017-05- 
+15T00:00:00</stl19:EstimatedPurgeTimestamp> 
+
+<stl19:UpdateToken>- 
+
+5ea73d5431cc2869e4413ec8472c3a263a74d39ce56de8c1</stl19:UpdateToken> 
+
+</stl19:BookingDetails> 
+
+<stl19:POS> 
+
+<stl19:Source BookingSource="WD40" AgentSine="ATW" 
+PseudoCityCode="WD40" ISOCountry="US" AgentDutyCode="*" AirlineVendorID="AA" 
+HomePseudoCityCode="WD40"/> 
+
+</stl19:POS> 
+
+<stl19:PassengerReservation> 
+
+<stl19:Passengers> 
+
+<stl19:Passenger id="4" nameType="S" referenceNumber="TEST" 
+nameId="01.01" nameAssocId="1" elementId="pnr -4.1"> 
+
+<stl19:LastName>KOWALSKI</stl19:LastName> 
+
+<stl19:FirstName>JAN</stl19:FirstName> 
+
+<stl19:Seats/> 
+
+</stl19:Passenger> 
+
+</stl19:Passengers> 
+
+<stl19:Segments/> 
+
+<stl19:TicketingInfo/> 
+
+<stl19:ItineraryPricing/> 
+
+</stl19:PassengerReservation> 
+
+<stl19:ReceivedFrom/> 
+
+<stl19:EmailAddresses/> 
+
+</stl19:Reservation> 
+
+</stl19:GetReservationRS> 
+
+</Reservation> 
+
+</Reservations> 
+
+</ReservationsList> 
+
+</Trip_SearchRS> 
+
+ 
+
+ 
+
+ 
+
+3 . 1 0 . E m a i l S e a r ch C r i t e r i a 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+EmailAddress 
+
+Attributes: 
+
+MatchMode 
+
+The user can request an XML response with the PNRs containing provided e-mail address. 
+
+• MatchMode options supported for these criteria: EXACT, START, END 
+
+
+
+
+
+USE CASE 
+
+Given a couple of first characters of the email address stored in the standard PNR email address field, 
+find all the active bookings of an indicated TN agency that meet the search criteria. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<EmailCriteria> 
+
+<EmailAddress MatchMode="START">MARTINNNN</EmailAddress> 
+
+</EmailCriteria> 
+
+<PosCriteria AnyBranch="false"> 
+
+<Pcc>B4T0</Pcc> 
+
+</PosCriteria> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchBlobTN" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+3 . 1 1 . S e r v i c e S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Service 
+
+Attributes: 
+
+OperationType 
+
+The user can request an XML response with the PNRs containing different types of SSRs. 
+
+• OperationType attribute value OR (default) 
+• Service elements can be either Foid or Generic 
+• Foid required attributes are Type and Number 
+• Generic consists of two attributes: Service Type (required) and Service Text (optional). 
+
+
+
+
+ 
+
+3 . 1 2 . D o c u m e n t S e a r c h C r i t e r i a 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Document 
+
+Attributes: 
+
+OperationType 
+
+The user can request an XML response with the PNRs containing different types of document 
+
+numbers in the SSRs. 
+
+• OperationType attribute value is OR (default) 
+
+
+
+
+
+ 
+
+• Document elements can be either ExtractedDocumentNumber or RawDocumentNumber 
+• Document includes the attribute DocumentType which values include PASSPORT, 
+NATIONAL_ID, LOCAL_ID, DRIVER_LICENSE and NEXUS 
+• ExtractedDocumentNumber contains the elements DocumentCode and DocumentId 
+• DocumentId and RawDocumentNumber elements include MatchMode attribute 
+(EXACT, START, END, ANYWHERE, SIMILAR) 
+
+
+ 
+
+ 
+
+ 
+
+USE CASE 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<DocumentCriteria> 
+
+<Document DocumentType="NATIONAL_ID"> 
+
+<ExtractedDocumentNumber> 
+
+<DocumentId>DE456789</DocumentId> 
+
+</ExtractedDocumentNumber> 
+
+</Document> 
+
+</DocumentCriteria> 
+
+<PosCriteria AirlineCode="AB"/> 
+
+<ReturnOptions MaxItemsReturned="1000" 
+
+ResponseFormat="STL" 
+ViewName="TripSearchBlobX"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+3 . 1 3 . O S I S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Osi 
+
+Osi Elements: 
+
+Text 
+
+The user is able to request an XML response with the PNRs containing provided text describing 
+
+Other Supplementary Information. Trip will compress (removes white spaces and non- 
+alphanumeric) OsiCriteria/Text and use that to search against the values created from OSI Free Text 
+by compressing it and reducing the length to the first 40 chars. 
+
+• Text element includes MatchMode attribute (START) 
+• Text non-alphanumeric values are removed for the search and when storing data. 
+
+
+This search option is available only to AS customers. 
+
+
+
+
+USE CASE 
+
+Given some bookings for the given carrier, find all the ones that contain OSI entry starting with the 
+specified set of characters. The request sample presented below explains also how to use Subject Areas 
+with the Simple request view. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<OsiCriteria> 
+
+<Osi><Text MatchMode="START">HHL MC CANCELLATION NUMBER 1234A</Text></Osi> 
+
+</OsiCriteria> 
+
+<PosCriteria AirlineCode="EY"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="Simple" 
+SearchType="ACTIVE"> 
+
+<SubjectAreas> 
+
+<SubjectArea>NAME</SubjectArea> 
+
+<SubjectArea>PHONE</SubjectArea> 
+
+<SubjectArea>AFAX</SubjectArea> 
+
+<SubjectArea>GFAX</SubjectArea> 
+
+</SubjectAreas> 
+
+</ReturnOptions> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+ 
+
+ 
+
+ 
+
+3 . 1 4 . P r o f i l e S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Profile 
+
+Profile Attributes: 
+
+ProfileID, ProfileType 
+
+Attributes: 
+
+OperationType 
+
+The user can request an XML response with the PNRs containing provided Profile attributes. 
+
+• ProfileID 
+• ProfileType acceptable values e.g., AGT (TAgent), AGY (TAgency), CRP 
+(CorporateID), TVL (Traveler), GRP (Group), TVLNN (TvlNoName). 
+• OperationType attribute value OR (default) 
+
+
+
+
+ 
+
+USE CASE 
+
+Given TN’s Past Date PNRs associated with the indicated profile, search for all the ones associated 
+with the indicted branch office code. 
+
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<ProfileCriteria> 
+
+<Profile ProfileID="1234567890" ProfileType="AGY"/> 
+
+</ProfileCriteria> 
+
+<PosCriteria AnyBranch="false"> 
+
+<Pcc>B4T0</Pcc> 
+
+</PosCriteria> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchBlobTN" 
+SearchType="INACTIVE" 
+MaxItemsReturned="1000"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+3 . 1 5 . P h o n e S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+PhoneNumber 
+
+The user can request an XML response with the PNRs containing provided Phone number (only 
+
+numbers are used by search engine, other characters are omitted). 
+
+• PhoneNumber element includes MatchMode attribute (EXACT, START, END, 
+ANYWHERE) 
+
+
+
+
+USE CASE 
+
+Given exact passenger last name and a string of characters present anywhere in the standard phone 
+number PNR field, retrieve all the active bookings of the indicated AS carrier that meet the search 
+criteria applied. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<NameCriteria> 
+
+<Name> 
+
+<LastName MatchMode="EXACT">SANCHEZ</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<TelephoneCriteria> 
+
+<PhoneNumber MatchMode="ANYWHERE">44123456125</PhoneNumber> 
+
+</TelephoneCriteria> 
+
+<PosCriteria AirlineCode="AA"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="Full" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+
+USE CASE 
+
+Given only a couple of first letter of the phone number stored with the booking, find all PNRs managed 
+by given airline and associated with the defined flight. Present the response in STL response format. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<TelephoneCriteria> 
+
+<PhoneNumber MatchMode="START">23323232</PhoneNumber> 
+
+</TelephoneCriteria> 
+
+<PosCriteria AirlineCode="B6"/> 
+
+<ReturnOptions MaxItemsReturned="200" 
+
+ResponseFormat="STL" 
+ViewName="TripSearchBasic"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+ 
+
+3 . 1 6 . F r e q u e n t F l y e r S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Loyalty 
+
+Loyalty Attributes: 
+
+ProgramID, MembershipID , TierLevel 
+
+The user can request an XML response with the PNRs containing provided loyalty program 
+
+attributes. 
+
+• ProgramID indicates the company owner of the loyalty program. 
+• MembershipID is a unique identifier of the member in the program (Membership 
+number, account number, etc). 
+• TierLevel indicates the member status in the program, e.g. GOLD, PLATINUM etc. 
+
+
+
+
+ 
+
+USE CASE 
+
+Given both the passenger first name, gender and Frequent Flyer number, search for any inactive TN’s 
+bookings. The response to contain phone due to adding the related subject area in the request. The name 
+criteria is actually not a must while searching by the loyalty criteria but still can be present. Please note 
+the access to Past Date PNRs requires a dedicated activation for each TN agency. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<NameCriteria> 
+
+<Name Gender="M"> 
+
+<FirstName MatchMode="START">JOHN/MR</FirstName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<LoyaltyCriteria> 
+
+
+ 
+
+<Loyalty ProgramID="AA" MembershipID="1234567" TierLevel="97"/> 
+
+</LoyaltyCriteria> 
+
+<PosCriteria AnyBranch="true"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchTN" 
+SearchType="INACTIVE"> 
+
+<SubjectAreas> 
+
+<SubjectArea>NAME</SubjectArea> 
+
+<SubjectArea>PHONE</SubjectArea> 
+
+</SubjectAreas> 
+
+</ReturnOptions> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Given Frequent Flyer number, find all associated active TN’s PNRs in either B4T0 or 22L0 agency, 
+retrieving especially the record locators, PNR creation dates and the associated PCCs. The response to 
+be presented in STL response format with a limitation to 250 results. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<LoyaltyCriteria> 
+
+<Loyalty ProgramID="AA" MembershipID="33D5Y30" /> 
+
+</LoyaltyCriteria> 
+
+<PosCriteria AnyBranch="false"> 
+
+<Pcc>B4T0</Pcc> 
+
+<Pcc>22L0</Pcc> 
+
+</PosCriteria> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="TripSearchTN" 
+SearchType="ACTIVE" 
+MaxItemsReturned="250"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+ 
+
+3 . 1 7 . Fl i g h t D e t a i l s S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Flight 
+
+ 
+
+ 
+
+Flight Elements: 
+
+FlightNumber, MarketingFlightNumber, OperatingFlightNumber, 
+
+DepartureAirport, DepartureCity, DepartureCountry, ArrivalAirport, 
+ArrivalCity, ArrivalCountry, DepartureDateTime, ArrivalDateTime, 
+AirlineCode, MarketingArlineCode, OperatingArlineCode, 
+ClassOfService, CabinCode, StatusCode, NoOfPassemgers, 
+FilterFlownFlights 
+
+
+
+
+ 
+
+The user can request an XML response with the PNRs containing provided flight attributes. 
+
+• FlightNumber, DepartureDateTime, AirlineCode are obligatory elements for these 
+criteria. 
+• DepartureDateTime with attributes After, Before, is, TimeBefore, TimeAfter, Timels 
+• ArrivalDateTime with attributes After, Before, is, TimeBefore, TimeAfter, Timels 
+• FilterFlownFlights is the filtering out of flown segments. This filtering is currently only 
+available with customization and this is not a standard service. 
+
+
+ 
+
+USE CASE 
+
+Find all active PNRs for the indicted carrier and associated with the specified flight number, airline 
+code, departure airport and within the defined range for departure and arrival data and time. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" 
+xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<FlightCriteria> 
+
+<Flight> 
+
+<FlightNumber>0001</FlightNumber> 
+
+<DepartureAirport>JFK</DepartureAirport> 
+
+<DepartureDateTime After="2016-12-20T07:00:00"/> 
+
+<ArrivalDateTime Before="2016 -12-21T10:11:00"/> 
+
+<AirlineCode>ET</AirlineCode> 
+
+</Flight> 
+
+</FlightCriteria> 
+
+<PosCriteria AirlineCode="ET"/> 
+
+<ReturnOptions ResponseFormat="STL" 
+
+ViewName="Simple" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Find all PNRs associated with the indicated departure time from the indicated departure airport. Return 
+a simple list of PNRs. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<FlightCriteria> 
+
+<Flight> 
+
+<DepartureAirport>JFK</DepartureAirport> 
+
+<DepartureDateTime Is="2015-03-31T07:03:00"/> 
+
+</Flight> 
+
+</FlightCriteria> 
+
+<PosCriteria AirlineCode="B6"/> 
+
+<ReturnOptions MaxItemsReturned="200" 
+
+ResponseFormat="STL" 
+ViewName="TripSearchBlobX"/> 
+
+</ReservationReadRequest> 
+
+
+ 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+3 . 1 8 . P O S S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Pcc 
+
+Pcc Attributes: 
+
+AnyBranch, AirlineCode, CreateCityCode, IataNumber, PrimeHost 
+
+The user can request an XMLresponse with the PNRs available for provided PCC codes. 
+
+- POS Criteria (required) 
+- If AS search – partition (AirlineCode) is used as search criteria; 
+- If TN search - PCCs (Pcc) and branch access indicator (AnyBranch) are used as search criteria. 
+• If Pcc is provided and (AnyBranch = false), search would be triggered only among PNRs created by 
+agency PCC; 
+• Otherwise (AnyBranch = true) search would be triggered among all PNRs created by agency(PCC 
+gets fromsession used to call Trip_SearchRQ service) and all its branches 
+
+
+
+- Access to PCC’s and partitions will be limited by security access. 
+
+
+
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Pcc 
+
+Pcc Attributes: 
+
+AnyBranch, AirlineCode, CreateCityCode, IataNumber, PrimeHost 
+
+The user can request an XMLresponse with the PNRs available for provided PCC codes. 
+
+• POS Criteria (required) 
+o If AS search – partition (AirlineCode) is used as search criteria; 
+o If TN search - PCCs (Pcc) and branch access indicator (AnyBranch) are used as search 
+criteria. In a common case a TN search is invoked against the AA partition. 
+
+
+
+• If Pcc is provided and (AnyBranch = false), search would be triggered only among PNRs created by 
+agency PCC; 
+• Otherwise (AnyBranch = true) search would be triggered among all PNRs created by agency(PCC 
+gets fromsession used to call Trip_SearchRQ service) and all its branches 
+• Access to PCC’s and partitions will be limited by security access. 
+
+
+
+
+ 
+
+USE CASE 
+
+Search PNRs within the indicated branches. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests><ReservationReadRequest> 
+
+<NameCriteria> 
+
+<Name> 
+
+<LastName MatchMode="SIMILAR">JONES</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+
+ 
+
+<PosCriteria AnyBranch="false"> 
+
+<Pcc>B4T0</Pcc> 
+
+<Pcc>22L0</Pcc> 
+
+</PosCriteria> 
+
+<ReturnOptions MaxItemsReturned="200" 
+
+ResponseFormat="STL" 
+ViewName="TripSearchTN" 
+SearchType="ACTIVE"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Search PNRs within any branch. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<NameCriteria> 
+
+<Name> 
+
+<LastName MatchMode="START">PAL</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<PosCriteria AnyBranch="true"/> 
+
+<ReturnOptions MaxItemsReturned="200" 
+
+ResponseFormat="STL" 
+ViewName="TripSearchTN"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+ 
+
+3 . 1 9 . D e s t i n a t i o n S e a r c h C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+StartCityCode, StartDate, EndCityCode, EndDate 
+
+Destination Criteria added to allow users to search PNRs with Air segments which include specific pairs of 
+Start and End Cities or pairs of Start and End Dates based on connecting flights. 
+
+
+
+ 
+
+USE CASE 
+
+Search for AS PNR’s by various destination attributes e.g. the city when the flight starts, in conjunction 
+with name search criteria. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ... > 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<NameCriteria> 
+
+<Name> 
+
+<FirstName>TEST</FirstName> 
+
+<LastName MatchMode="EXACT">WEIGHT</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<PosCriteria AirlineCode="AB"/> 
+
+<DestinationCriteria> 
+
+
+ 
+
+<StartCityCode>DUS</StartCityCode> 
+
+<StartDate>2015-06-16</StartDate> 
+
+<EndCityCode>HAJ</EndCityCode> 
+
+</DestinationCriteria> 
+
+<ReturnOptions MaxItemsReturned="1000" 
+
+ResponseFormat="STL" 
+ViewName="TripSearchBlobX"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+USE CASE 
+
+Search for AS PNR’s by various destination attributes e.g. the city when the flight starts, in conjunction 
+with the search by phone number. 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" ...> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<TelephoneCriteria> 
+
+<PhoneNumber MatchMode="EXACT">8176821888</PhoneNumber> 
+
+</TelephoneCriteria> 
+
+<PosCriteria AirlineCode="AB"/> 
+
+<DestinationCriteria> 
+
+<StartCityCode>DUS</StartCityCode> 
+
+<StartDate>2015-09-21</StartDate> 
+
+<EndCityCode>MUC</EndCityCode> 
+
+</DestinationCriteria> 
+
+<ReturnOptions MaxItemsReturned="1000" ResponseFormat="STL" 
+ViewName="TripSearchBlobX"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+ 
+
+3 . 2 0 . T o k e n C r i t e r i a 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+Token (required), Page (optional) 
+
+For more details and samples go to section describing Asynchronous searches 
+
+
+
+ 
+
+3 . 2 1 . R e s u l t A c t i o n 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+QueuePlace Action 
+
+QueuePlace Action 
+
+Elements: 
+
+ 
+
+QueuePlacement 
+
+
+
+
+Attributes: 
+
+include SearchResults 
+
+The user can route the PNR to a specific queue for further action, e.g. ticketing, printing, etc. 
+
+− QueuePlacement includes elements QueueName, QueueNumber, CityCode, PitCode 
+
+
+
+
+ 
+
+ 
+
+ 
+
+3 . 2 2 . R e t u r n O p t i o n s 
+
+ 
+
+ 
+
+Read Request Type: 
+
+ReservationReadRequest 
+
+Elements: 
+
+SubjectAreas (consists of list of SubjectArea elements) 
+
+Attributes: 
+
+ViewName, MaxItemsReturned, PageSize, ResponseFormat, SearchType 
+
+The user can specify what is returned in the response. 
+
+• SubjectArea – see more in the section describing subject areas 
+• ViewName – see more in the section describing views 
+• MaxItemReturned – maximum number of items which appear in RS. It is limited to 
+maximum 800 PNRs for synchronous searches in all service versions, unless specified 
+differently in a user dedicated view. 
+• PageSize – maximum number of items which appear on page for asynchronous searches 
+only 
+• ResponseFormat – STL 
+• SearchType – ACTIVE, INACTIVE or BOTH. See more in the section describing Past 
+Date PNR search. 
+
+
+
+
+
+Complete payload samples 4 
+
+ 
+
+ 
+
+ 
+
+4 . 1 . S a m p l e R Q / R S f o r S T L f i l e f o r m a t 
+
+
+ 
+
+ 
+
+Version x.x.x represents the current version of service 
+More samples in separate files 
+
+ 
+
+<Trip_SearchRQ Version="x.x.x" xmlns="http://webservices.sabre.com/triprecord"> 
+
+<ReadRequests> 
+
+<ReservationReadRequest> 
+
+<NameCriteria> 
+
+<Name> 
+
+<FirstName MatchMode="EXACT_NO_COMPRESS">JON</FirstNam e> 
+
+<LastName MatchMode="SIMILAR">SMITH</LastName> 
+
+</Name> 
+
+</NameCriteria> 
+
+<PosCriteria AnyBranch="false"/> 
+
+<ReturnOptions MaxItemsReturned="200" ResponseFormat="STL" 
+ViewName="TripSearchTN"/> 
+
+</ReservationReadRequest> 
+
+</ReadRequests> 
+
+</Trip_SearchRQ> 
+
+ 
+
+The above request will do an equivalent name search for *-JON/SMITH looking only at Active PNR’s in 
+Native Sabre. All PNR’s in your signed in agency will be searched and a list returned in the response 
+XML. Response: 
+
+ 
+
+<Trip_SearchRS TimeStamp="2017-03-21T07:31:12" Target="Production" Version=" 4.5.0" xm 
+
+<Trip_SearchRS TimeStamp="2017-03-24T07:12:42" Target="Production" Version=" 4.5.0" 
+xmlns="http://webservices.sabre.com/triprecord" 
+xmlns:ns2="http://services.sabre.com/STL/v01" 
+xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" 
+xmlns:ns3="http://webservices.sabre.com/pnrbuilder" 
+xmlns:ns6="http://tds.sabre.com/itinerary" xmlns:ns5="http://tds.sabre.com/rules" 
+xmlns:ns8="http://services.sabre.com/STL/v02" 
+xmlns:ns7="http://services.sabre.com/res/orr/v0" 
+xmlns:ns13="http://www.sabre.com/eps/schemas" 
+xmlns:tir37="http://services.sabre.com/res/tir/v3_7" 
+xmlns:ns9="http://www.sabre.com/ssg/des/v1" 
+xmlns:ns12="http://opentravel.org/common/v02" 
+xmlns:ns11="http://www.OpenTravel.org/ns/OTA2/AppInfo_v01_00" 
+xmlns:tir39="http://services.sabre.com/res/tir/v3_9" 
+xmlns:ns10="http://services.sabre.com/STL_Header/v02_00" 
+xmlns:stl114="http://webservices.sabre.com/pnrbuilder/v1_14" 
+xmlns:ns15="http://webservices.sabre.com/servicesplatform/orr/rules/1.0.0" 
+xmlns:ns14="http://tds.sabre.com/distribution" 
+xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_15" 
+xmlns:or16="http://services.sabre.com/res/or/v1_6" 
+xmlns:or17="http://services.sabre.com/res/or/v1_7" 
+xmlns:or18="http://services.sabre.com/res/or/v1_8" 
+xmlns:or19="http://services.sabre.com/res/or/v1_9"> 
+
+
+ 
+
+<Success>Success</Success> 
+
+<ReservationsList NumberResults="15" NumberPages="1" TotalResults="15"> 
+
+<Reservations> 
+
+<Reservation Locator="GMYXIE"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="EZHMCG"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="MDIVGB"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="EQVLHO"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="DLNXHV"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="EUNPHX"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="EUPWYN"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="HMLEEX"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="EWONFD"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="HIVULQ"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="KVWERA"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="DLLLAO"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="MNBJBJ"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="HBRPAW"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+<Reservation Locator="EZDWEZ"> 
+
+<stl19:GetReservationRS Version=" 1.19.0"/> 
+
+</Reservation> 
+
+</Reservations> 
+
+</ReservationsList> 
+
+</Trip_SearchRS> 
+
+
+Error and warning messages 5 
+
+5 . 1 . L i s t o f C o d e s 
+
+
+The following is the list of error and warning messages that are returned. If any of those occurred, please 
+read carefully the message displayed. If the request requires an adjustment, please correct its structure and 
+retry. In case of issues with service availability, please contact Technical Support. 
+
+ 
+
+Error Code 
+
+Message 
+
+200002 
+
+Search across past date PNRs is not permitted 
+
+200003 
+
+TN User cannot search AA PNRs 
+
+200004 
+
+Unsupported service version 
+
+ 
+
+200005 
+
+Max number of requested PNRs exceeded view limit [800] – limit is defined per 
+ViewName, e.g. 800 
+
+200006 
+
+Number of results exceeded view limit or requested PNRs limit 
+
+200101 
+
+Request validation error - Invalid name 
+
+200102 
+
+Request validation error - Empty PCC List 
+
+200103 
+
+Subsystem communication error 
+
+200104 
+
+Unable to Process error – Subsystem Error 
+
+200105 
+
+Unable to Process error – Invalid Request 
+
+200106 
+
+Unable to Process error – PNR Service Unavailable 
+
+200201 
+
+Unable to process PNR search 
+
+200202 
+
+Unable to process DB search 
+
+200203 
+
+DB search timeout 
+
+200204 
+
+There is no primary criteria specified 
+
+200205 
+
+There is no POS criteria specified 
+
+200206 
+
+Too many results – specify more data 
+
+200207 
+
+Primary criteria too weak – add more specific primary criterion 
+
+200208 
+
+Empty PCC list after Branch access check 
+
+200301 
+
+Token does not exist 
+
+200302 
+
+Response is not ready yet 
+
+200303 
+
+Request failed 
+
+200304 
+
+Request expired 
+
+200305 
+
+Page does not exist 
+
+200306 
+
+Request rejected 
+
+200401 
+
+Invalid flight number format or number of entries it too long 
+
+200402 
+
+Invalid airline code format or number of entries it too long 
+
+200403 
+
+Invalid class of service format or number of entries it too long 
+
+200404 
+
+Invalid name type format or number of entries it too long 
+
+200405 
+
+Invalid tier level format or number of entries it too long 
+
+200406 
+
+Invalid pos format or number of entries it too long 
+
+200407 
+
+Invalid ssr format or number of entries it too long 
+
+700001 
+
+General PNR error 
+
+
+
+
+700002 
+
+Invalid PNR locator 
+
+700003 
+
+Invalid request 
+
+700004 
+
+Invalid request format 
+
+700005 
+
+Invalid request view 
+
+700001 
+
+General PNR error 
+
+700002 
+
+Invalid PNR locator 
+
+
+
+ 
+
+ 
+
+5 . 2 . S a m p l e s 
+
+ 
+
+ 
+
+There is a couple of examples presenting the most popular error responses given. Version x.x.x represents 
+the current version of service. 
+
+USE CASE 
+
+The service was invoked with an invalid security token. This is a generic error message, not specific for 
+the Trip_SearchRQ service. The following content is included in the response. Please establish the web 
+service session again, include the proper token in the request, verify the endpoint used and retry the call. 
+
+ 
+
+<soap-env:Body> 
+
+<soap-env:Fault> 
+
+<faultcode>soap-env:Client.InvalidSecurityToken</faultcode> 
+
+<faultstring>Invalid or Expired binary security token : ... 
+
+<detail> 
+
+<StackTrace>com.sabre.universalservices.base.session.SessionException: 
+errors.session.USG_INVALID_SECURITY_TOKEN</StackTrace> 
+
+</detail> 
+
+</soap-env:Fault> 
+
+</soap-env:Body> 
+
+ 
+
+ 
+
+USE CASE 
+
+The service was invoked with no primary criteria. The following is the response. The request should be 
+corrected via adding at least single primary criteria and invoked again afterwards. 
+
+ 
+
+<Trip_SearchRS Version="x.x.x."> 
+
+<Errors> 
+
+<Error ErrorCode="200204" Severity="MINOR" ErrorMessage="There is no primary 
+criteria specified"/> 
+
+</Errors> 
+
+</Trip_SearchRS> 
+
+USE CASE 
+
+The service was invoked, although the database was temporarily not available Such cases may happen 
+especially on non-production evironments. Please retry with the request in a couple of seconds. 
+
+ 
+
+<Trip_SearchRS Version="x.x.x" xmlns="http://webservices.sabre.com/triprecord" 
+xmlns:ns3="http://webservices.sabre.com/pnrbuilder" 
+
+<Errors> 
+
+<Error ErrorCode="200202" Severity="MODERATE" ErrorMessage=" Unable to process DB 
+search"/> 
+
+</Errors> 
+
+</Trip_SearchRS> 
+
+
+USE CASE 
+
+The service was invoked with an invalid “ViewName” provided in the request message. The following is 
+the response. The request should be corrected, and a valid view should be used. 
+
+ 
+
+<Trip_SearchRS Version="x.x.x" xmlns="http://webservices.sabre.com/triprecord" 
+xmlns:ns3="http://webservices.sabre.com/pnrbuilder" 
+
+<Errors> 
+
+<Error ErrorCode="700005" Severity="MODERATE" ErrorMessage="Invalid request view"/> 
+
+</Errors> 
+
+</Trip_SearchRS> 
+
+
+Glossary 6 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Term 
+
+Explanation 
+
+AAA 
+
+Agent Assembly Area – refers to the buffer in the Sabre system where content is retained while a 
+Sabre Host session is active. 
+
+AE 
+
+Air Extra - Additional products and services offered by airlines in addition to the airfare are sold 
+separately. Makes products and services available throughout within the normal workflow. 
+
+Examples of Air Extras are pre-purchased seat assignments and checked bag fees. 
+
+AS 
+
+Sabre Airline Solutions 
+
+EMD 
+
+Electronic Miscellaneous Document 
+
+FOID 
+
+Form of Identification is used to advise carrier what identification the passenger will present upon 
+check-in for e-ticket travel 
+
+Locator 
+
+PNR record locator 
+
+Native Sabre 
+System 
+
+Sabre Red Workspace application 
+
+OSI 
+
+Other Supplementary Information can be used when action or reply from carrier is not required 
+
+OTA 
+
+Open Travel Alliance XML format 
+
+PCC 
+
+Pseudo City Code uniquely identifies travel agency in the same way that a city code identifies a 
+city 
+
+PNR 
+
+Passenger Name Record 
+
+POS 
+
+Point of Sale 
+
+PSS 
+
+Passenger Service System also known as Sabre Host 
+
+SFPD 
+
+Secure Flight Passenger Data 
+
+SSR 
+
+Special Service Request is used when action or response from carrier is required 
+
+STL 
+
+SABRE XML format 
+
+Segment 
+
+Field of a Passenger Name Record holding actual booking (Air, Car, Hotel etc.) 
+
+TN 
+
+Sabre Travel Network 
+
+
+
+
+Technical Support 7 
+
+If you have any questions or need assistance, please contact our Global Customer Support Center. 
+
+7 . 1 . T e l e p h o n e 
+
+ 
+
+When reporting production or other critical/time sensitive issues , please contact us via the telephone: 
+
+ 
+
+ 
+
+Sabre Travel Network and 3rd parties: 
+
+• USA: 800-678-9460 
+• Canada: 682-605-5570 
+• International: 598-2-518-6020, or your regional Sabre Software help desk 
+
+
+ 
+
+ 
+
+Sabre Airline Solutions: 
+
+ 
+
+Country 
+
+Toll free number 
+
+Antigua 
+
+888-832-4738 
+
+Argentina 
+
+0800-666-1664 
+
+Australia 
+
+1-800-081-993 
+
+Austria 
+
+800-291-705 
+
+Bahamas 
+
+1-800-389-0417 
+
+Bahrain 
+
+800-00-002 (WSC 5050) 
+
+Belarus 
+
+880-0114 PIN 375 
+
+Belgium 
+
+0800-77-029 
+
+Bolivia 
+
+800-10-0350 
+
+Brazil 
+
+0800-891-9210 
+
+Brunei 
+
+800-013 PIN 673 
+
+Canada 
+
+1-866-598-1706 
+
+Chile 
+
+800-412555 
+
+China 
+
+4001-202-315 
+
+Colombia 
+
+01-800-954-1326 
+
+Cyprus 
+
+800-96110 
+
+Czech Republic 
+
+800-700-117 
+
+Denmark 
+
+808-85884 
+
+Egypt - Cairo 
+
+7955-770 PIN 5670 
+
+
+
+
+Egypt - Other 
+
+02-7955-770 PIN 5670 
+
+El Salvador 
+
+800-0000-0011 
+
+Estonia 
+
+800-12-122 PIN 5047 
+
+Finland 
+
+0800-914-860 
+
+France 
+
+0800-909-657 
+
+Germany 
+
+0800-181-7245 
+
+Greece 
+
+00800-16-122-055-533 
+
+Hong Kong 
+
+800-908-742 
+
+Iceland 
+
+800-8667 
+
+India 
+
+000-800-100-6116 
+
+Indonesia 
+
+001-803-016-1722 
+
+Ireland 
+
+1-800-657-198 
+
+Israel 
+
+1-809-246-033 
+
+Italy 
+
+800-787-417 
+
+Jamaica 
+
+1-866-402-6835 
+
+Japan 
+
+0053-116-0811 
+
+Korea 
+
+0030-813-1943 
+
+Malaysia 
+
+1-800-813-609 
+
+Malta 
+
+800-90112 PIN 356 
+
+Mexico 
+
+01-800-123-8537 
+
+Netherlands 
+
+0800-023-2237 
+
+New Zealand 
+
+0800-450-960 
+
+Norway 
+
+800-18-798 
+
+Pakistan 
+
+00800-9004-4226 
+
+Panama 
+
+00800-226-0662 
+
+Paraguay 
+
+009-800-598-1-0004 
+
+Peru 
+
+0800-52-226 
+
+Philippines 
+
+1-800-111-00338 or 1-800-111-00339 
+
+Poland 
+
+800-900-807 
+
+Russia 
+
+810-800-240-31012 
+
+Saudi Arabia 
+
+1-800-11 PIN 5671 
+
+Singapore 
+
+800-101-1651 
+
+South Africa 
+
+0800-980-981 
+
+Spain 
+
+900-995-926 
+
+Sweden 
+
+0200-285-836 
+
+Switzerland 
+
+0800-894-534 
+
+Tahiti 
+
+888-832-4738 
+
+Thailand 
+
+1. Dial 1-800-000-133 (AT&T) 
+
+2. Wait for the recording asking for the number you are dialing. 
+3. Dial 888-832-4738. 
+
+
+
+
+Trinidad and Tobago 
+
+888-870-9002 
+
+UAE 
+
+800-035-702-569 
+
+UK 
+
+0800-0288446 
+
+Uruguay 
+
+2518-6642 
+
+USA 
+
+1-888-421-8889 or 1-800-677-0856 
+
+Venezuela 
+
+0800-100-3851 
+
+Vietnam 
+
+1. Dial 1-201-0288 (AT&T Toll Free Number). 
+2. Wait for the recording asking for the number you are dialing. 
+3. Dial 866-947-8059. 
+
+
+Countries with no-toll free service 
+
++1 770 261 0080 (toll call). 
+
+
+
+ 
+
+ 
+
+7 . 2 . E m a i l 
+
+ 
+
+ 
+
+Email is monitored 24 x 7 with a response within 24 hours or less: 
+
+ 
+
+• webservices.support@sabre.com 
+• SabreSonic.helpdesk@sabre.com (for Sabre Airline Solutions) 
+
+
+ 
+
+ 
+
+Providing the support desk with the necessary files at the time of initial contact improves our ability to 
+troubleshoot and provide a timely resolution. 
+
+To better serve you please note the following: 
+
+• Please include the Sabre Pseudo City Code (PCC) or Domain where the issue is occurring. 
+• When reporting an issue with SOAP based Sabre APIs the input and output payloads are 
+required. Please attach the payloads as separate files, and name them clearly. 
+• To help ensure that our environment is free of viruses, our policy mandates that all messages 
+received by Sabre from external sources follow special file name guidelines. File names must 
+end in ".sabre.zip" or the zipped attachment will be removed by the email server (for 
+example, “docs.zip” would need to be renamed to “docs.sabre.zip”). 
+• If your correspondence is regarding a previously reported issue, please include the service 
+incident (“SI”) number in the subject line of your message. 
+• The subject line should contain a brief description of the problem or question. Please avoid a 
+subject line containing only the words ‘Question’, ‘Issue’, ‘Problem’, etc. 
+• In the body of the email include as much information as possible to explain the problem and 
+the steps necessary to recreate it. 
+
+
+
+7 . 3 . L i n k s 
+
+ 
+
+ 
+
+Find more details on the following pages: 
+
+• https://myhelp.sabre.com/ 
+• http://community.sabre.com/ (Sabre Community Portal for Sabre Airline Solutions) 
+• https://developer.sabre.com/resources/support 
+
+
+

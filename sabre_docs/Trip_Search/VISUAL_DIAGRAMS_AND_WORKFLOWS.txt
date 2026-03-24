@@ -1,0 +1,498 @@
+═══════════════════════════════════════════════════════════════════════════════
+TRIP_SEARCHRQ V4.5.0 - VISUAL DIAGRAMS AND WORKFLOWS
+═══════════════════════════════════════════════════════════════════════════════
+
+DIAGRAM 1: REQUEST/RESPONSE FLOW ARCHITECTURE
+═════════════════════════════════════════════════════════════════════════════
+
+                    YOUR APPLICATION
+                          │
+                          │ (Prepare XML Request)
+                          │
+                          ▼
+                    ┌──────────────────┐
+                    │  SOAP Request    │
+                    │  <Trip_SearchRQ> │
+                    │                  │
+                    │  • FlightCriteria│
+                    │  • PosCriteria   │
+                    │  • ReturnOptions │
+                    └────────┬─────────┘
+                             │
+                             │ HTTP POST
+                             │
+                             ▼
+                    ┌──────────────────────────┐
+                    │  SABRE TRIP SEARCHRQ     │
+                    │  Web Service             │
+                    │  v4.5.0                  │
+                    │                          │
+                    │  • Validates Request     │
+                    │  • Searches PNR Database │
+                    │  • Retrieves Passengers  │
+                    │  • Formats Response      │
+                    └────────┬─────────────────┘
+                             │
+                             │ HTTP Response
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │  SOAP Response   │
+                    │  <Trip_SearchRS> │
+                    │                  │
+                    │  • Success       │
+                    │  • ReservationLS │
+                    │    - Passengers  │
+                    │    - Phones      │
+                    └────────┬─────────┘
+                             │
+                             │ (Parse XML Response)
+                             │
+                             ▼
+                    YOUR APPLICATION
+                    (Extract Data)
+                          │
+                          ▼
+                    Display/Store
+                    Passenger Info
+
+
+DIAGRAM 2: REQUEST STRUCTURE - XML HIERARCHY
+═════════════════════════════════════════════════════════════════════════════
+
+Trip_SearchRQ (Version="4.5.0")
+│
+└─ ReadRequests
+    │
+    └─ ReservationReadRequest
+        │
+        ├─ FlightCriteria ━━━━━━━━━━━━━ PRIMARY SEARCH CRITERIA
+        │   │
+        │   └─ Flight
+        │       ├─ FlightNumber          ✓ REQUIRED
+        │       ├─ DepartureAirport      ★ RECOMMENDED
+        │       ├─ DepartureDateTime     ✓ REQUIRED
+        │       ├─ ArrivalAirport        ○ OPTIONAL
+        │       ├─ ArrivalDateTime       ○ OPTIONAL
+        │       └─ AirlineCode           ✓ REQUIRED
+        │
+        ├─ PosCriteria
+        │   └─ AirlineCode               ✓ REQUIRED (matches above)
+        │
+        └─ ReturnOptions
+            ├─ @ViewName                 ✓ REQUIRED = "TripSearchBasic"
+            ├─ @ResponseFormat           ✓ REQUIRED = "STL"
+            ├─ @SearchType               ✓ REQUIRED = "ACTIVE"
+            └─ @MaxItemsReturned         ○ OPTIONAL = 800 (default)
+
+
+DIAGRAM 3: RESPONSE STRUCTURE - XML HIERARCHY (Simplified)
+═════════════════════════════════════════════════════════════════════════════
+
+Trip_SearchRS
+│
+├─ Success ━━━━━━━━━━━━━━━━━━━━━━ "Success" = Request was processed
+│
+└─ ReservationsList (NumberResults="X", TotalResults="Y")
+    │
+    └─ Reservations
+        │
+        ├─ Reservation (Locator="FZVBDK") ──────────── PNR #1
+        │   │
+        │   └─ stl119:GetReservationRS
+        │       │
+        │       └─ stl119:Reservation
+        │           │
+        │           ├─ BookingDetails
+        │           │   ├─ RecordLocator ═══════════ "FZVBDK"
+        │           │   ├─ CreationTimestamp
+        │           │   └─ UpdateTimestamp
+        │           │
+        │           ├─ PassengerReservation
+        │           │   │
+        │           │   └─ Passengers
+        │           │       │
+        │           │       ├─ Passenger (id="1")
+        │           │       │   ├─ LastName ════════ "SMITH" ★
+        │           │       │   ├─ FirstName ═══════ "JOHN MR" ★
+        │           │       │   └─ Seats
+        │           │       │       └─ Seat ════════ "12A"
+        │           │       │
+        │           │       └─ Passenger (id="2")
+        │           │           ├─ LastName ════════ "SMITH" ★
+        │           │           ├─ FirstName ═══════ "JANE MRS" ★
+        │           │           └─ Seats
+        │           │               └─ Seat ════════ "12B"
+        │           │
+        │           └─ CustomerContact
+        │               │
+        │               ├─ Phone
+        │               │   ├─ PhoneNumber ═════════ "2125551234" ★
+        │               │   └─ PhoneType ══════════ "H" (Home) ★
+        │               │
+        │               └─ Phone
+        │                   ├─ PhoneNumber ═════════ "9175559999" ★
+        │                   └─ PhoneType ══════════ "B" (Business) ★
+        │
+        └─ Reservation (Locator="ABC1234") ──────────── PNR #2
+            │
+            └─ stl119:GetReservationRS
+                └─ stl119:Reservation
+                    ├─ BookingDetails
+                    │   └─ RecordLocator ═══════════ "ABC1234"
+                    │
+                    ├─ PassengerReservation
+                    │   └─ Passengers
+                    │       └─ Passenger
+                    │           ├─ LastName ════════ "JOHNSON" ★
+                    │           ├─ FirstName ═══════ "ROBERT MR" ★
+                    │           └─ Seats
+                    │               └─ Seat ════════ "14C"
+                    │
+                    └─ CustomerContact
+                        └─ Phone
+                            ├─ PhoneNumber ═════════ "4415559876" ★
+                            └─ PhoneType ══════════ "M" (Mobile) ★
+
+★ = Fields most relevant to your requirement
+
+
+DIAGRAM 4: DATA EXTRACTION WORKFLOW
+═════════════════════════════════════════════════════════════════════════════
+
+Raw XML Response from Sabre
+        │
+        │ STEP 1: Parse XML
+        │ (Deserialize SOAP)
+        ▼
+  Trip_SearchRS Object
+        │
+        │ STEP 2: Extract Reservations
+        │ (Loop through each PNR)
+        ▼
+   For Each Reservation:
+        │
+        ├─ PNR Locator = "FZVBDK"
+        │
+        └─ For Each Passenger:
+            │
+            ├─ LastName = "SMITH"
+            ├─ FirstName = "JOHN MR"
+            ├─ Seat = "12A"
+            │
+            └─ For Each Phone:
+                │
+                ├─ PhoneNumber = "2125551234"
+                └─ PhoneType = "H"
+        
+        │ STEP 3: Transform Data
+        │ (Map to application objects)
+        ▼
+  PassengerInfo Objects:
+  {
+    pnrLocator: "FZVBDK",
+    lastName: "SMITH",
+    firstName: "JOHN MR",
+    seat: "12A",
+    phones: [
+      { number: "2125551234", type: "Home" },
+      { number: "9175559999", type: "Business" }
+    ]
+  }
+        │
+        │ STEP 4: Store/Display
+        │ (Save to database or display UI)
+        ▼
+  Application Database/UI
+        │
+        ├─ Store in passenger list
+        ├─ Display in grid view
+        ├─ Export to CSV/JSON
+        └─ Integration with booking system
+
+
+DIAGRAM 5: DECISION TREE FOR REQUEST PARAMETERS
+═════════════════════════════════════════════════════════════════════════════
+
+                          START
+                            │
+                            ▼
+                  ┌─────────────────────┐
+                  │ Do you have exact   │
+                  │ departure time?     │
+                  └────────┬────────────┘
+                          │
+                    ┌─────┴──────┐
+                   YES           NO
+                    │            │
+                    ▼            ▼
+            DepartureDateTime   DepartureDateTime
+            Is="..."            After="..." Before="..."
+                    │            │
+                    └─────┬──────┘
+                          │
+                          ▼
+                ┌─────────────────────┐
+                │ Do you have        │
+                │ departure airport? │
+                └────────┬───────────┘
+                        │
+                    ┌───┴────┐
+                   YES      NO
+                    │        │
+                    ▼        ▼
+            Add             Use flight
+            DepartureAirport criteria as-is
+                    │        │
+                    └──┬─────┘
+                       │
+                       ▼
+            ┌──────────────────────┐
+            │ Do you need to       │
+            │ filter by arrival?   │
+            └────────┬─────────────┘
+                    │
+                ┌───┴────┐
+               YES      NO
+                │        │
+                ▼        ▼
+            Add         Use current
+            ArrivalAirport/   criteria
+            DateTime
+                │        │
+                └──┬─────┘
+                   │
+                   ▼
+        ┌──────────────────────┐
+        │ Do you need inactive │
+        │ PNRs (past flights)? │
+        └────────┬─────────────┘
+                │
+            ┌───┴────────┐
+           YES           NO
+            │            │
+            ▼            ▼
+    SearchType=     SearchType=
+    "INACTIVE"      "ACTIVE"
+    or "BOTH"
+            │            │
+            └──┬─────────┘
+               │
+               ▼
+        REQUEST READY
+        (All parameters set)
+
+
+DIAGRAM 6: PHONE TYPE CODES
+═════════════════════════════════════════════════════════════════════════════
+
+PhoneType Attribute Values:
+
+    H ──────────────► Home Phone
+                     Residential number
+    
+    B ──────────────► Business Phone
+                     Office/work number
+    
+    M ──────────────► Mobile Phone
+                     Cell/mobile number
+    
+    O ──────────────► Other
+                     Unspecified or other type
+
+
+DIAGRAM 7: COMMON ERROR SCENARIOS AND SOLUTIONS
+═════════════════════════════════════════════════════════════════════════════
+
+ERROR SITUATION                  ↓ CAUSE                      ↓ SOLUTION
+─────────────────────────────────────────────────────────────────────────────
+
+No results returned            Missing or incorrect        Add DepartureAirport
+(0 PNRs)                      search criteria              Use date range (not exact)
+                              Flight doesn't exist         Verify airline code
+                              Wrong airline code           Check booking exists
+
+"No primary criteria           FlightCriteria not         Ensure ALL required:
+  specified" error             properly formed             • FlightNumber
+                              Missing required fields      • DepartureDateTime
+                                                          • AirlineCode
+
+"Invalid datetime              Wrong date format          Use ISO 8601:
+  format" error                Not YYYY-MM-DDThh:mm:ss    YYYY-MM-DDThh:mm:ss
+
+"Max PNRs exceeded"           Search too broad            Add DepartureAirport
+(800+ results)                Many flights same day       Narrow date range
+                              Too generic criteria        Use pagination/async
+
+"Access denied"               Not authorized for         Contact Sabre
+                              this airline               Verify credentials
+                              User permissions           Check airline code
+
+Response timeout              Too many results           Narrow criteria more
+(> 20 seconds)                Query taking too long      Try different approach
+
+"Airline code mismatch"       FlightCriteria ≠           Ensure both use
+                              PosCriteria                same airline code
+
+
+DIAGRAM 8: VIEW SELECTION MATRIX
+═════════════════════════════════════════════════════════════════════════════
+
+YOUR USE CASE: Get Passengers + Phone Numbers
+
+SELECTED VIEW: TripSearchBasic
+─────────────────────────────
+
+            ┌──────────────────────────────────────────┐
+            │         TripSearchBasic View             │
+            ├──────────────────────────────────────────┤
+            │ Default Subject Areas:                   │
+            │ ✓ HEADER     (PNR locator & dates)      │
+            │ ✓ NAME       (Passenger names) ★       │
+            │ ✓ PHONE      (Phone numbers) ★          │
+            │ ✓ PASSENGERDETAILS (Details) ★          │
+            │                                          │
+            │ Response Size: Lightweight               │
+            │ Response Time: Fast (< 2 sec)           │
+            │ Perfect For: Your use case               │
+            └──────────────────────────────────────────┘
+
+ALTERNATIVE VIEWS (if needed):
+
+TripSearchBlob
+├─ Pros: More detailed data, custom subject areas
+├─ Cons: Larger response, slower
+└─ Use: If you need itinerary/ticketing info
+
+FlightSearch
+├─ Pros: Optimized for flight-based searches
+├─ Cons: More overhead
+└─ Use: If searching multiple flights frequently
+
+
+DIAGRAM 9: ISO 8601 DATETIME FORMAT
+═════════════════════════════════════════════════════════════════════════════
+
+Format: YYYY-MM-DDThh:mm:ss
+
+Example: 2016-12-20T07:00:00
+        │   │   │  │  │  │
+        │   │   │  │  │  └─ Seconds (00-59)
+        │   │   │  │  └──── Minutes (00-59)
+        │   │   │  └─────── Hours (00-23, 24-hour format)
+        │   │   └────────── Day of month (01-31)
+        │   └───────────── Month (01-12)
+        └────────────────── Year (4 digits)
+
+BREAKDOWN:
+  2016     = Year
+  12       = December (Month)
+  20       = Day
+  07:00:00 = 7:00 AM UTC
+
+Other Format Examples:
+  2016-12-25T14:30:45 = Dec 25, 2016, 2:30:45 PM UTC
+  2016-01-01T00:00:00 = Jan 1, 2016, Midnight UTC
+  2017-03-15T23:59:59 = Mar 15, 2017, 11:59:59 PM UTC
+
+
+DIAGRAM 10: TYPICAL RESPONSE TIME PERFORMANCE
+═════════════════════════════════════════════════════════════════════════════
+
+Typical Search Performance by Result Set Size:
+
+Results (# of PNRs)  │ Response Time │ Status
+─────────────────────┼───────────────┼──────────────────
+< 10                 │ < 1 second    │ Excellent
+10 - 50              │ 1-2 seconds   │ Good
+50 - 100             │ 2-3 seconds   │ Good
+100 - 300            │ 3-5 seconds   │ Acceptable
+300 - 500            │ 5-8 seconds   │ Acceptable
+500 - 800            │ 8-15 seconds  │ Slow
+> 800 (truncated)    │ n/a           │ Use async search
+
+Maximum Timeout: 20 seconds
+Recommended: Keep under 500 results for optimal performance
+
+
+DIAGRAM 11: AUTHENTICATION FLOW
+═════════════════════════════════════════════════════════════════════════════
+
+                    APPLICATION
+                        │
+                        │ 1. Get Credentials
+                        │    (username/password)
+                        ▼
+                  ┌──────────────┐
+                  │ AUTH REQUEST │
+                  │ (SOAP)       │
+                  └──────┬───────┘
+                         │
+                         │ 2. Authenticate
+                         ▼
+              ┌────────────────────┐
+              │ SABRE AUTH SERVICE │
+              │ (Validates creds)  │
+              └────────┬───────────┘
+                       │
+                       │ 3. Return Token
+                       ▼
+              ┌────────────────────┐
+              │ SOAP Response      │
+              │ SecurityToken="..." │
+              └────────┬───────────┘
+                       │
+                       │ 4. Save Token
+                       ▼
+              ┌────────────────────┐
+              │ Trip_SearchRQ      │
+              │ Request + Token    │
+              └────────┬───────────┘
+                       │
+                       │ 5. Search API
+                       ▼
+              ┌────────────────────┐
+              │ Trip_SearchRQ      │
+              │ SERVICE            │
+              │ (Validates token)  │
+              └────────┬───────────┘
+                       │
+                       │ 6. Response
+                       ▼
+              ┌────────────────────┐
+              │ Trip_SearchRS      │
+              │ With PNR data      │
+              └────────────────────┘
+
+ALL SUBSEQUENT REQUESTS require the SecurityToken in headers
+
+
+DIAGRAM 12: PASSENGER DATA MAPPING
+═════════════════════════════════════════════════════════════════════════════
+
+FROM API RESPONSE → TO YOUR APPLICATION OBJECTS:
+
+XML Response                                 Application Object
+─────────────────────────────────────────────────────────────────
+
+stl119:LastName                              passenger.lastName
+stl119:FirstName                             passenger.firstName
+stl119:Seat@SeatLocation                     passenger.seatNumber
+stl119:PhoneNumber                           passenger.phones[].number
+stl119:Phone@PhoneType                       passenger.phones[].type
+Reservation@Locator                          booking.pnrLocator
+stl119:RecordLocator                         booking.locator
+stl119:CreationTimestamp                     booking.createdDate
+stl119:UpdateTimestamp                       booking.lastUpdatedDate
+stl119:FlightNumber                          flight.flightNumber
+stl119:Airline                               flight.airlineCode
+stl119:DepartureAirport                      flight.departureAirport
+stl119:ArrivalAirport                        flight.arrivalAirport
+stl119:DepartureDateTime                     flight.departureTime
+stl119:ArrivalDateTime                       flight.arrivalTime
+stl119:ClassOfService                        flight.cabinClass
+
+
+═══════════════════════════════════════════════════════════════════════════════
+END OF VISUAL DIAGRAMS
+═══════════════════════════════════════════════════════════════════════════════

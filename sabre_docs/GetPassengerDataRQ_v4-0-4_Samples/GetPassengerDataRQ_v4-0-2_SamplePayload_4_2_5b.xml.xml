@@ -1,0 +1,266 @@
+<SamplePayloads>
+
+	<!--Request-->
+	<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sec="http://schemas.xmlsoap.org/ws/2002/12/secext" xmlns:mes="http://www.ebxml.org/namespaces/messageHeader" xmlns:v4="http://services.sabre.com/checkin/getPassengerData/v4"> 
+		<soapenv:Header> 
+			<eb:MessageHeader eb:id="" eb:version="1.0" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"> 
+				<eb:From> 
+					<eb:PartyId eb:type="URI">Client</eb:PartyId> 
+				</eb:From> 
+				<eb:To> 
+					<eb:PartyId eb:type="URI">Server</eb:PartyId> 
+				</eb:To> 
+				<eb:CPAId>IPCC</eb:CPAId> 
+				<eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId> 
+				<eb:Service>CKI</eb:Service> 
+				<eb:Action>GetPassengerDataRQ</eb:Action> 
+				<eb:MessageData> 
+					<eb:MessageId>mid:1</eb:MessageId> 
+					<eb:Timestamp>2008-03-03T12:45:52</eb:Timestamp> 
+				</eb:MessageData> 
+			</eb:MessageHeader> 
+			<wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"> 
+				<wsse:BinarySecurityToken EncodingType="wsse:Base64Binary" valueType="String">${#TestSuite#BST}</wsse:BinarySecurityToken> 
+			</wsse:Security> 
+		</soapenv:Header> 
+		<soapenv:Body> 
+			<v4:GetPassengerDataRQ validateCheckInRequirements="false" version="4.0.2" includeTimaticInfo="true"> 
+				<!--You have a CHOICE of the next 2 items at this level--> 
+				<ItineraryAndPassengerInfo> 
+					<Itinerary> 
+						<Airline>${#TestCase#PARTITION_NAME}</Airline> 
+						<Flight>${#TestCase#FLTNO}</Flight> 
+						<DepartureDate>${#TestCase#DEPDATE}</DepartureDate> 
+						<Origin>${#TestCase#DEPCITY}</Origin> 
+					</Itinerary> 
+					<PassengerList> 
+						<Passenger> 
+							<LastName>${#TestCase#LNAME}</LastName> 
+							<FirstName>${#TestCase#FNAME}</FirstName> 
+						</Passenger> 
+					</PassengerList> 
+				</ItineraryAndPassengerInfo> 
+				<Client>KIOSK</Client> 
+			</v4:GetPassengerDataRQ> 
+		</soapenv:Body> 
+	</soapenv:Envelope>
+
+	<!--Response-->
+
+
+	<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+		<soap-env:Header>
+			<eb:MessageHeader eb:version="1.0" soap-env:mustUnderstand="1" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader">
+				<eb:From>
+					<eb:PartyId eb:type="URI">Server</eb:PartyId>
+				</eb:From>
+				<eb:To>
+					<eb:PartyId eb:type="URI">Client</eb:PartyId>
+				</eb:To>
+				<eb:CPAId>IPCC</eb:CPAId>
+				<eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId>
+				<eb:Service>CKI</eb:Service>
+				<eb:Action>GetPassengerDataRS</eb:Action>
+				<eb:MessageData>
+					<eb:MessageId>947643262032370151</eb:MessageId>
+					<eb:Timestamp>2017-01-05T07:16:43</eb:Timestamp>
+					<eb:RefToMessageId>mid:1</eb:RefToMessageId>
+				</eb:MessageData>
+			</eb:MessageHeader>
+			<wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+				<wsse:BinarySecurityToken valueType="String" EncodingType="wsse:Base64Binary">Shared/IDL:IceSess\/SessMgr:1\.0.IDL/Common/!ICESMS\/ACPCRTC!ICESMSLB\/CRT.LB!-3321899793193564794!1173906!0</wsse:BinarySecurityToken>
+			</wsse:Security>
+		</soap-env:Header>
+		<soap-env:Body>
+			<ns3:GetPassengerDataRS xmlns:ns3="http://services.sabre.com/checkin/getPassengerData/v4" xmlns:ns2="http://services.sabre.com/STL/v3">
+				<PassengerDataResponseList>
+					<PassengerDataResponse>
+						<LineNumber>1</LineNumber>
+						<LastName>CHARLES</LastName>
+						<FirstName>JANE</FirstName>
+						<PassengerID>438D4F120001</PassengerID>
+						<PNRLocator nameAssociationID="1">OLBJTY</PNRLocator>
+						<BaggageRouteList>
+							<ns2:BaggageRoute>
+								<ns2:SegmentID>1</ns2:SegmentID>
+								<ns2:Airline>EY</ns2:Airline>
+								<ns2:Flight>11</ns2:Flight>
+								<ns2:BookingClass>Y</ns2:BookingClass>
+								<ns2:OperatingAirline>EY</ns2:OperatingAirline>
+								<ns2:OperatingFlight>11</ns2:OperatingFlight>
+								<ns2:Origin>AUH</ns2:Origin>
+								<ns2:Destination>LHR</ns2:Destination>
+								<ns2:DepartureDate>2017-01-04</ns2:DepartureDate>
+								<ns2:DepartureTime>02:20AM</ns2:DepartureTime>
+								<ns2:ArrivalDate>2017-01-04</ns2:ArrivalDate>
+								<ns2:ArrivalTime>06:40AM</ns2:ArrivalTime>
+								<ns2:SegmentStatus>HK</ns2:SegmentStatus>
+								<ns2:PassengerID>438D4F120001</ns2:PassengerID>
+								<ns2:LateCheckin>Y</ns2:LateCheckin>
+							</ns2:BaggageRoute>
+						</BaggageRouteList>
+						<PassengerItineraryList>
+							<PassengerItinerary>
+								<SegmentID>1</SegmentID>
+								<Airline>EY</Airline>
+								<Flight>11</Flight>
+								<BookingClass>Y</BookingClass>
+								<Origin>AUH</Origin>
+								<Destination>LHR</Destination>
+								<DepartureDate>2017-01-04</DepartureDate>
+								<AircraftType>388</AircraftType>
+								<Cabin>Y</Cabin>
+								<PassengerType>F</PassengerType>
+								<BagCount>0</BagCount>
+								<TotalBagWeightAndUnit>0</TotalBagWeightAndUnit>
+								<EditCodeList>
+									<ns2:EditCode>TIM</ns2:EditCode>
+									<ns2:EditCode>DOCS</ns2:EditCode>
+									<ns2:EditCode>DOCO</ns2:EditCode>
+									<ns2:EditCode>APP</ns2:EditCode>
+								</EditCodeList>
+							</PassengerItinerary>
+						</PassengerItineraryList>
+						<PassengerEditList>
+							<ns2:Edit name="TIM">
+								<ns2:EditCodeAttributeList>
+									<ns2:EditCodeAttribute name="StayType">
+										<ns2:Values>
+											<ns2:Value>VACATION</ns2:Value>
+										</ns2:Values>
+									</ns2:EditCodeAttribute>
+									<ns2:EditCodeAttribute name="DocumentType">
+										<ns2:Values>
+											<ns2:Value>PASSPORT NORMAL</ns2:Value>
+										</ns2:Values>
+									</ns2:EditCodeAttribute>
+									<ns2:EditCodeAttribute name="ResidencyDocumentType">
+										<ns2:Values>
+											<ns2:Value>RESIDENCEPERMIT</ns2:Value>
+										</ns2:Values>
+									</ns2:EditCodeAttribute>
+									<ns2:EditCodeAttribute name="ResidencyCountry">
+										<ns2:Values>
+											<ns2:Value>GB</ns2:Value>
+										</ns2:Values>
+									</ns2:EditCodeAttribute>
+									<ns2:EditCodeAttribute name="ReturnDate">
+										<ns2:Values>
+											<ns2:Value>29APR17</ns2:Value>
+										</ns2:Values>
+									</ns2:EditCodeAttribute>
+									<ns2:EditCodeAttribute name="VisaVerified">
+										<ns2:Values>
+											<ns2:Value>VISA VERIFIED</ns2:Value>
+										</ns2:Values>
+									</ns2:EditCodeAttribute>
+								</ns2:EditCodeAttributeList>
+							</ns2:Edit>
+						</PassengerEditList>
+						<FreeTextInfoList>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>UK</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>CLEARED</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>TIM</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>OK TO BOARD</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>TIM</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>GB OK TO BOARD</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>TIM</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>ST:VACATION  / DT:PASSPORT NORMAL  / RD:RESIDENCEPERMIT  / RC:GB  / DS:29APR17 / VV:VISA VERIFIED</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>DOCS</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>P/IN/123456789/IN/01JAN90/F/01JAN20/AA/SAVITHA</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>DOCO</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>US/V/12312/USA/10OCT10/US</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>DOCO</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>/K/12312///US</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>PCTC</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>CHARLES/US9853664200/WORK</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>APP</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>AE/0002/B-N/OK TO BOARD  WAIVED</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>APP</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>AE/0008/C-N/CANCELLED  WAIVED</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>APP</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>AE/0002/B-N/OK TO BOARD  WAIVED</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>APP</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>AE/0008/C-N/CANCELLED  WAIVED</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+							<ns2:FreeTextInfo>
+								<ns2:EditCode>APP</ns2:EditCode>
+								<ns2:TextLine>
+									<ns2:Text>AE/0002/B-N/OK TO BOARD  WAIVED</ns2:Text>
+								</ns2:TextLine>
+							</ns2:FreeTextInfo>
+						</FreeTextInfoList>
+						<TimaticInfoList>
+							<TimaticInfo timaticStatus="OK TO BOARD">
+								<TimaticCountryInfo timaticStatus="OK TO BOARD">
+									<Country countryName="UNITED KINGDOM" countryCode="GB"/>
+									<SectionInfo>
+										<SectionName>VISA</SectionName>
+										<SubSectionInfo>
+											<SubSectionName>WARNING</SubSectionName>
+											<SubSectionType>INFORMATION</SubSectionType>
+											<SubSectionText>PASSENGERS WITH AN "ENTRY CLEARANCE" THAT HAS THE OBSERVATION "INDEFINITE LEAVE TO ENTER THE UK": - MUST USE IT FOR THE FIRST TIME WITHIN THE VALIDITY DATES, FOLLOWING ENTRIES ARE ALLOWED AFTER THE EXPIRATION DATE; AND- MUST RETURN WITHIN TWO YEARS OF LAST DEPARTURE.</SubSectionText>
+										</SubSectionInfo>
+									</SectionInfo>
+								</TimaticCountryInfo>
+							</TimaticInfo>
+						</TimaticInfoList>
+					</PassengerDataResponse>
+				</PassengerDataResponseList>
+				<Result messageId="ID-ckivlc027-sabre-com-43850-1481823775266-4-4449300" timeStamp="2017-01-05T07:16:43.485Z">
+					<ns2:Status>Success</ns2:Status>
+					<ns2:CompletionStatus>Complete</ns2:CompletionStatus>
+					<ns2:System>ACS-BSO</ns2:System>
+				</Result>
+			</ns3:GetPassengerDataRS>
+		</soap-env:Body>
+	</soap-env:Envelope>
+
+</SamplePayloads>

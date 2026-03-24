@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+			xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+			xmlns:xsd1="http://webservices.sabre.com/triprecord" xmlns:tns="https://webservices.sabre.com/websvc"
+			xmlns:eb="http://www.ebxml.org/namespaces/messageHeader" xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+			targetNamespace="https://webservices.sabre.com/websvc">
+  <types>
+			<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+					<xsd:import namespace="http://schemas.xmlsoap.org/ws/2002/12/secext"
+							schemaLocation="wsse.xsd" />
+					<xsd:import namespace="http://www.ebxml.org/namespaces/messageHeader"
+							schemaLocation="msg-header-2_0.xsd" />
+
+					<xsd:import namespace="http://webservices.sabre.com/triprecord"
+							schemaLocation="ts/Trip_SearchRQRS_2.11.0.xsd" />
+
+					<xsd:import namespace="http://webservices.sabre.com/pnrbuilder/v1_19"
+							schemaLocation="stl/GetReservationSTLRS_1.19.0.xsd" />
+
+					<xsd:import namespace="http://services.sabre.com/res/or/v1_14"
+							schemaLocation="stl/OpenReservation.1.14.0.xsd" />
+			</xsd:schema>
+	</types>
+  <message name="TripSearchInput">
+			<part name="header" element="eb:MessageHeader" />
+			<part name="header2" element="wsse:Security" />
+			<part name="body" element="xsd1:Trip_SearchRQ" />
+	</message>
+  <message name="TripSearchOutput">
+			<part name="header" element="eb:MessageHeader" />
+			<part name="header2" element="wsse:Security" />
+			<part name="body" element="xsd1:Trip_SearchRS" />
+	</message>
+	<message name="CompressedTripSearchOutput">
+            <part name="header" element="eb:MessageHeader" />
+            <part name="header2" element="wsse:Security" />
+            <part name="body" element="xsd1:Message" />
+	</message>
+  <portType name="TripSearchPortType">
+			<operation name="TripSearchRQ">
+					<input message="tns:TripSearchInput" />
+					<output message="tns:TripSearchOutput" />
+			</operation>
+	</portType>
+    <portType name="CompressedTripSearchPortType">
+            <operation name="TripSearchRQ">
+                    <input message="tns:TripSearchInput" />
+                    <output message="tns:CompressedTripSearchOutput" />
+            </operation>
+	</portType>
+  <binding name="TripSearchSoapBinding" type="tns:TripSearchPortType">
+			<soap:binding style="document"
+					transport="http://schemas.xmlsoap.org/soap/http" />
+			<operation name="TripSearchRQ">
+					<soap:operation soapAction="STL" />
+					<input>
+							<soap:header message="tns:TripSearchInput" part="header"
+									use="literal" />
+							<soap:header message="tns:TripSearchInput" part="header2"
+									use="literal" />
+							<soap:body parts="body" use="literal" />
+					</input>
+					<output>
+							<soap:header message="tns:TripSearchOutput" part="header"
+									use="literal" />
+							<soap:header message="tns:TripSearchOutput" part="header2"
+									use="literal" />
+							<soap:body parts="body" use="literal" />
+					</output>
+			</operation>
+	</binding>
+  <binding name="CompressedTripSearchSoapBinding" type="tns:CompressedTripSearchPortType">
+                        <soap:binding style="document"
+                                        transport="http://schemas.xmlsoap.org/soap/http" />
+                        <operation name="TripSearchRQ">
+                                        <soap:operation soapAction="STL" />
+                                        <input>
+                                                        <soap:header message="tns:TripSearchInput" part="header"
+                                                                        use="literal" />
+                                                        <soap:header message="tns:TripSearchInput" part="header2"
+                                                                        use="literal" />
+                                                        <soap:body parts="body" use="literal" />
+                                        </input>
+                                        <output>
+                                                        <soap:header message="tns:CompressedTripSearchOutput" part="header"
+                                                                        use="literal" />
+                                                        <soap:header message="tns:CompressedTripSearchOutput" part="header2"
+                                                                        use="literal" />
+                                                        <soap:body parts="body" use="literal" />
+                                        </output>
+                        </operation>
+        </binding>
+  <service name="TripSearchRQService">
+			<port name="TripSearchPortType" binding="tns:TripSearchSoapBinding">
+					<soap:address location="http://usg.sabre.com/websvc" />
+			</port>
+			<port name="CompressedTripSearchPortType" binding="tns:CompressedTripSearchSoapBinding">
+					<soap:address location="http://usg.sabre.com/websvc" />
+			</port>
+	</service>
+</definitions>

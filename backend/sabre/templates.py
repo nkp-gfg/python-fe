@@ -69,7 +69,7 @@ FLIGHT_STATUS = """<?xml version="1.0" encoding="UTF-8"?>
                   xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
                   xmlns:v3="http://services.sabre.com/ACS/BSO/flightDetail/v3">
     <soapenv:Header>
-        <eb:MessageHeader soapenv:mustUnderstand="0">
+        <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
             <eb:From><eb:PartyId/></eb:From>
             <eb:To><eb:PartyId/></eb:To>
             <eb:CPAId>{cpaid}</eb:CPAId>
@@ -90,8 +90,11 @@ FLIGHT_STATUS = """<?xml version="1.0" encoding="UTF-8"?>
             <FlightInfo>
                 <Airline>{airline}</Airline>
                 <Flight>{flight_number}</Flight>
+                <DepartureDate>{departure_date}</DepartureDate>
                 <Origin>{origin}</Origin>
             </FlightInfo>
+            <Display><Type>R</Type></Display>
+            <Client>WEB</Client>
         </v3:ACS_FlightDetailRQ>
     </soapenv:Body>
 </soapenv:Envelope>"""
@@ -121,7 +124,7 @@ PASSENGER_LIST = """<?xml version="1.0" encoding="UTF-8"?>
     <soapenv:Body>
         <v4:GetPassengerListRQ version="4.0.0"
                                timeStamp="{timestamp}"
-                               messageID="MSG-000001"
+                               messageID="{message_id}"
                                serviceOption="Stateless">
             <v4:Itinerary>
                 <v4:Airline>{airline}</v4:Airline>
@@ -179,7 +182,8 @@ RESERVATION = """<?xml version="1.0" encoding="UTF-8"?>
                     <PosCriteria AirlineCode="{airline}"/>
                     <ReturnOptions ViewName="TripSearchBlob"
                                   ResponseFormat="STL"
-                                  SearchType="ACTIVE">
+                                  SearchType="ACTIVE"
+                                  MaxItemsReturned="800">
                         <SubjectAreas>
                             <SubjectArea>HEADER</SubjectArea>
                             <SubjectArea>NAME</SubjectArea>
@@ -190,6 +194,25 @@ RESERVATION = """<?xml version="1.0" encoding="UTF-8"?>
                             <SubjectArea>LOYALTY</SubjectArea>
                             <SubjectArea>FQTV</SubjectArea>
                             <SubjectArea>EXT_FQTV</SubjectArea>
+                            <SubjectArea>SSR</SubjectArea>
+                            <SubjectArea>OSI</SubjectArea>
+                            <SubjectArea>REMARKS</SubjectArea>
+                            <SubjectArea>ADDRESS</SubjectArea>
+                            <SubjectArea>EMAIL</SubjectArea>
+                            <SubjectArea>PHONE</SubjectArea>
+                            <SubjectArea>GROUP</SubjectArea>
+                            <SubjectArea>RECEIVED_FROM</SubjectArea>
+                            <SubjectArea>ACCOUNTING</SubjectArea>
+                            <SubjectArea>GENERAL_FACTS</SubjectArea>
+                            <SubjectArea>HISTORY</SubjectArea>
+                            <SubjectArea>PROFILE_INDEX</SubjectArea>
+                            <SubjectArea>OPTION_QUEUE</SubjectArea>
+                            <SubjectArea>QUEUE_PLACE</SubjectArea>
+                            <SubjectArea>SERVICE_INFORMATION</SubjectArea>
+                            <SubjectArea>DIVIDE</SubjectArea>
+                            <SubjectArea>ASSOCIATED_CONTENT</SubjectArea>
+                            <SubjectArea>ANCILLARY_SERVICES</SubjectArea>
+                            <SubjectArea>DELIVERY_ADDRESS</SubjectArea>
                         </SubjectAreas>
                     </ReturnOptions>
                 </ReservationReadRequest>
@@ -204,7 +227,7 @@ PASSENGER_DATA = """<?xml version="1.0" encoding="UTF-8"?>
                   xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
                   xmlns:v4="http://services.sabre.com/checkin/getPassengerData/v4">
     <soapenv:Header>
-        <eb:MessageHeader soapenv:mustUnderstand="0">
+        <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
             <eb:From><eb:PartyId/></eb:From>
             <eb:To><eb:PartyId/></eb:To>
             <eb:CPAId>{cpaid}</eb:CPAId>
@@ -223,22 +246,26 @@ PASSENGER_DATA = """<?xml version="1.0" encoding="UTF-8"?>
     <soapenv:Body>
         <v4:GetPassengerDataRQ version="4.0.4"
                                validateCheckInRequirements="true"
-                               includeTimaticInfo="true"
-                               timeStamp="{timestamp}"
-                               messageID="MSG-000001"
-                               serviceOption="Stateless">
-            <v4:Itinerary>
-                <v4:Airline>{airline}</v4:Airline>
-                <v4:Flight>{flight_number}</v4:Flight>
-                <v4:DepartureDate>{departure_date}</v4:DepartureDate>
-                <v4:Origin>{origin}</v4:Origin>
-            </v4:Itinerary>
-            <v4:PassengerList>
-                <v4:Passenger>
-                    <v4:LastName>{last_name}</v4:LastName>
-                    {pnr_element}
-                </v4:Passenger>
-            </v4:PassengerList>
+                               includeTimaticInfo="true">
+            <ItineraryAndPassengerInfo>
+                <Itinerary>
+                    <Airline>{airline}</Airline>
+                    <Flight>{flight_number}</Flight>
+                    <DepartureDate>{departure_date}</DepartureDate>
+                    <Origin>{origin}</Origin>
+                </Itinerary>
+                <PassengerList>
+                    <Passenger>
+                        <LastName>{last_name}</LastName>
+                        {first_name_element}
+                        {pnr_element}
+                    </Passenger>
+                </PassengerList>
+            </ItineraryAndPassengerInfo>
+            <AncillaryInfoList>
+                <ALLGroupCodes/>
+            </AncillaryInfoList>
+            <Client>WEB</Client>
         </v4:GetPassengerDataRQ>
     </soapenv:Body>
 </soapenv:Envelope>"""
@@ -246,10 +273,9 @@ PASSENGER_DATA = """<?xml version="1.0" encoding="UTF-8"?>
 TRIP_REPORT = """<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                   xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
-                  xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
-                  xmlns:v1="http://services.sabre.com/tripRecord/trip_Report/v1">
+                  xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
     <soapenv:Header>
-        <eb:MessageHeader soapenv:mustUnderstand="0">
+        <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
             <eb:From><eb:PartyId/></eb:From>
             <eb:To><eb:PartyId/></eb:To>
             <eb:CPAId>{cpaid}</eb:CPAId>
@@ -266,16 +292,56 @@ TRIP_REPORT = """<?xml version="1.0" encoding="UTF-8"?>
         </wsse:Security>
     </soapenv:Header>
     <soapenv:Body>
-        <v1:Trip_ReportsRQ Version="1.3.0"
-                           timeStamp="{timestamp}"
-                           messageID="MSG-000001">
-            <v1:FlightInfo>
-                <v1:Airline>{airline}</v1:Airline>
-                <v1:FlightNumber>{flight_number}</v1:FlightNumber>
-                <v1:DepartureDate>{departure_date}</v1:DepartureDate>
-                <v1:DepartureAirport>{origin}</v1:DepartureAirport>
-            </v1:FlightInfo>
-            <v1:ReportType>{report_type}</v1:ReportType>
-        </v1:Trip_ReportsRQ>
+        <Trip_ReportsRQ Version="1.3.0"
+                        xmlns="http://webservices.sabre.com/triprecord">
+            <Report>
+                <ReportName>{report_type}</ReportName>
+                <ReportFormat>X</ReportFormat>
+                <Criteria>
+                    <FlightCriteria>
+                        <AirlineCode>{airline}</AirlineCode>
+                        <FlightNumber>{flight_number}</FlightNumber>
+                        <DepartureAirport>{origin}</DepartureAirport>
+                        <DepartureDateTime>{departure_date}</DepartureDateTime>
+                    </FlightCriteria>
+                    <PosCriteria>{airline}</PosCriteria>
+                </Criteria>
+            </Report>
+        </Trip_ReportsRQ>
+    </soapenv:Body>
+</soapenv:Envelope>"""
+
+VERIFY_FLIGHT_DETAILS = """<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                  xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                  xmlns:v2="http://webservices.sabre.com/sabreXML/2011/10">
+    <soapenv:Header>
+        <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
+            <eb:From><eb:PartyId/></eb:From>
+            <eb:To><eb:PartyId/></eb:To>
+            <eb:CPAId>{cpaid}</eb:CPAId>
+            <eb:ConversationId>{conversation_id}</eb:ConversationId>
+            <eb:Service>VerifyFlightDetailsLLSRQ</eb:Service>
+            <eb:Action>VerifyFlightDetailsLLSRQ</eb:Action>
+            <eb:MessageData>
+                <eb:MessageId>{message_id}</eb:MessageId>
+                <eb:Timestamp>{timestamp}</eb:Timestamp>
+            </eb:MessageData>
+        </eb:MessageHeader>
+        <wsse:Security soapenv:mustUnderstand="0">
+            <wsse:BinarySecurityToken>{token}</wsse:BinarySecurityToken>
+        </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+        <v2:VerifyFlightDetailsRQ Version="2.0.1">
+            <v2:OriginDestinationInformation>
+                <v2:FlightSegment DepartureDateTime="{departure_datetime}">
+                    <v2:DestinationLocation LocationCode="{destination}"/>
+                    <v2:MarketingAirline Code="{airline}" FlightNumber="{flight_number}"/>
+                    <v2:OriginLocation LocationCode="{origin}"/>
+                </v2:FlightSegment>
+            </v2:OriginDestinationInformation>
+        </v2:VerifyFlightDetailsRQ>
     </soapenv:Body>
 </soapenv:Envelope>"""

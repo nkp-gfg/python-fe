@@ -7,7 +7,7 @@ Provides three modes of ingestion:
 """
 
 import asyncio
-import logging
+import structlog
 import uuid
 from datetime import date, datetime, timezone
 from typing import Literal
@@ -18,7 +18,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.feeder.runner import run_feeder
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["ingestion"])
 
 # ── In-process job store ──────────────────────────────────────────────────

@@ -260,6 +260,7 @@ export function BottomDetailPanel({
                 <TableHead className="py-1.5 px-2">#</TableHead>
                 <TableHead className="py-1.5 px-2">Name</TableHead>
                 <TableHead className="py-1.5 px-2">PNR</TableHead>
+                <TableHead className="py-1.5 px-2">Nat.</TableHead>
                 <TableHead className="py-1.5 px-2">Cabin</TableHead>
                 <TableHead className="py-1.5 px-2">Seat</TableHead>
                 <TableHead className="py-1.5 px-2">Status</TableHead>
@@ -286,6 +287,7 @@ export function BottomDetailPanel({
                     )}
                   </TableCell>
                   <TableCell className="py-1 px-2 font-mono text-muted-foreground">{p.pnr}</TableCell>
+                  <TableCell className="py-1 px-2 text-muted-foreground">{p.nationality || "—"}</TableCell>
                   <TableCell className="py-1 px-2">
                     <span className={cn(
                       "text-[10px] font-medium px-1.5 py-0.5 rounded",

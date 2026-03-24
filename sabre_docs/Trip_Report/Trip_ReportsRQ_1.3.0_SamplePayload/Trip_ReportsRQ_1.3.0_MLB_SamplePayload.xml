@@ -1,0 +1,15 @@
+<Trip_ReportsRQ Version="1.3.0" xmlns="http://webservices.sabre.com/triprecord">
+	<Report>
+		<ReportName>MLB</ReportName>
+		<ReportFormat>B</ReportFormat> 
+		<Criteria>
+			<FlightCriteria>
+				<AirlineCode>LA</AirlineCode>
+				<FlightNumber>639</FlightNumber>
+				<DepartureDateTime>2018-12-06</DepartureDateTime>
+				<ClassOfService>B</ClassOfService>
+			</FlightCriteria>
+			<PosCriteria>LA</PosCriteria>
+		</Criteria>
+	</Report>
+</Trip_ReportsRQ>

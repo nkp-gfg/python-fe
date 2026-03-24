@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="http://webservices.sabre.com/triprecord" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	targetNamespace="http://webservices.sabre.com/triprecord" elementFormDefault="qualified">
+
+	<xs:element name="Message" type="MessageType" />
+
+	<xs:complexType name="MessageType">
+		<xs:simpleContent>
+			<xs:extension base="xs:string">
+				<xs:attribute name="Version" type="xs:string" use="optional" />
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+
+</xs:schema>

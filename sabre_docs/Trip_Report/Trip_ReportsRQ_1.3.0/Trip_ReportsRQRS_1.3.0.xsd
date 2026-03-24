@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8" ?> 
+ <schema targetNamespace="http://webservices.sabre.com/triprecord" xmlns:tns="http://webservices.sabre.com/triprecord" xmlns="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+  <include schemaLocation="Trip_ReportsRQ_1.3.0.xsd" /> 
+  <include schemaLocation="Trip_ReportsRS_1.3.0.xsd" /> 
+  </schema>

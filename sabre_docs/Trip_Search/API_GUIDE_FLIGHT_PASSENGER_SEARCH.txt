@@ -1,0 +1,602 @@
+================================================================================
+API GUIDE: TRIP_SEARCHRQ SERVICE FOR PASSENGER AND PHONE NUMBER RETRIEVAL
+BY FLIGHT DETAILS
+================================================================================
+
+DOCUMENT VERSION: 1.0
+DATE: January 28, 2026
+SERVICE: Trip_SearchRQ v4.5.0 by Sabre
+PURPOSE: Retrieve passenger list with phone numbers for a specific flight
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The Trip_SearchRQ v4.5.0 web service allows you to search for PNRs (Passenger 
+Name Records) and retrieve passenger information including contact details by 
+providing flight-specific search criteria.
+
+Your requirement:
+  INPUT:  Flight Number, Flight Date (Departure DateTime), Airline Code
+  OUTPUT: List of Passengers with their Phone Numbers
+
+This document provides:
+  ✓ The API endpoint to call
+  ✓ Request structure and sample
+  ✓ Response structure and sample
+  ✓ Implementation guidance
+
+================================================================================
+2. API ENDPOINT
+================================================================================
+
+SERVICE NAME:      TripSearchRQ
+BINDING:           TripSearchSoapBinding
+OPERATION:         TripSearchRQ
+PROTOCOL:          SOAP over HTTP/HTTPS
+ENDPOINT URL:      http://usg.sabre.com/websvc
+
+WSDL FILE:         Trip_SearchRQ_4.5.0.wsdl
+
+Note: The actual endpoint URL may differ based on your Sabre environment 
+      (Production vs Test). Contact your Sabre representative for the exact URL.
+
+================================================================================
+3. REQUEST STRUCTURE
+================================================================================
+
+ROOT ELEMENT:      Trip_SearchRQ
+VERSION:           4.5.0
+REQUIRED ELEMENTS:
+  - Version attribute (must be "4.5.0")
+  - ReadRequests/ReservationReadRequest
+  - FlightCriteria (with flight details)
+  - PosCriteria (with airline code)
+  - ReturnOptions (with view name and response format)
+
+RECOMMENDED CONFIGURATION FOR YOUR USE CASE:
+
+Search Criteria:
+  • FlightCriteria (PRIMARY CRITERIA)
+    - FlightNumber: Required - the flight number you're searching for
+    - DepartureDateTime: Required - date/time of flight departure
+    - AirlineCode: Required - IATA/ICAO airline code (e.g., EY, AA, BA)
+    - DepartureAirport: Recommended - departure airport code (e.g., JFK, LHR)
+
+View Selection:
+  • ViewName: "TripSearchBasic" or "TripSearchBlob" (RECOMMENDED)
+    
+    Why TripSearchBasic:
+      - Default Subject Areas: HEADER, NAME, PHONE, PASSENGERDETAILS
+      - Includes passenger names and phone numbers automatically
+      - Lightweight response
+      - Perfect for your use case
+      
+    Alternative: TripSearchBlob
+      - More comprehensive data
+      - Requires explicit SubjectAreas specification
+      - Better if you need additional PNR details
+
+Response Format:
+  • ResponseFormat: "STL" (STL v1.19.0 - the only format supported)
+
+Other Parameters:
+  • MaxItemsReturned: 800 (default max per API limitation in v4.5.0)
+  • SearchType: "ACTIVE" (for current/active bookings)
+
+================================================================================
+4. REQUEST SAMPLE FOR YOUR USE CASE
+================================================================================
+
+Scenario: 
+  Find all passengers traveling on Etihad Airways flight ET0001 departing 
+  from JFK on December 20, 2016 at 07:00 UTC, including their phone numbers.
+
+REQUEST XML:
+============
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Trip_SearchRQ Version="4.5.0" 
+               xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+               xmlns="http://webservices.sabre.com/triprecord">
+    <ReadRequests>
+        <ReservationReadRequest>
+            <FlightCriteria>
+                <Flight>
+                    <FlightNumber>0001</FlightNumber>
+                    <DepartureAirport>JFK</DepartureAirport>
+                    <DepartureDateTime Is="2016-12-20T07:00:00"/>
+                    <AirlineCode>ET</AirlineCode>
+                </Flight>
+            </FlightCriteria>
+            <PosCriteria AirlineCode="ET"/>
+            <ReturnOptions ViewName="TripSearchBasic" 
+                          MaxItemsReturned="800" 
+                          ResponseFormat="STL"
+                          SearchType="ACTIVE"/>
+        </ReservationReadRequest>
+    </ReadRequests>
+</Trip_SearchRQ>
+
+KEY REQUEST ELEMENTS EXPLAINED:
+================================
+
+1. FlightCriteria - PRIMARY SEARCH CRITERIA
+   ├─ FlightNumber: "0001"
+   │  └─ The actual flight number (e.g., 001, 0001, 1234, etc.)
+   │
+   ├─ DepartureAirport: "JFK"
+   │  └─ IATA code of departure airport (optional but recommended)
+   │
+   ├─ DepartureDateTime: Is="2016-12-20T07:00:00"
+   │  └─ ISO 8601 format: YYYY-MM-DDThh:mm:ss
+   │  └─ 'Is' attribute for exact match
+   │  └─ Alternative: Use 'After' and 'Before' for time ranges
+   │     Example: After="2016-12-20T06:00:00" Before="2016-12-20T08:00:00"
+   │
+   └─ AirlineCode: "ET"
+      └─ IATA/ICAO airline code (2-letter or 3-letter)
+
+2. PosCriteria - POSITION CRITERIA
+   └─ AirlineCode="ET"
+      └─ Specifies which airline partition to search
+      └─ Must match the airline code in FlightCriteria
+
+3. ReturnOptions - RESPONSE CONFIGURATION
+   ├─ ViewName="TripSearchBasic"
+   │  └─ Returns HEADER, NAME, PHONE, PASSENGERDETAILS by default
+   │  └─ Perfect for your use case - includes phone numbers automatically
+   │
+   ├─ MaxItemsReturned="800"
+   │  └─ Maximum number of PNRs to return (800 is the hard limit in v4.5.0)
+   │
+   ├─ ResponseFormat="STL"
+   │  └─ Returns response in STL (Sabre Trip Library) v1.19.0 format
+   │
+   └─ SearchType="ACTIVE"
+      └─ "ACTIVE" = current/future bookings
+      └─ "INACTIVE" = past/expired bookings
+      └─ "BOTH" = both active and inactive
+
+================================================================================
+5. RESPONSE STRUCTURE AND SAMPLE
+================================================================================
+
+RESPONSE ROOT ELEMENT:  Trip_SearchRS
+VERSION:               4.5.0
+FORMAT:                STL v1.19.0
+
+KEY RESPONSE ELEMENTS:
+  - Success: Indicates if request was processed successfully
+  - Errors: (if any) Error codes and messages
+  - ReservationsList: Container for all matching PNRs
+    ├─ NumberResults: Number of PNRs in this response
+    ├─ TotalResults: Total number of matching PNRs
+    ├─ NumberPages: Number of pages (for pagination if needed)
+    └─ Reservations: List of PNR records
+       └─ Reservation (repeating): Individual PNR record
+          ├─ Locator: PNR record locator (6-character code)
+          └─ stl119:GetReservationRS: Detailed PNR data
+             └─ stl119:Reservation: Passenger and booking details
+                ├─ PassengerReservation: Passengers
+                │  ├─ Passengers: List of passengers
+                │  │  └─ Passenger: Individual passenger record
+                │  │     ├─ LastName
+                │  │     ├─ FirstName
+                │  │     └─ (other passenger details)
+                │  ├─ Segments: Flight segments (if requested)
+                │  ├─ TicketingInfo: Ticketing information
+                │  └─ (other reservation data)
+                ├─ BookingDetails: PNR header information
+                ├─ POS: Point of Sale information
+                └─ (other reservation details)
+
+RESPONSE SAMPLE:
+================
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord" 
+               xmlns:ns2="http://services.sabre.com/STL/v01" 
+               xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" 
+               xmlns:ns3="http://webservices.sabre.com/pnrbuilder" 
+               xmlns:stl119="http://webservices.sabre.com/pnrbuilder/v1_19" 
+               TimeStamp="2016-12-20T08:39:35" 
+               Target="Production" 
+               Version="4.5.0">
+    <Success>Success</Success>
+    <ReservationsList NumberResults="2" NumberPages="1" TotalResults="2">
+        <Reservations>
+            <!-- FIRST PNR RECORD -->
+            <Reservation Locator="FZVBDK">
+                <stl119:GetReservationRS Version="1.19.0">
+                    <stl119:Reservation numberInParty="2" numberOfInfants="0">
+                        <!-- BOOKING HEADER DETAILS -->
+                        <stl119:BookingDetails>
+                            <stl119:RecordLocator>FZVBDK</stl119:RecordLocator>
+                            <stl119:CreationTimestamp>2016-12-01T10:15:00</stl119:CreationTimestamp>
+                            <stl119:UpdateTimestamp>2016-12-10T14:20:30</stl119:UpdateTimestamp>
+                            <stl119:PNRSequence>3</stl119:PNRSequence>
+                        </stl119:BookingDetails>
+                        
+                        <!-- POINT OF SALE INFORMATION -->
+                        <stl119:POS>
+                            <stl119:Source PseudoCityCode="JFK1" 
+                                          AirlineVendorID="ET" 
+                                          ISOCountry="US"/>
+                        </stl119:POS>
+                        
+                        <!-- PASSENGER AND RESERVATION DETAILS -->
+                        <stl119:PassengerReservation>
+                            <!-- PASSENGER LIST -->
+                            <stl119:Passengers>
+                                <!-- PASSENGER 1 -->
+                                <stl119:Passenger id="1" nameType="S" nameId="01.01">
+                                    <stl119:LastName>SMITH</stl119:LastName>
+                                    <stl119:FirstName>JOHN MR</stl119:FirstName>
+                                    <stl119:Seats>
+                                        <stl119:Seat SeatLocation="12A"/>
+                                    </stl119:Seats>
+                                </stl119:Passenger>
+                                
+                                <!-- PASSENGER 2 -->
+                                <stl119:Passenger id="2" nameType="S" nameId="02.01">
+                                    <stl119:LastName>SMITH</stl119:LastName>
+                                    <stl119:FirstName>JANE MRS</stl119:FirstName>
+                                    <stl119:Seats>
+                                        <stl119:Seat SeatLocation="12B"/>
+                                    </stl119:Seats>
+                                </stl119:Passenger>
+                            </stl119:Passengers>
+                            
+                            <!-- FLIGHT SEGMENTS (if requested) -->
+                            <stl119:Segments>
+                                <stl119:Segment id="A" segmentType="Air">
+                                    <stl119:FlightDetails>
+                                        <stl119:Airline>ET</stl119:Airline>
+                                        <stl119:FlightNumber>0001</stl119:FlightNumber>
+                                        <stl119:DepartureAirport>JFK</stl119:DepartureAirport>
+                                        <stl119:ArrivalAirport>AUH</stl119:ArrivalAirport>
+                                        <stl119:DepartureDateTime>2016-12-20T07:00:00</stl119:DepartureDateTime>
+                                        <stl119:ArrivalDateTime>2016-12-21T03:30:00</stl119:ArrivalDateTime>
+                                    </stl119:FlightDetails>
+                                </stl119:Segment>
+                            </stl119:Segments>
+                        </stl119:PassengerReservation>
+                        
+                        <!-- PHONE NUMBERS -->
+                        <!-- NOTE: Phone numbers are included when using TripSearchBasic view -->
+                        <stl119:CustomerContact>
+                            <stl119:Phone>
+                                <stl119:PhoneNumber>2125551234</stl119:PhoneNumber>
+                                <stl119:PhoneType>H</stl119:PhoneType>
+                            </stl119:Phone>
+                            <stl119:Phone>
+                                <stl119:PhoneNumber>9175559999</stl119:PhoneNumber>
+                                <stl119:PhoneType>B</stl119:PhoneType>
+                            </stl119:Phone>
+                        </stl119:CustomerContact>
+                    </stl119:Reservation>
+                </stl119:GetReservationRS>
+            </Reservation>
+            
+            <!-- SECOND PNR RECORD -->
+            <Reservation Locator="ABC1234">
+                <stl119:GetReservationRS Version="1.19.0">
+                    <stl119:Reservation numberInParty="1" numberOfInfants="0">
+                        <stl119:BookingDetails>
+                            <stl119:RecordLocator>ABC1234</stl119:RecordLocator>
+                            <stl119:CreationTimestamp>2016-12-05T14:45:00</stl119:CreationTimestamp>
+                            <stl119:UpdateTimestamp>2016-12-05T14:50:15</stl119:UpdateTimestamp>
+                            <stl119:PNRSequence>2</stl119:PNRSequence>
+                        </stl119:BookingDetails>
+                        
+                        <stl119:POS>
+                            <stl119:Source PseudoCityCode="LHR2" 
+                                          AirlineVendorID="ET" 
+                                          ISOCountry="GB"/>
+                        </stl119:POS>
+                        
+                        <stl119:PassengerReservation>
+                            <stl119:Passengers>
+                                <stl119:Passenger id="1" nameType="S" nameId="01.01">
+                                    <stl119:LastName>JOHNSON</stl119:LastName>
+                                    <stl119:FirstName>ROBERT MR</stl119:FirstName>
+                                    <stl119:Seats>
+                                        <stl119:Seat SeatLocation="14C"/>
+                                    </stl119:Seats>
+                                </stl119:Passenger>
+                            </stl119:Passengers>
+                            
+                            <stl119:Segments>
+                                <stl119:Segment id="A" segmentType="Air">
+                                    <stl119:FlightDetails>
+                                        <stl119:Airline>ET</stl119:Airline>
+                                        <stl119:FlightNumber>0001</stl119:FlightNumber>
+                                        <stl119:DepartureAirport>JFK</stl119:DepartureAirport>
+                                        <stl119:ArrivalAirport>AUH</stl119:ArrivalAirport>
+                                        <stl119:DepartureDateTime>2016-12-20T07:00:00</stl119:DepartureDateTime>
+                                        <stl119:ArrivalDateTime>2016-12-21T03:30:00</stl119:ArrivalDateTime>
+                                    </stl119:FlightDetails>
+                                </stl119:Segment>
+                            </stl119:Segments>
+                        </stl119:PassengerReservation>
+                        
+                        <stl119:CustomerContact>
+                            <stl119:Phone>
+                                <stl119:PhoneNumber>4415559876</stl119:PhoneNumber>
+                                <stl119:PhoneType>M</stl119:PhoneType>
+                            </stl119:Phone>
+                        </stl119:CustomerContact>
+                    </stl119:Reservation>
+                </stl119:GetReservationRS>
+            </Reservation>
+        </Reservations>
+    </ReservationsList>
+</Trip_SearchRS>
+
+================================================================================
+6. HOW TO PARSE THE RESPONSE FOR YOUR NEEDS
+================================================================================
+
+To extract passenger list with phone numbers from the response:
+
+PSEUDO CODE:
+============
+
+For each Reservation in Trip_SearchRS/ReservationsList/Reservations:
+  1. Extract PNR Locator: Reservation/@Locator
+  
+  2. For each Passenger in Reservation/stl119:GetReservationRS/stl119:Reservation/
+                          stl119:PassengerReservation/stl119:Passengers/stl119:Passenger:
+     a. Extract Last Name: stl119:LastName
+     b. Extract First Name: stl119:FirstName
+     c. Extract Seat: stl119:Seats/stl119:Seat/@SeatLocation
+  
+  3. For each Phone in Reservation/stl119:GetReservationRS/stl119:Reservation/
+                        stl119:CustomerContact/stl119:Phone:
+     a. Extract Phone Number: stl119:PhoneNumber
+     b. Extract Phone Type: stl119:PhoneType
+        - H = Home
+        - B = Business
+        - M = Mobile
+        - O = Other
+
+RESULT DATASET:
+===============
+Your application should structure the output as:
+
+PNR_Locator | Last_Name | First_Name | Seat | Phone_Number | Phone_Type
+-----------+----------+----------+-----+------------------+----------
+FZVBDK     | SMITH    | JOHN MR  | 12A | 2125551234      | H
+FZVBDK     | SMITH    | JOHN MR  | 12A | 9175559999      | B
+FZVBDK     | SMITH    | JANE MRS | 12B | (inherited)     | (inherited)
+ABC1234    | JOHNSON  | ROBERT MR| 14C | 4415559876      | M
+
+================================================================================
+7. ALTERNATIVE VIEWS FOR YOUR USE CASE
+================================================================================
+
+If TripSearchBasic doesn't meet your needs, consider these alternatives:
+
+VIEW: TripSearchBlob
+--------------------
+Advantages:
+  - More comprehensive PNR data
+  - Allows custom SubjectAreas
+  - Includes segment and ticketing info
+
+Required Changes:
+  <ReturnOptions ViewName="TripSearchBlob" 
+                MaxItemsReturned="800" 
+                ResponseFormat="STL"
+                SearchType="ACTIVE">
+      <SubjectAreas>
+          <SubjectArea>HEADER</SubjectArea>
+          <SubjectArea>NAME</SubjectArea>
+          <SubjectArea>PHONE</SubjectArea>
+          <SubjectArea>PASSENGERDETAILS</SubjectArea>
+          <SubjectArea>ITINERARY</SubjectArea>
+      </SubjectAreas>
+  </ReturnOptions>
+
+VIEW: FlightSearch
+-------------------
+Advantages:
+  - Optimized specifically for flight-based searches
+  - Supports historical flight data
+  - Allows custom SubjectAreas
+
+Use Case:
+  If you need to search for both active and past flights, or need additional
+  flight-related filtering options.
+
+Required Changes:
+  <ReturnOptions ViewName="FlightSearch" ... />
+
+================================================================================
+8. REQUIRED HEADERS AND AUTHENTICATION
+================================================================================
+
+SOAP HEADERS (Required in actual implementation):
+
+1. MessageHeader (ebxml)
+   Elements:
+   - Action: Must be present
+   - MessageData: Include MessageId, Timestamp
+   - PartyInfo: Include From and To information
+
+2. Security (WS-Security)
+   Elements:
+   - BinarySecurityToken: Authentication token from Sabre session
+
+NOTE: Your SOAP client will typically handle these automatically when 
+      authenticated with Sabre.
+
+================================================================================
+9. IMPORTANT CONSIDERATIONS AND LIMITATIONS
+================================================================================
+
+MAXIMUM RESULTS LIMIT:
+  - Hard limit in v4.5.0 = 800 PNRs per request
+  - If your search returns more results, use asynchronous search option
+  - Contact Sabre to enable asynchronous search capability
+
+DATE/TIME FORMAT:
+  - Must use ISO 8601 format: YYYY-MM-DDThh:mm:ss
+  - Times are in UTC (Z suffix can be omitted)
+  - Time is optional for date-only searches
+
+FLIGHT NUMBER FORMAT:
+  - Can be 1-4 digits: "1", "01", "001", "0001" are all valid
+  - Leading zeros may be included in response
+  - Search is case-insensitive
+
+AIRLINE CODE FORMAT:
+  - IATA code: 2 letters (e.g., EY, AA, BA)
+  - ICAO code: 3 letters (e.g., ETH, AAL, BAW)
+  - Check with Sabre for your specific airline code format
+
+PHONE NUMBER HANDLING:
+  - Only numeric digits are stored (other characters removed)
+  - Search is numeric-only
+  - Response includes full phone number with formatting
+
+ACCESS RIGHTS:
+  - Must be authorized to search for the specific airline
+  - Users can only access data they have permission to view
+  - Branch access rules may apply (for TN users)
+
+RESPONSE TIME:
+  - Typical response time: < 5 seconds for single flight
+  - Timeout: 20 seconds maximum
+  - Large result sets may timeout (use asynchronous search)
+
+================================================================================
+10. ERROR HANDLING
+================================================================================
+
+COMMON ERRORS AND SOLUTIONS:
+
+Error: "There is no primary criteria specified"
+  Cause: Missing FlightCriteria, FlightNumber, DepartureDateTime, or AirlineCode
+  Solution: Ensure all required flight criteria elements are included
+
+Error: "Max number of requested PNRs exceeded view limit [800]"
+  Cause: Search returned more than 800 results
+  Solution: 
+    - Narrow your search criteria (add more filters)
+    - Use asynchronous search (contact Sabre)
+    - Check if view supports requested limits
+
+Error: "Invalid airline code"
+  Cause: AirlineCode in FlightCriteria doesn't match PosCriteria
+  Solution: Ensure both use the same airline code format
+
+Error: "Access denied for user"
+  Cause: Not authorized to search this airline
+  Solution: Contact your Sabre administrator
+
+Error: "Invalid date format"
+  Cause: DateTime not in ISO 8601 format
+  Solution: Use format: YYYY-MM-DDThh:mm:ss
+
+================================================================================
+11. TESTING YOUR IMPLEMENTATION
+================================================================================
+
+STEPS TO TEST:
+
+1. Verify XML is well-formed
+   - Use an XML validator
+   - Check namespace declarations are correct
+
+2. Test with Sabre's TEST environment first
+   - Use Target="Test" in request
+   - Confirm credentials are for test system
+
+3. Validate response XML structure
+   - Check for Success element
+   - Verify ReservationsList has NumberResults > 0
+   - Confirm Passenger data is populated
+
+4. Verify phone number extraction
+   - Check stl119:CustomerContact/stl119:Phone elements
+   - Confirm PhoneNumber contains only digits
+   - Verify PhoneType is populated
+
+5. Performance testing
+   - Test with various date ranges
+   - Monitor response times
+   - Ensure timeout handling is in place
+
+================================================================================
+12. NEXT STEPS
+================================================================================
+
+1. SETUP:
+   □ Contact Sabre Technical Support
+   □ Get correct endpoint URL for your environment
+   □ Obtain/verify authentication credentials
+   □ Confirm airline code format
+
+2. DEVELOPMENT:
+   □ Review WSDL file (Trip_SearchRQ_4.5.0.wsdl)
+   □ Review XSD files (in ts/ subdirectory)
+   □ Choose SOAP client library for your platform
+   □ Implement request generation and response parsing
+
+3. TESTING:
+   □ Start with test environment
+   □ Use sample flight data from your test system
+   □ Verify response parsing
+   □ Test error scenarios
+
+4. DEPLOYMENT:
+   □ Switch to production endpoint
+   □ Verify production credentials
+   □ Implement proper error handling
+   □ Add logging and monitoring
+
+5. OPTIMIZATION (If needed):
+   □ Consider asynchronous search for large result sets
+   □ Implement caching where appropriate
+   □ Monitor API performance
+   □ Adjust search criteria for efficiency
+
+================================================================================
+13. REFERENCE DOCUMENTATION
+================================================================================
+
+Included Files in Your Package:
+  - Trip_Search_User_Guide.txt (Main reference documentation)
+  - Trip_Search_4.5.0-WSDL/Trip_SearchRQ_4.5.0.wsdl (API contract)
+  - Trip_Search_4.5.0-WSDL/ts/*.xsd (Schema files)
+  - Trip_Search_4.5.0-WSDL/stl/*.xsd (STL response schemas)
+  - Sample request/response files in Trip_SearchRQ-4.5.0-Samples/
+
+Key Sections in User Guide:
+  - Section 2.3: Primary and Secondary Search Criteria
+  - Section 2.5: Request and Response Structures
+  - Section 2.6: Views Available
+  - Section 3.17: Flight Details Search Criteria (your use case)
+  - Section 4: Complete Payload Samples
+
+================================================================================
+14. SUPPORT
+================================================================================
+
+For technical issues or clarifications, contact Sabre Technical Support:
+
+Telephone: [Reference provided in Trip_Search_User_Guide.txt section 7.1]
+Email:     [Reference provided in Trip_Search_User_Guide.txt section 7.2]
+
+Provide the following when contacting support:
+  - API version (4.5.0)
+  - Your business area (AS - Sabre Airlines, or TN - Sabre Travel Network)
+  - Specific error messages received
+  - Sample request that's failing
+  - Expected vs. actual results
+
+================================================================================
+END OF DOCUMENT
+================================================================================

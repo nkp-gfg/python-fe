@@ -1,0 +1,53 @@
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader" xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext" xmlns:cwsrqrs="http://services.sabre.com/checkin/getPassengerList/v4" xmlns:cws="http://checkinwebservice" name="CheckinWebService" targetNamespace="http://checkinwebservice">
+
+	<types>
+		<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+			<xsd:import namespace="http://services.sabre.com/checkin/getPassengerList/v4" schemaLocation="GetPassengerListRQRS_v4.xsd"/>
+			<xsd:import namespace="http://www.ebxml.org/namespaces/messageHeader" schemaLocation="msg-header-2_0.xsd"/>
+			<xsd:import namespace="http://schemas.xmlsoap.org/ws/2002/12/secext" schemaLocation="wsse.xsd"/>
+		</xsd:schema>
+	</types>
+
+	<message name="GetPassengerListInput">
+		<part name="header" element="eb:MessageHeader"/>
+		<part name="header2" element="wsse:Security"/>
+		<part name="body" element="cwsrqrs:GetPassengerListRQ"/>
+	</message>
+
+	<message name="GetPassengerListOutput">
+		<part name="header" element="eb:MessageHeader"/>
+		<part name="header2" element="wsse:Security"/>
+		<part name="body" element="cwsrqrs:GetPassengerListRS"/>
+	</message>
+
+	<portType name="GetPassengerListPortType">
+		<operation name="GetPassengerListRQ">
+			<input message="cws:GetPassengerListInput"/>
+			<output message="cws:GetPassengerListOutput"/>
+		</operation>
+	</portType>
+
+	<binding name="GetPassengerListSoapBinding" type="cws:GetPassengerListPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="GetPassengerListRQ">
+			<soap:operation soapAction="OTA"/>
+			<input>
+				<soap:header message="cws:GetPassengerListInput" part="header" use="literal"/>
+				<soap:header message="cws:GetPassengerListInput" part="header2" use="literal"/>
+				<soap:body parts="body" use="literal"/>
+			</input>
+			<output>
+				<soap:header message="cws:GetPassengerListOutput" part="header" use="literal"/>
+				<soap:header message="cws:GetPassengerListOutput" part="header2" use="literal"/>
+				<soap:body parts="body" use="literal"/>
+			</output>
+		</operation>
+	</binding>
+
+	<service name="GetPassengerListService">
+		<port name="GetPassengerListPortType" binding="cws:GetPassengerListSoapBinding">
+			<soap:address location="https://webservices.platform.sabre.com/websvc"/>
+		</port>
+	</service>
+
+</definitions>

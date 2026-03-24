@@ -62,6 +62,8 @@ export interface FlightListItem {
     economySouls: number;
     businessSouls: number;
   };
+  flightPhase?: FlightPhase;
+  publishedSchedule?: PublishedScheduleSummary | null;
   fetchedAt: string;
 }
 
@@ -115,6 +117,8 @@ export interface PassengerAnalysis {
     checkedIn: StateBucket;
     boarded: StateBucket;
   };
+  loyaltyCounts?: { FF: number; BLU: number; SLV: number; GLD: number; BLK: number };
+  nationalityCounts?: Record<string, number>;
 }
 
 export interface StateBucket {
@@ -220,13 +224,28 @@ export interface FlightDashboard {
   overview: OverviewSummary;
   dataIntegrity: DataIntegrity;
   fetchedAt: string;
+  flightPhase: FlightPhase;
   tree: FlightTree | null;
+  schedule: FlightSchedule | null;
   stateSummary: {
     booked: StateBucket;
     checkedIn: StateBucket;
     boarded: StateBucket;
     others: OthersSummary;
   };
+}
+
+// --- Flight Phase ---
+
+export type FlightPhaseCode = "SCHEDULED" | "CHECK_IN" | "BOARDING" | "CLOSED" | "DEPARTED";
+
+export interface FlightPhase {
+  phase: FlightPhaseCode;
+  label: string;
+  focusCard: "booked" | "checkedIn" | "boarded" | "others";
+  alertColor: "slate" | "blue" | "amber" | "red" | "green" | "gray";
+  alertIcon: string;
+  description: string;
 }
 
 // --- Sabre Ingestion API Types ---
@@ -324,6 +343,7 @@ export interface PassengerRecord {
   vcrType: string;
   ticketNumber: string;
   editCodes: string[];
+  nationality: string;
 }
 
 export interface PassengerListResponse {
@@ -572,6 +592,7 @@ export interface FlightStatusRecord {
   legs: { city: string; controllingCity: boolean; status: string }[];
   passengerCounts: Record<string, ClassCounts>;
   jumpSeat: JumpSeat;
+  remarks?: RemarkEntry[];
 }
 
 // --- Reservation Types ---
@@ -600,6 +621,33 @@ export interface ReservationSegment {
   status: string;
 }
 
+export interface SsrRequest {
+  code: string;
+  text: string;
+  status: string;
+  airline: string;
+  type: string;
+}
+
+export interface PhoneEntry {
+  number: string;
+  type: string;
+}
+
+export interface RemarkEntry {
+  type: string;
+  text: string;
+}
+
+export interface AncillaryService {
+  code: string;
+  status: string;
+  quantity: number;
+  emdNumber: string;
+  groupCode: string;
+  subGroupCode: string;
+}
+
 export interface Reservation {
   pnr: string;
   numberInParty: number;
@@ -609,6 +657,12 @@ export interface Reservation {
   passengers: ReservationPassenger[];
   segments: ReservationSegment[];
   tickets: { ticketNumber: string; eTicket: string }[];
+  ssrRequests?: SsrRequest[];
+  emails?: string[];
+  phones?: PhoneEntry[];
+  remarks?: RemarkEntry[];
+  ancillaryServices?: AncillaryService[];
+  receivedFrom?: string;
 }
 
 export interface ReservationsResponse {
@@ -619,4 +673,60 @@ export interface ReservationsResponse {
   fetchedAt: string;
   totalResults: number;
   reservations: Reservation[];
+}
+
+// --- Flight Schedule Types (from VerifyFlightDetailsLLSRQ) ---
+
+export interface ScheduleSegment {
+  departureDateTime: string;
+  arrivalDateTime: string;
+  origin: string;
+  originTerminal: string;
+  destination: string;
+  destinationTerminal: string;
+  aircraftType: string;
+  marketingAirline: string;
+  flightNumber: string;
+  airMilesFlown: number;
+  elapsedTime: string;
+  accumulatedElapsedTime: string;
+  mealCode: string;
+}
+
+export interface FlightSchedule {
+  airline: string;
+  flightNumber: string;
+  departureDate: string;
+  fetchedAt: string;
+  success: boolean;
+  error: string | null;
+  origin: string;
+  destination: string;
+  scheduledDeparture: string;
+  scheduledArrival: string;
+  aircraftType: string;
+  elapsedTime: string;
+  airMilesFlown: number;
+  originTerminal: string;
+  destinationTerminal: string;
+  originTimeZone: string;
+  destinationTimeZone: string;
+  mealCode: string;
+  segments: ScheduleSegment[];
+}
+
+export interface PublishedScheduleSummary {
+  origin: string;
+  destination: string;
+  scheduledDeparture: string;
+  scheduledArrival: string;
+  aircraftType: string;
+  elapsedTime: string;
+  airMilesFlown: number;
+}
+
+export interface ScheduleLookupRequest {
+  airline?: string;
+  flightNumber: string;
+  departureDate: string;
 }

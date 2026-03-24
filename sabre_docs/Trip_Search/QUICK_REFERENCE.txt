@@ -1,0 +1,465 @@
+═══════════════════════════════════════════════════════════════════════════════
+TRIP_SEARCHRQ API - QUICK REFERENCE GUIDE FOR YOUR USE CASE
+═══════════════════════════════════════════════════════════════════════════════
+
+YOUR REQUIREMENT:
+  Get list of passengers with phone numbers for a specific flight
+  
+  Input Parameters:
+    • Flight Number      (e.g., "0001", "288", "1234")
+    • Departure DateTime (e.g., "2016-12-20T07:00:00")
+    • Airline Code       (e.g., "ET", "AA", "BA")
+    
+  Expected Output:
+    • PNR Locator (6-character booking reference)
+    • Passenger Last Name
+    • Passenger First Name
+    • Passenger Seat
+    • Phone Number(s) with type indicators
+
+═══════════════════════════════════════════════════════════════════════════════
+1. WHICH API TO USE
+═══════════════════════════════════════════════════════════════════════════════
+
+API SERVICE:  Trip_SearchRQ
+VERSION:      4.5.0 (latest)
+PROTOCOL:     SOAP over HTTP/HTTPS
+BINDING:      TripSearchSoapBinding
+OPERATION:    TripSearchRQ
+ENDPOINT:     http://usg.sabre.com/websvc (check with Sabre for exact URL)
+
+═══════════════════════════════════════════════════════════════════════════════
+2. WHICH VIEW/FORMAT TO USE
+═══════════════════════════════════════════════════════════════════════════════
+
+RECOMMENDED VIEW:  TripSearchBasic
+───────────────────────────────────
+✓ Includes passenger names by default
+✓ Includes phone numbers by default  
+✓ Lightweight response
+✓ Perfect for your use case
+✓ Default subject areas: HEADER, NAME, PHONE, PASSENGERDETAILS
+
+RESPONSE FORMAT:  STL (v1.19.0)
+─────────────────────────────────
+✓ Only format supported by Trip_SearchRQ v4.5.0
+✓ XML-based Sabre Trip Library format
+✓ Provides comprehensive PNR data
+
+═══════════════════════════════════════════════════════════════════════════════
+3. MINIMAL REQUIRED REQUEST STRUCTURE
+═══════════════════════════════════════════════════════════════════════════════
+
+<Trip_SearchRQ Version="4.5.0" xmlns="http://webservices.sabre.com/triprecord">
+    <ReadRequests>
+        <ReservationReadRequest>
+            
+            <!-- PRIMARY CRITERIA: Flight Information -->
+            <FlightCriteria>
+                <Flight>
+                    <FlightNumber>0001</FlightNumber>
+                    <DepartureDateTime Is="2016-12-20T07:00:00"/>
+                    <AirlineCode>ET</AirlineCode>
+                </Flight>
+            </FlightCriteria>
+            
+            <!-- REQUIRED: Specify which airline partition -->
+            <PosCriteria AirlineCode="ET"/>
+            
+            <!-- REQUIRED: Return options -->
+            <ReturnOptions ViewName="TripSearchBasic" 
+                          ResponseFormat="STL"
+                          SearchType="ACTIVE"/>
+            
+        </ReservationReadRequest>
+    </ReadRequests>
+</Trip_SearchRQ>
+
+═══════════════════════════════════════════════════════════════════════════════
+4. OPTIONAL PARAMETERS FOR YOUR REQUEST
+═══════════════════════════════════════════════════════════════════════════════
+
+PARAMETER                      DESCRIPTION                      EXAMPLE
+─────────────────────────────────────────────────────────────────────────────
+
+DepartureAirport              Add to narrow results              <DepartureAirport>JFK</DepartureAirport>
+(in FlightCriteria)           Recommended for accuracy           
+
+ArrivalAirport                Further narrow results             <ArrivalAirport>AUH</ArrivalAirport>
+(in FlightCriteria)           
+
+DepartureDateTime             Use time ranges instead of         <DepartureDateTime 
+Using After/Before            exact time matching                After="2016-12-20T06:00:00"
+(in FlightCriteria)                                              Before="2016-12-20T08:00:00"/>
+
+ArrivalDateTime               Filter by arrival time             <ArrivalDateTime 
+(in FlightCriteria)                                              Before="2016-12-21T10:00:00"/>
+
+MaxItemsReturned              Limit results (max 800)            MaxItemsReturned="800"
+(in ReturnOptions)            Leave at 800 (v4.5.0 limit)       
+
+SearchType                    Search in ACTIVE vs INACTIVE       SearchType="ACTIVE"
+(in ReturnOptions)            ACTIVE = Current bookings          
+                             INACTIVE = Expired bookings        
+                             BOTH = Both types                  
+
+═══════════════════════════════════════════════════════════════════════════════
+5. RESPONSE STRUCTURE - WHERE TO FIND PHONE NUMBERS
+═══════════════════════════════════════════════════════════════════════════════
+
+XPATH to Passenger Names:
+─────────────────────────
+/Trip_SearchRS/ReservationsList/Reservations/Reservation/
+  stl119:GetReservationRS/stl119:Reservation/
+    stl119:PassengerReservation/stl119:Passengers/stl119:Passenger/
+      stl119:LastName        → Last name
+      stl119:FirstName       → First name (includes title like "MR", "MRS")
+
+XPATH to Phone Numbers:
+──────────────────────
+/Trip_SearchRS/ReservationsList/Reservations/Reservation/
+  stl119:GetReservationRS/stl119:Reservation/
+    stl119:CustomerContact/stl119:Phone/
+      stl119:PhoneNumber     → The phone number
+      [PhoneType attribute]  → H=Home, B=Business, M=Mobile, O=Other
+
+XPATH to PNR Locator:
+────────────────────
+/Trip_SearchRS/ReservationsList/Reservations/Reservation/@Locator
+→ 6-character PNR code (e.g., "FZVBDK")
+
+═══════════════════════════════════════════════════════════════════════════════
+6. CRITICAL FORMAT REQUIREMENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+DateTime Format:
+  Must be ISO 8601: YYYY-MM-DDThh:mm:ss
+  Example: 2016-12-20T07:00:00 (correct)
+  Example: 12/20/2016 07:00 (WRONG - won't work)
+
+Flight Number Format:
+  Can be 1-4 digits with or without leading zeros
+  Valid: "1", "01", "001", "0001" (all equivalent)
+  
+Airline Code Format:
+  IATA (preferred): 2 letters (e.g., ET, AA, BA)
+  ICAO: 3 letters (e.g., ETH, AAL, BAW)
+  Check with Sabre which format your airline uses
+
+Airport Codes:
+  IATA format: 3 letters (e.g., JFK, LHR, AUH)
+  Must be uppercase
+
+═══════════════════════════════════════════════════════════════════════════════
+7. RESPONSE DATA STRUCTURE - SAMPLE OUTPUT
+═══════════════════════════════════════════════════════════════════════════════
+
+For 2 PNRs with 3 passengers total:
+
+PNR: FZVBDK (Created: 2016-12-01, Last Update: 2016-12-15)
+├─ Passenger 1:
+│  ├─ LastName: SMITH
+│  ├─ FirstName: JOHN MR
+│  ├─ Seat: 12A
+│  └─ Phones:
+│     ├─ 2125551234 (Home)
+│     └─ 9175559999 (Business)
+│
+└─ Passenger 2:
+   ├─ LastName: SMITH
+   ├─ FirstName: JANE MRS
+   ├─ Seat: 12B
+   └─ Phones:
+      ├─ 2125551234 (Home)
+      └─ 9175559999 (Business)
+
+PNR: ABC1234 (Created: 2016-12-05, Last Update: 2016-12-05)
+└─ Passenger 1:
+   ├─ LastName: JOHNSON
+   ├─ FirstName: ROBERT MR
+   ├─ Seat: 14C
+   └─ Phones:
+      └─ 4415559876 (Mobile)
+
+═══════════════════════════════════════════════════════════════════════════════
+8. HOW TO CALL THIS API (SOAP CLIENT)
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP-BY-STEP PROCESS:
+1. Create SOAP client from WSDL file (Trip_SearchRQ_4.5.0.wsdl)
+2. Authenticate with Sabre (get security token)
+3. Build Trip_SearchRQ XML with your flight criteria
+4. Call TripSearchRQ operation with security headers
+5. Parse Trip_SearchRS response
+6. Extract passenger and phone data
+
+LANGUAGE-SPECIFIC EXAMPLES:
+
+C# (.NET):
+  // Reference: https://docs.microsoft.com/en-us/dotnet/framework/wcf/
+  // Add WSDL as Service Reference
+  var client = new TripSearchServiceClient();
+  var request = new Trip_SearchRQ 
+  {
+      Version = "4.5.0",
+      ReadRequests = new ReadRequests { ... }
+  };
+  var response = client.TripSearchRQ(request);
+
+Java:
+  // Generate client from WSDL using wsimport or Maven
+  // wsimport -keep Trip_SearchRQ_4.5.0.wsdl
+  TripSearchRQService service = new TripSearchRQService();
+  TripSearchPortType port = service.getTripSearchPort();
+  Trip_SearchRQ request = new Trip_SearchRQ();
+  // ... set properties
+  Trip_SearchRS response = port.tripSearchRQ(request);
+
+Python:
+  # Using zeep library: pip install zeep
+  from zeep import Client
+  client = Client(wsdl='file://Trip_SearchRQ_4.5.0.wsdl')
+  response = client.service.TripSearchRQ(
+      Trip_SearchRQ={...}
+  )
+
+JavaScript/Node.js:
+  # Using soap library: npm install soap
+  const soap = require('soap');
+  soap.createClient('./Trip_SearchRQ_4.5.0.wsdl', 
+    (err, client) => {
+      client.TripSearchRQ(request, (err, result) => {
+        // handle response
+      });
+    });
+
+═══════════════════════════════════════════════════════════════════════════════
+9. ERROR HANDLING - WHAT CAN GO WRONG
+═══════════════════════════════════════════════════════════════════════════════
+
+ERROR MESSAGE                                      SOLUTION
+────────────────────────────────────────────────────────────────────────────
+
+"There is no primary criteria specified"          ✓ Add FlightCriteria with
+                                                    FlightNumber, DepartureDateTime,
+                                                    and AirlineCode
+
+"Invalid datetime format"                         ✓ Use ISO 8601:
+                                                    YYYY-MM-DDThh:mm:ss
+
+"Max number of requested PNRs exceeded"           ✓ Narrow search criteria
+  [800]                                            (add DepartureAirport, etc.)
+                                                  ✓ Request next page with
+                                                    TokenCriteria
+
+"Access denied - user not authorized              ✓ Verify airline access in
+ for this airline"                                  Sabre system
+                                                  ✓ Check AirlineCode matches
+                                                    PosCriteria
+
+"No results found"                                ✓ Check if flight exists
+                                                  ✓ Verify date/time format
+                                                  ✓ Try date range instead of
+                                                    exact match
+
+═══════════════════════════════════════════════════════════════════════════════
+10. KEY LIMITATIONS AND CONSIDERATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️  HARD LIMITS:
+    • Maximum 800 PNRs per response (v4.5.0 limit)
+    • If more results needed, use asynchronous search (contact Sabre)
+    • Response timeout: 20 seconds
+    • Typical response time: < 5 seconds
+
+⚠️  PHONE NUMBER SPECIFICS:
+    • Only numeric digits stored (other chars removed)
+    • May contain 1-20 numbers per PNR
+    • Type not always accurate (verify with customer)
+    • Multiple phone numbers per PNR are common
+
+⚠️  DATA ACCURACY:
+    • PNRs may have stale/incorrect phone numbers
+    • Phone numbers not always associated to specific passenger
+    • Historical PNRs may have outdated information
+
+⚠️  SECURITY:
+    • Authentication required (SOAP security token)
+    • User can only access authorized airlines
+    • Branch access restrictions may apply (for agencies)
+    • PNR data is confidential - handle securely
+
+═══════════════════════════════════════════════════════════════════════════════
+11. DECISION TREE - CHOOSING REQUEST PARAMETERS
+═══════════════════════════════════════════════════════════════════════════════
+
+START: Do you have...
+  
+  ├─ Exact flight departure time? 
+  │  ├─ YES: Use DepartureDateTime Is="..."
+  │  └─ NO: Use DepartureDateTime After="..." Before="..."
+  │
+  ├─ Departure airport?
+  │  ├─ YES (recommended): Add DepartureAirport="..."
+  │  └─ NO: Still works, but may get more results
+  │
+  ├─ Arrival airport/time info?
+  │  ├─ YES: Add ArrivalAirport and/or ArrivalDateTime
+  │  └─ NO: Not required
+  │
+  ├─ Need only ACTIVE bookings?
+  │  ├─ YES (typical): SearchType="ACTIVE"
+  │  ├─ NO, need INACTIVE: SearchType="INACTIVE"
+  │  └─ BOTH: SearchType="BOTH"
+  │
+  └─ Result volume expected?
+     ├─ Small (< 100): Use TripSearchBasic (default)
+     ├─ Medium (100-500): Use TripSearchBasic or TripSearchBlob
+     ├─ Large (> 500): Use TripSearchBlob for better filtering
+     └─ Very Large (> 800): Contact Sabre for async search
+
+═══════════════════════════════════════════════════════════════════════════════
+12. TESTING YOUR IMPLEMENTATION
+═══════════════════════════════════════════════════════════════════════════════
+
+BEFORE GOING LIVE:
+
+□ Step 1: Get Test Credentials
+  • Contact Sabre Technical Support
+  • Request test environment endpoint
+  • Get test authentication credentials
+  • Request sample flight data for testing
+
+□ Step 2: Build & Validate Request
+  • Use sample XML from REQUEST_RESPONSE_SAMPLES.xml
+  • Validate XML is well-formed
+  • Check namespaces are correct
+  • Verify all required elements present
+
+□ Step 3: Call API in Test Environment
+  • Make first request with known good data
+  • Verify Success element in response
+  • Confirm ReservationsList is populated
+  • Extract and validate passenger data
+
+□ Step 4: Test Error Scenarios
+  • Try invalid flight number
+  • Try invalid airline code
+  • Try future date with no bookings
+  • Verify error messages are handled
+
+□ Step 5: Performance Testing
+  • Test with different date ranges
+  • Monitor response times
+  • Test with large result sets
+  • Verify timeout handling
+
+□ Step 6: Production Migration
+  • Switch to production endpoint
+  • Use production credentials
+  • Verify production data matches expectations
+  • Implement proper logging/monitoring
+
+═══════════════════════════════════════════════════════════════════════════════
+13. FILES PROVIDED IN YOUR PACKAGE
+═══════════════════════════════════════════════════════════════════════════════
+
+DOCUMENTATION FILES (created for you):
+├─ API_GUIDE_FLIGHT_PASSENGER_SEARCH.txt
+│  └─ Comprehensive 13-section guide covering all aspects
+│
+├─ REQUEST_RESPONSE_SAMPLES.xml  
+│  └─ 4 request samples + typical response structure + parsing examples
+│
+└─ QUICK_REFERENCE.txt (this file)
+   └─ Condensed reference for quick lookups
+
+ORIGINAL SABRE FILES (in package):
+├─ Trip_Search_User_Guide.txt
+│  └─ Official Sabre documentation (5770 lines)
+│
+├─ Trip_Search_4.5.0-WSDL/Trip_SearchRQ_4.5.0.wsdl
+│  └─ Web Service Definition Language file (use for generating clients)
+│
+├─ Trip_Search_4.5.0-WSDL/ts/*.xsd
+│  └─ XML Schema files for request structure
+│
+├─ Trip_Search_4.5.0-WSDL/stl/*.xsd
+│  └─ XML Schema files for response structure
+│
+└─ Trip_SearchRQ-4.5.0-Samples/Samples/*.txt
+   └─ Sample requests for various search criteria
+
+═══════════════════════════════════════════════════════════════════════════════
+14. QUICK COPY-PASTE REQUEST TEMPLATE
+═══════════════════════════════════════════════════════════════════════════════
+
+Replace the UPPERCASE placeholder values with your actual data:
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Trip_SearchRQ Version="4.5.0" 
+               xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+               xmlns="http://webservices.sabre.com/triprecord">
+    <ReadRequests>
+        <ReservationReadRequest>
+            <FlightCriteria>
+                <Flight>
+                    <FlightNumber>FLIGHT_NUMBER</FlightNumber>
+                    <DepartureAirport>DEPARTURE_AIRPORT_CODE</DepartureAirport>
+                    <DepartureDateTime Is="YYYY-MM-DDTHH:MM:SS"/>
+                    <AirlineCode>AIRLINE_CODE</AirlineCode>
+                </Flight>
+            </FlightCriteria>
+            <PosCriteria AirlineCode="AIRLINE_CODE"/>
+            <ReturnOptions ViewName="TripSearchBasic" 
+                          MaxItemsReturned="800" 
+                          ResponseFormat="STL"
+                          SearchType="ACTIVE"/>
+        </ReservationReadRequest>
+    </ReadRequests>
+</Trip_SearchRQ>
+
+EXAMPLE (with real values):
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Trip_SearchRQ Version="4.5.0" 
+               xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" 
+               xmlns="http://webservices.sabre.com/triprecord">
+    <ReadRequests>
+        <ReservationReadRequest>
+            <FlightCriteria>
+                <Flight>
+                    <FlightNumber>0001</FlightNumber>
+                    <DepartureAirport>JFK</DepartureAirport>
+                    <DepartureDateTime Is="2016-12-20T07:00:00"/>
+                    <AirlineCode>ET</AirlineCode>
+                </Flight>
+            </FlightCriteria>
+            <PosCriteria AirlineCode="ET"/>
+            <ReturnOptions ViewName="TripSearchBasic" 
+                          MaxItemsReturned="800" 
+                          ResponseFormat="STL"
+                          SearchType="ACTIVE"/>
+        </ReservationReadRequest>
+    </ReadRequests>
+</Trip_SearchRQ>
+
+═══════════════════════════════════════════════════════════════════════════════
+15. CONTACT SABRE SUPPORT
+═══════════════════════════════════════════════════════════════════════════════
+
+FOR TECHNICAL ISSUES:
+  Refer to Trip_Search_User_Guide.txt Section 7 (Technical Support)
+  • Telephone: [Check guide for phone number]
+  • Email: [Check guide for email address]
+
+PROVIDE WHEN CONTACTING SUPPORT:
+  • API version: 4.5.0
+  • Business area: AS (Airlines) or TN (Travel Network)
+  • Specific error code/message
+  • Sample request that fails
+  • Expected vs actual results
+
+═══════════════════════════════════════════════════════════════════════════════
+END OF QUICK REFERENCE
+═══════════════════════════════════════════════════════════════════════════════

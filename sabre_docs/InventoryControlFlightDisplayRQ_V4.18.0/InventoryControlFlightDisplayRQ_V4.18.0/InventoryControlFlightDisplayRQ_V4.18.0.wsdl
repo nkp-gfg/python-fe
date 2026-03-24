@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsd1="http://www.sabre.com/ns/SSI/1.0" xmlns:tns="https://webservices.sabre.com/websvc" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader" xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext" xmlns:ns="http://schemas.xmlsoap.org/soap/encoding/" xmlns:shdr="http://services.sabre.com/ns/SOTA/Messaging/v1" targetNamespace="https://webservices.sabre.com/websvc">
+   <types>
+      <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+         <xsd:import namespace="http://www.sabre.com/ns/SSI/1.0" schemaLocation="InventoryControlFlightDisplayRQRS_V4.18.0.xsd"/>
+         <xsd:import namespace="http://www.ebxml.org/namespaces/messageHeader" schemaLocation="msg-header-2_0.xsd"/>
+         <xsd:import namespace="http://schemas.xmlsoap.org/ws/2002/12/secext" schemaLocation="wsse.xsd"/>
+      </xsd:schema>
+   </types>
+   <message name="InventoryControlFlightDisplayInput">
+      <part name="header" element="eb:MessageHeader"/>
+      <part name="header2" element="wsse:Security"/>
+      <part name="body" element="xsd1:InventoryControlFlightDisplayRQ"/>
+   </message>
+   <message name="InventoryControlFlightDisplayOutput">
+      <part name="header" element="eb:MessageHeader"/>
+      <part name="header2" element="wsse:Security"/>
+      <part name="body" element="xsd1:InventoryControlFlightDisplayRS"/>
+   </message>
+   <portType name="InventoryControlFlightDisplayPortType">
+      <operation name="InventoryControlFlightDisplay">
+         <input message="tns:InventoryControlFlightDisplayInput"/>
+         <output message="tns:InventoryControlFlightDisplayOutput"/>
+      </operation>
+   </portType>
+   <binding name="InventoryControlFlightDisplaySoapBinding" type="tns:InventoryControlFlightDisplayPortType">
+      <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+      <operation name="InventoryControlFlightDisplay">
+         <soap:operation soapAction="OTA"/>
+         <input>
+            <soap:header message="tns:InventoryControlFlightDisplayInput" part="header" use="literal"/>
+            <soap:header message="tns:InventoryControlFlightDisplayInput" part="header2" use="literal"/>
+            <soap:body parts="body" use="literal"/>
+         </input>
+         <output>
+            <soap:header message="tns:InventoryControlFlightDisplayOutput" part="header" use="literal"/>
+            <soap:header message="tns:InventoryControlFlightDisplayOutput" part="header2" use="literal"/>
+            <soap:body parts="body" use="literal"/>
+         </output>
+      </operation>
+   </binding>
+   <service name="InventoryControlFlightDisplayService">
+      <port name="InventoryControlFlightDisplayPortType" binding="tns:InventoryControlFlightDisplaySoapBinding">
+      </port>
+   </service>
+</definitions>

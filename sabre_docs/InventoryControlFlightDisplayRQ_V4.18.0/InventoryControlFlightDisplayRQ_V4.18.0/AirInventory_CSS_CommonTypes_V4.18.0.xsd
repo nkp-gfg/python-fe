@@ -1,0 +1,671 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns="http://www.sabre.com/ns/SSI/1.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="http://www.sabre.com/ns/SSI/1.0" elementFormDefault="qualified" attributeFormDefault="unqualified" version="4.18.0">
+   <xsd:include schemaLocation="AirInventory_CommonTypes_V4.18.0.xsd"/>
+   <xsd:annotation>
+      <xsd:documentation xml:lang="en">types used in SabreSonic Inventory web services..</xsd:documentation>
+   </xsd:annotation>
+   <!-- TYPES -->
+   <xsd:complexType name="User">
+      <xsd:sequence>
+         <xsd:element name="Pos" type="PointOfSaleID" minOccurs="0"/>
+         <xsd:group ref="PccOacGroup" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The group is described in the end of the document.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:group>
+         <xsd:element name="Carrier" type="AirlineCode.2Char" minOccurs="0"/>
+         <xsd:element name="City" type="CityCode" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>Point of Sale City Code</xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="Country" type="CountryCode" minOccurs="0"/>
+         <xsd:element name="Poc" type="CityCode" minOccurs="0"/>
+         <xsd:element name="AgentCity" type="CityCode" minOccurs="0"/>
+         <xsd:element name="DutyCode" type="StringLength1" minOccurs="0"/>
+         <xsd:element name="Type" type="UpperCaseAlphaLength1" minOccurs="0"/>
+         <xsd:element name="EdifactCTSFields" type="EdifactCTSFields" minOccurs="0"/>
+      </xsd:sequence>
+      <xsd:attribute name="id" type="UserId" use="required"/>
+   </xsd:complexType>
+   <xsd:complexType name="EdifactCTSFields">
+      <xsd:sequence>
+         <xsd:element name="OriginatorIdForEdifact" type="StringLength1to16" minOccurs="0"/>
+         <xsd:element name="OriginatorCodeForEdifact" type="StringLength1to16" minOccurs="0"/>
+         <xsd:element name="LNIATA" type="StringLength1to6" minOccurs="0"/>
+         <xsd:element name="Qualifier" type="xsd:short"  minOccurs="0"/>
+         <xsd:element name="Ibp" type="StringLength1to6" minOccurs="0"/>
+         <xsd:element name="Cib_Associate" type="StringLength1to6" minOccurs="0"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:simpleType name="UserId">
+      <xsd:restriction base="xsd:string">
+         <xsd:minLength value="1"/>
+         <xsd:maxLength value="16"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="PointOfSaleID">
+      <xsd:annotation>
+         <xsd:documentation>
+            Point of Sale ID. The 1 to 8 alpha numeric characters Point of Sale (POS) identifies
+            the party or connection channel making the request.
+         </xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="StringLength1to8"/>
+   </xsd:simpleType>
+   <xsd:simpleType name="PseudoCityCode">
+      <xsd:annotation>
+         <xsd:documentation>An identification code assigned to an office/agency by a reservation system.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="StringLength1to16"/>
+   </xsd:simpleType>
+   <xsd:simpleType name="CityCode">
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[a-zA-Z]{3}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="CountryCode">
+      <xsd:annotation>
+         <xsd:documentation>Specifies a 2 character country code as defined in ISO3166.</xsd:documentation>
+         <xsd:documentation>TODO - what is this name? It is a CountryCode. Do we use other Country Codes? If so, why? Shouldn't this be the preferred country code?</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[a-zA-Z]{2}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:complexType name="Flight">
+      <xsd:annotation>
+         <xsd:documentation>Flight Number and operating date.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:sequence>
+         <xsd:element name="Carrier" type="AirlineCode" minOccurs="0"/>
+         <xsd:element name="Number" type="FlightNumber"/>
+         <xsd:element name="MarketingCarrier" type="AirlineCode" minOccurs="0"/>
+         <xsd:element name="Date" type="xsd:date">
+            <xsd:annotation>
+               <xsd:documentation>Date that flight begins.</xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="SequenceNumber" type="xsd:long" minOccurs="0"/>
+         <xsd:element name="BidPriceCurrency" type="CurrencyCode" minOccurs="0"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:simpleType name="AirlineCode">
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z0-9]{2}[A-Z]?"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="AirlineCode.2Char">
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z0-9]{2}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="FlightNumber">
+      <xsd:annotation>
+         <xsd:documentation>This private simple type defines the base flight number structure: 1 to 4 digits.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[0-9]{1,4}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:complexType name="BidPricesVector">
+      <xsd:annotation>
+         <xsd:documentation>
+            Bid Price Vector values per cabin. s0 means bid price value for 0th availability index, s50 means 50th bid price value for 50th available index etc.
+         </xsd:documentation>
+      </xsd:annotation>
+      <xsd:sequence>
+         <xsd:choice>
+            <xsd:sequence>
+               <xsd:element name="CabinIndex" type="CabinIndex"/>
+               <xsd:element name="CabinBaseClasses" type="UpperCaseAlphaLength1" minOccurs="0"/>
+            </xsd:sequence>
+            <xsd:element name="CabinBaseClasses" type="UpperCaseAlphaLength1"/>
+         </xsd:choice>
+         <xsd:element name="SeatsInCabin" type="xsd:short" minOccurs="0"/>
+         <xsd:element name="EffectiveBidPriceIndex" type="xsd:short" minOccurs="0"/>
+         <xsd:element name="I" type="IndexAmounts" minOccurs="0" maxOccurs="999">
+            <xsd:annotation>
+               <xsd:documentation>Index identifying each seat.</xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+      </xsd:sequence>
+      <xsd:attribute name="type" type="BPVType" use="optional"/>
+      <xsd:attribute name="effective" type="_amount" use="optional"/>
+      <xsd:attribute name="increment" type="_amount" use="optional"/>
+   </xsd:complexType>
+   <xsd:simpleType name="CabinIndex">
+      <xsd:annotation>
+         <xsd:documentation>
+            Cabin index starts with 1. 1 is First class Cabin etc..
+         </xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:int">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="4"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:complexType name="CabinVector">
+      <xsd:sequence>
+         <xsd:element name="Cabin" type="CabinVectorValue" minOccurs="0" maxOccurs="7"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="CabinVectorValue">
+      <xsd:simpleContent>
+         <xsd:extension base="xsd:short">
+            <xsd:attribute name="baseclass" type="UpperCaseAlphaLength1" use="optional">
+               <xsd:annotation>
+                  <xsd:documentation>"baseclass" or "index" attribute must be used but they are mutually exclusive in the given request. "baseclass" is preferred.</xsd:documentation>
+               </xsd:annotation>
+            </xsd:attribute>
+            <xsd:attribute name="index" type="CabinIndex" use="optional"/>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:complexType name="CabinClassesVector">
+      <xsd:sequence>
+         <xsd:element name="Cabin" type="CabinClassesVectorValue" maxOccurs="7"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="CabinClassesVectorValue">
+      <xsd:simpleContent>
+         <xsd:extension base="UpperCaseAlphaLength0to26">
+            <xsd:attribute name="baseclass" type="UpperCaseAlphaLength1" use="optional"/>
+            <xsd:attribute name="index" type="CabinIndex" use="optional"/>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:complexType name="ClassRestrictionVector">
+      <xsd:sequence>
+         <xsd:element name="Restriction" type="RestrictionVectorValue" minOccurs="0" maxOccurs="26"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="RestrictionVectorValue">
+      <xsd:simpleContent>
+         <xsd:extension base="xsd:boolean">
+            <xsd:attribute name="class" type="UpperCaseAlphaLength1to3" use="required">
+               <xsd:annotation>
+                  <xsd:documentation>true => class is restricted, false => class is not restricted.</xsd:documentation>
+               </xsd:annotation>
+            </xsd:attribute>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:complexType name="ClassSeatsVector">
+      <xsd:sequence>
+         <xsd:element name="Seats" type="SeatVectorValue" minOccurs="0" maxOccurs="26"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="SeatVectorValue">
+      <xsd:simpleContent>
+         <xsd:extension base="xsd:int">
+            <xsd:attribute name="class" type="UpperCaseAlphaLength1to3" use="required">
+               <xsd:annotation>
+                  <xsd:documentation>3/3/2009 dmh - made the class required.</xsd:documentation>
+               </xsd:annotation>
+            </xsd:attribute>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:complexType name="ClassSeatsVectorAvs">
+      <xsd:sequence>
+         <xsd:element name="Seats" type="SeatVectorValueAvs" minOccurs="0" maxOccurs="26"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="SeatVectorValueAvs">
+      <xsd:simpleContent>
+         <xsd:extension base="xsd:string">
+            <xsd:attribute name="class" type="UpperCaseAlphaLength1to3" use="required">
+               <xsd:annotation>
+                  <xsd:documentation>Segment and Leg AVS in AlphaNumeric (A0, A1...)</xsd:documentation>
+               </xsd:annotation>
+            </xsd:attribute>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:complexType name="ClassTypeVector">
+      <xsd:sequence>
+         <xsd:element name="Type" type="SeatTypeValue" minOccurs="0" maxOccurs="26"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="SeatTypeValue">
+      <xsd:simpleContent>
+         <xsd:extension base="xsd:int">
+            <xsd:attribute name="class" type="UpperCaseAlphaLength1to3" use="required">
+               <xsd:annotation>
+                  <xsd:documentation>1 - LOCAL, 2 - CONNECTION</xsd:documentation>
+               </xsd:annotation>
+            </xsd:attribute>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:complexType name="CabinExpectedLoadFactorVector">
+      <xsd:sequence>
+         <xsd:element name="Cabin" type="CabinExpectedLoadFactorValue" minOccurs="0" maxOccurs="6"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="CabinExpectedLoadFactorValue">
+      <xsd:simpleContent>
+         <xsd:extension base="CabinExpectedLoadFactorRange">
+            <xsd:attribute name="baseclass" type="UpperCaseAlphaLength1" use="optional">
+               <xsd:annotation>
+                  <xsd:documentation>"baseclass" or "index" attribute must be used but they are mutually exclusive in the given request. "baseclass" is preferred.</xsd:documentation>
+               </xsd:annotation>
+            </xsd:attribute>
+            <xsd:attribute name="index" type="CabinIndex" use="optional"/>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:simpleType name="CabinExpectedLoadFactorRange">
+      <xsd:restriction base="xsd:int">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="200"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:complexType name="ClassLoadFactorVector">
+      <xsd:sequence>
+         <xsd:element name="LoadFactor" type="ClassLoadFactorValue" minOccurs="0" maxOccurs="26"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="ClassLoadFactorValue">
+      <xsd:simpleContent>
+         <xsd:extension base="ClassLoadFactorRange">
+            <xsd:attribute name="class" type="UpperCaseAlphaLength1to3" use="required">
+               <xsd:annotation>
+                  <xsd:documentation>capacity load factor that triggers segment seats limit</xsd:documentation>
+               </xsd:annotation>
+            </xsd:attribute>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:simpleType name="ClassLoadFactorRange">
+      <xsd:restriction base="xsd:int">
+         <xsd:minInclusive value="0"/>
+         <xsd:maxInclusive value="200"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="NestingID">
+      <xsd:restriction base="xsd:int">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="32000"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="CurrencyCode">
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z]{3}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="CabinBaseClasses">
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[ A-Z]{0,6}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="CommentValue">
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[^;]{0,256}"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="CarrierCode">
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[A-Z0-9]{2}[A-Z]?"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:complexType name="PartnerFlights">
+      <xsd:sequence>
+         <xsd:element name="PartnerFlight" type="PartnerFlight" minOccurs="1" maxOccurs="unbounded" />
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="PartnerFlight">
+      <xsd:sequence>
+         <xsd:element name="Carrier" type="AirlineCode.2Char" minOccurs="1" maxOccurs="1" />
+         <xsd:element name="FltNum" type="FlightNumber" minOccurs="1" maxOccurs="1" />
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="AncillariesDisplay">
+      <xsd:sequence>
+         <xsd:element name="AncillaryItem" type="AncillaryItemWithAvl" minOccurs="0" maxOccurs="unbounded" />
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="AncillariesUpdate">
+      <xsd:sequence>
+         <xsd:element name="AncillaryItem" type="AncillaryItem" minOccurs="0" maxOccurs="unbounded" />
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:simpleType name="AncillarySubcodeString">
+      <xsd:annotation>
+         <xsd:documentation>Used for Character Strings, length 1 to 4.</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:minLength value="1"/>
+         <xsd:maxLength value="4"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:complexType name="AncillaryItemWithAvl">
+      <xsd:complexContent>
+         <xsd:extension base="AncillaryItem">
+            <xsd:sequence>
+               <xsd:element name="AncillaryAvl" type="AncillaryClassSeatsIntVector" minOccurs="0" maxOccurs="1"/>
+            </xsd:sequence>
+         </xsd:extension>
+      </xsd:complexContent>
+   </xsd:complexType>
+   <xsd:complexType name="AncillaryItem">
+      <xsd:sequence>
+         <xsd:element name="AncillarySold" type="AncillaryClassSeatsIntVector" minOccurs="0" maxOccurs="1" />
+         <xsd:element name="AncillaryAuth" type="AncillaryClassSeatsIntVector" minOccurs="0" maxOccurs="1" />
+         <xsd:element name="AncillaryControlTypes" type="AncillaryControlTypeVector" minOccurs="0" maxOccurs="1" />
+      </xsd:sequence>
+      <xsd:attribute name="subcode" type="AncillarySubcodeString" use="required" />
+      <xsd:attribute name="parentsubcode" type="AncillarySubcodeString" use="optional" />
+   </xsd:complexType>
+   <xsd:complexType name="AncillaryClassSeatsIntVector">
+      <xsd:sequence>
+         <xsd:element name="Seats" type="AncillaryClassSeatIntValue" minOccurs="0" maxOccurs="26"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="AncillaryClassSeatIntValue">
+      <xsd:simpleContent>
+         <xsd:extension base="xsd:int">
+            <xsd:attribute name="class" type="UpperCaseAlphaLength1" use="required" />
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:complexType name="Alert">
+      <xsd:simpleContent>
+         <xsd:extension base="StringLength0to128">
+            <xsd:attribute name="type" type="AlertType" use="required"/>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:simpleType name="AlertType">
+      <xsd:annotation>
+         <xsd:documentation>
+            1 = ALERT_CABIN
+            2 = ALERT_CLASS
+            3 = ALERT_CONF_CHANGE
+            4 = ALERT_TIME_CHANGE
+            5 = ALERT_NESTING_CHANGE
+            6 = ALERT_NEW_FLIGHT
+            7 = ALERT_CXL_FLIGHT
+            8 = ALERT_ROUTING_CHANGE
+            9 = ALERT_LEG_AUTH_INHIBIT_RELEASE
+            10 = ALERT_LEG_WAITLIST_CLEARANCE
+            11 = ALERT_MANUAL
+            12 = ALERT_AU_MAXSEATS_REFRESH
+        </xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:int">
+         <xsd:enumeration value="1"/>
+         <xsd:enumeration value="2"/>
+         <xsd:enumeration value="3"/>
+         <xsd:enumeration value="4"/>
+         <xsd:enumeration value="5"/>
+         <xsd:enumeration value="6"/>
+         <xsd:enumeration value="7"/>
+         <xsd:enumeration value="8"/>
+         <xsd:enumeration value="9"/>
+         <xsd:enumeration value="10"/>
+         <xsd:enumeration value="11"/>
+         <xsd:enumeration value="12"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="TimeHourMin">
+      <xsd:annotation>
+         <xsd:documentation> Time format: time present in hours:Minutes in 24 hour format. Valid Values: 00:00 to 23:59</xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[0-2][0-9]:[0-5][0-9]"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="YesNoType">
+      <xsd:annotation>
+         <xsd:documentation>YesNoType can be either yes or no. </xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:enumeration value="yes"/>
+         <xsd:enumeration value="no"/>
+      </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="RulesType">
+      <xsd:annotation>
+         <xsd:documentation>Rules Type can be either simulated or without. </xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:string">
+         <xsd:enumeration value="simulated"/>
+         <xsd:enumeration value="without"/>
+      </xsd:restriction>
+  </xsd:simpleType>
+   <xsd:simpleType name="FareValue">
+      <xsd:annotation>
+         <xsd:documentation>
+            The fare values do not have currency info. SSI does not do currency conversion. This is a market
+            value that is compared with bid prices and both market values and bid prices are expected to be in same currency.
+         </xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:decimal">
+         <xsd:totalDigits value="7" fixed="false"/>
+         <xsd:minInclusive value="0"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="OacOffice">
+      <xsd:restriction base="xsd:string">
+         <xsd:pattern value="[0-9]{7}"/>
+      </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:group name="OacGroup">
+     <xsd:sequence>
+        <xsd:element name="OacCity" type="CityCode"/>
+        <xsd:element name="OacAccounting" type="AirlineCode.2Char"/>
+        <xsd:element name="OacOffice" type="OacOffice"/>
+     </xsd:sequence>
+  </xsd:group>
+  <xsd:group name="PccOacGroup">
+      <xsd:choice>
+         <xsd:element name="Pcc" type="PseudoCityCode"/>
+         <xsd:group ref="OacGroup"/>
+      </xsd:choice>
+  </xsd:group>
+  <xsd:complexType name="CabinBaseclassVector">
+      <xsd:sequence>
+         <xsd:element name="Cabin" type="CabinBaseclassVectorValue" minOccurs="0" maxOccurs="7"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="CabinBaseclassVectorValue">
+      <xsd:simpleContent>
+         <xsd:extension base="NonNegativeShort">
+            <xsd:attribute name="index" type="CabinIndex" use="optional"/>
+            <xsd:attribute name="baseclass" type="UpperCaseAlphaLength1" use="optional">
+               <xsd:annotation>
+                  <xsd:documentation>"baseclass" or "index" attribute must be used but they are mutually exclusive in the given request. "baseclass" is preferred.</xsd:documentation>
+               </xsd:annotation>
+            </xsd:attribute>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+   <xsd:simpleType name="BPVType">
+      <xsd:restriction base="xsd:string">
+         <xsd:enumeration value="connecting"/>
+         <xsd:enumeration value="local"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="ODBPVType">
+      <xsd:restriction base="xsd:string">
+         <xsd:enumeration value="connecting"/>
+         <xsd:enumeration value="local"/>
+         <xsd:enumeration value="mixed"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:complexType name="IndexAmounts">
+      <xsd:annotation>
+         <xsd:documentation>vector indexes: s0 through s255</xsd:documentation>
+      </xsd:annotation>
+      <xsd:simpleContent>
+         <xsd:extension base="_amount">
+            <xsd:attribute name="s" type="_index_short"/>
+         </xsd:extension>
+      </xsd:simpleContent>
+   </xsd:complexType>
+    <xsd:simpleType name="_amount">
+      <xsd:restriction base="xsd:decimal">
+         <xsd:fractionDigits value="3"/>
+         <xsd:maxInclusive value="100000000"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:simpleType name="_index_short">
+      <xsd:annotation>
+         <xsd:documentation>
+            short is 'derived' from int by setting the value of 'maxInclusive' to be 32767 and 'minInclusive' to be -32768.
+            The canonical representation for short is defined by prohibiting certain options from the Lexical representation (3.3.18.1).
+            Specifically, the the optional "+" sign is prohibited and leading zeroes are prohibited.
+         </xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:int">
+         <xsd:minInclusive value="-999"/>
+         <xsd:maxInclusive value="999"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+   <xsd:complexType name="AncillaryControlTypeVector">
+      <xsd:sequence>
+         <xsd:element name="Seats" type="AncillaryControlTypeValue" minOccurs="0" maxOccurs="26"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:complexType name="AncillaryControlTypeValue">
+      <xsd:choice>
+         <xsd:element name="FareclassAncillaryControl" />
+         <xsd:element name="CabinAncillaryControl" />
+         <xsd:element name="LegAncillaryControl" />
+         <xsd:element name="NoAncillaryControl" />
+      </xsd:choice>
+      <xsd:attribute name="class" type="UpperCaseAlphaLength1" use="required" />
+   </xsd:complexType>
+   <xsd:group name="SegmentGroup">
+     <xsd:sequence>
+        <xsd:element name="Origin" type="UpperCaseAlphaNumericLength3">
+           <xsd:annotation>
+              <xsd:documentation>
+                 The source city IATA code; for example DCA, ORD.
+              </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="Destination" type="UpperCaseAlphaNumericLength3">
+           <xsd:annotation>
+              <xsd:documentation>
+                 Destination city 3-letters-short-uppercase code.
+              </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="Date" type="xsd:date">
+           <xsd:annotation>
+              <xsd:documentation xml:lang="en">Segment date.</xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="FltNum" type="FlightNumber">
+           <xsd:annotation>
+               <xsd:documentation>Identifies a flight number 1 to 4 numbers.
+                  Leading zeros (0) are ignored.
+                  Note, Iberia uses leading 0 in flight numbers (ex: 0900 is different than 900).
+               </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="Carrier" type="CarrierCode">
+           <xsd:annotation>
+              <xsd:documentation xml:lang="en">Carrier code.</xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="DepartureTime" type="TimeHourMin" minOccurs="0">
+           <xsd:annotation>
+              <xsd:documentation xml:lang="en">Segment departure time.</xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="ArrivalTime" type="TimeHourMin" minOccurs="0">
+           <xsd:annotation>
+              <xsd:documentation xml:lang="en">Segment arrival time.</xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="ArrivalDateAdjustment" type="xsd:int" minOccurs="0">
+           <xsd:annotation>
+              <xsd:documentation>Arrival date adjustment</xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+      </xsd:sequence>
+  </xsd:group>
+  <xsd:group name="LegGroup">
+     <xsd:sequence>
+        <xsd:element name="OperatingCarrier" type="CarrierCode" minOccurs="0"/>
+        <xsd:element name="OperatingFltNum" type="FlightNumber" minOccurs="0"/>
+        <xsd:element name="Origin" type="UpperCaseAlphaNumericLength3" minOccurs="0">
+           <xsd:annotation>
+              <xsd:documentation xml:lang="en">
+                 The source city IATA code; for example DCA, ORD.
+              </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="Destination" type="UpperCaseAlphaNumericLength3" minOccurs="0">
+           <xsd:annotation>
+              <xsd:documentation xml:lang="en">
+                 The destination city IATA code; for example DCA, ORD.
+              </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="Date" type="xsd:date" minOccurs="0"/>
+        <xsd:element name="DepartureTime" type="TimeHourMin" minOccurs="0" />
+        <xsd:element name="ArrivalTime" type="TimeHourMin" minOccurs="0" />
+        <xsd:element name="ArrivalDateAdjustment" type="xsd:int" minOccurs="0"/>
+        <xsd:element name="Capacities" type="CabinBaseclassVector" minOccurs="0"/>
+        <xsd:element name="CapacityAdjustments" type="CabinBaseclassVector" minOccurs="0"/>
+        <xsd:element name="SeatsSold" type="ClassSeatsVector" minOccurs="0">
+           <xsd:annotation>
+              <xsd:documentation xml:lang="en">Seats sold counter.</xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="LegAuth" type="ClassSeatsVector" minOccurs="0">
+           <xsd:annotation>
+              <xsd:documentation>
+                 The type contains seats of all possible classes of leg control authorization levels.
+              </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="LegAvl" type="ClassSeatsVector" minOccurs="0">
+           <xsd:annotation>
+              <xsd:documentation>
+                 The type contains all possible classes of available seats.
+              </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+        <xsd:element name="BidPricesVector" type="BidPricesVector" minOccurs="0" maxOccurs="12">
+           <xsd:annotation>
+              <xsd:documentation>
+                 The type is described in file AirInventory_CSS_CommonTypes_V4.18.0.xsd.
+              </xsd:documentation>
+           </xsd:annotation>
+        </xsd:element>
+     </xsd:sequence>
+  </xsd:group>
+  <xsd:complexType name="LegType">
+  </xsd:complexType>
+  <xsd:complexType name="AlertLeg">
+      <xsd:sequence>
+         <xsd:element name="Carrier" type="AirlineCode"/>
+         <xsd:element name="FltNum" type="FlightNumber"/>
+         <xsd:element name="Origin" type="UpperCaseAlphaNumericLength3"/>
+         <xsd:element name="Destination" type="UpperCaseAlphaNumericLength3"/>
+         <xsd:element name="Date" type="xsd:date"/>
+         <xsd:element name="DepartureDateAdj" type="xsd:int" minOccurs="0"/>
+         <xsd:element name="Alert" type="Alert" minOccurs="1" maxOccurs="unbounded"/>
+      </xsd:sequence>
+   </xsd:complexType>
+   <xsd:simpleType name="AvsPOSOptionType">
+      <xsd:annotation>
+         <xsd:documentation>
+            0 = LEG_AVS_POS_OPTION_DEFAULT
+            1 = LEG_AVS_POS_OPTION_CUSTOM
+        </xsd:documentation>
+      </xsd:annotation>
+      <xsd:restriction base="xsd:int">
+         <xsd:enumeration value="0"/>
+         <xsd:enumeration value="1"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+</xsd:schema>

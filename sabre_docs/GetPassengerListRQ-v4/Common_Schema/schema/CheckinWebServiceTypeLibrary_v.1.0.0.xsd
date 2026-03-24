@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xsd:schema xmlns="http://services.sabre.com/CWSTL/v1" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            targetNamespace="http://services.sabre.com/CWSTL/v1" elementFormDefault="qualified"
+            attributeFormDefault="unqualified" version="3.0.0">
+
+    <xsd:simpleType name="ErrorOrSuccessCode">
+        <xsd:restriction base="xsd:NMTOKEN">
+            <xsd:enumeration value="TransportError"/>
+            <xsd:enumeration value="InterfaceError"/>
+            <xsd:enumeration value="ApplicationError"/>
+            <xsd:enumeration value="BusinessLogicError"/>
+            <xsd:enumeration value="SentToASDS"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:simpleType name="CompletionCodes">
+        <xsd:restriction base="xsd:token">
+            <xsd:enumeration value="NotProcessed"/>
+            <xsd:enumeration value="Complete"/>
+            <xsd:enumeration value="Incomplete"/>
+            <xsd:enumeration value="Unknown"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+
+    <xsd:complexType name="ErrorMessageType">
+        <xsd:annotation>
+            <xsd:documentation>Free text and code provided by the application or system that detected the error.
+                Contants
+                may be anything the system detecting the error chooses to convey. Used by service consumers. Codes
+                and/or messages should be agreed upon by service users. Do not use for structured data, use parameters
+                instead.
+            </xsd:documentation>
+        </xsd:annotation>
+        <xsd:simpleContent>
+            <xsd:extension base="xsd:string">
+                <xsd:attribute name="code" type="xsd:integer"/>
+            </xsd:extension>
+        </xsd:simpleContent>
+    </xsd:complexType>
+
+    <xsd:complexType name="SystemNameAndIdType">
+        <xsd:annotation>
+            <xsd:documentation>System name plus an Id attribute used to uniquily identify the specific system.
+            </xsd:documentation>
+        </xsd:annotation>
+        <xsd:simpleContent>
+            <xsd:extension base="xsd:string">
+                <xsd:attribute name="id" type="xsd:string"/>
+            </xsd:extension>
+        </xsd:simpleContent>
+    </xsd:complexType>
+
+    <xsd:simpleType name="UpperCaseAlphaNumericLength3to5">
+        <xsd:restriction base="xsd:string">
+            <xsd:pattern value="[A-Z0-9]{3,5}"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:simpleType name="AirlineCode.IATA">
+        <xsd:restriction base="xsd:string">
+            <xsd:minLength value="2"/>
+            <xsd:maxLength value="3"/>
+            <xsd:pattern value="([A-Z]{3}|[A-Z]{2})|([0-9][A-Z])|([A-Z][0-9])"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:simpleType name="FlightNumber.Base">
+        <xsd:restriction base="xsd:string">
+            <xsd:pattern value="[A-Z0-9]{1,4}"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:simpleType name="YYYY-MM-DDDate">
+        <xsd:restriction base="xsd:string">
+            <xsd:pattern value="[2][0-9][0-9][0-9]-(0[1-9]|1[0-2])-(0[1-9]|1[0-9]|2[0-9]|3[0-1])"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:simpleType name="AirportCode">
+        <xsd:restriction base="UpperCaseAlphaNumericLength3to5"/>
+    </xsd:simpleType>
+	<xsd:simpleType name="DateOrTimeOrDateTime">
+		<xsd:union memberTypes="xsd:date xsd:dateTime xsd:time"/>
+	</xsd:simpleType>
+	
+	<xsd:attributeGroup name="MessageHeaderAttributeGroup">
+		<xsd:attribute name="version" type="xsd:string" use="optional"/>
+		<xsd:attribute name="messageCorrelationId" type="xsd:string" use="optional"/>
+		<xsd:attribute name="timeStamp" type="DateOrTimeOrDateTime" use="optional"/>
+	</xsd:attributeGroup>
+	
+	<xsd:simpleType name="MessageDirectionType">
+		<xsd:annotation>
+			<xsd:documentation>Direction of the message such as inbound or outbound enumerationvalue</xsd:documentation>
+		</xsd:annotation>
+		<xsd:restriction base="xsd:string">
+			<xsd:enumeration value="INBOUND"/>
+			<xsd:enumeration value="OUTBOUND"/>
+		</xsd:restriction>
+	</xsd:simpleType>
+	<xsd:simpleType name="TextType">
+		<xsd:annotation>
+			<xsd:documentation>Direction of the message such as inbound or outbound enumerationvalue</xsd:documentation>
+		</xsd:annotation>
+		<xsd:restriction base="xsd:string">
+			<xsd:length value="2048"/>
+		</xsd:restriction>
+	</xsd:simpleType>
+	<xsd:simpleType name="CommonIATAMessageType">
+			<xsd:annotation>
+				<xsd:documentation>IATA Message type should one of below enumeration value</xsd:documentation>
+			</xsd:annotation>
+			<xsd:restriction base="xsd:string">
+				<xsd:enumeration value="DUV"/>
+			</xsd:restriction>
+		</xsd:simpleType>
+
+		<xsd:complexType name="FlightInfoType">
+			<xsd:annotation>
+					<xsd:documentation>Flight Info required for message send or display</xsd:documentation>
+			</xsd:annotation>
+			<xsd:sequence>
+				<xsd:element name="Origin" type="AirportCode">
+					<xsd:annotation>
+						<xsd:documentation>flightleg departure city code</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="Destination" type="AirportCode" minOccurs="0">
+					<xsd:annotation>
+							<xsd:documentation>flightleg arrival city code required if it is request for arrival message else should be blank</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="AirLine" type="AirlineCode.IATA">
+					<xsd:annotation>
+						<xsd:documentation>Airline which is operating</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="DepartureDate" type="YYYY-MM-DDDate">
+					<xsd:annotation>
+						<xsd:documentation>flight departure date</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="FlightNumber" type="FlightNumber.Base">
+					<xsd:annotation>
+						<xsd:documentation>flight departure date</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+		<xsd:complexType name="MessageListType">
+			<xsd:sequence>
+				<xsd:element name="Message" maxOccurs="20">
+					<xsd:annotation>
+						<xsd:documentation>Messages for Request</xsd:documentation>
+					</xsd:annotation>
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:element name="RawMessage">
+								<xsd:annotation>
+									<xsd:documentation>Raw Message Text</xsd:documentation>
+								</xsd:annotation>
+								<xsd:simpleType>
+									<xsd:restriction base="xsd:string">
+										<xsd:maxLength value="2048"/>
+									</xsd:restriction>
+								</xsd:simpleType>
+							</xsd:element>
+						</xsd:sequence>
+						<xsd:attribute name="direction" type="xsd:string" use="optional"/>
+						<xsd:attribute name="format" type="xsd:string" use="optional"/>
+						<xsd:attribute name="messageTimeStamp" type="DateOrTimeOrDateTime" use="optional"/>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+</xsd:schema>

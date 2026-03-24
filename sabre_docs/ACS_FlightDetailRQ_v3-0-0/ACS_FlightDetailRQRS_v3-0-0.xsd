@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns="http://services.sabre.com/ACS/BSO/flightDetail/v3" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:STL="http://services.sabre.com/STL/v3" targetNamespace="http://services.sabre.com/ACS/BSO/flightDetail/v3" version="3.0.1">
+	<xsd:import namespace="http://services.sabre.com/STL/v3" schemaLocation="SabreTypeLibrary_v.3.0.0.xsd"/>
+	<xsd:element name="ACS_FlightDetailRQ" type="ACS_FlightDetailRQ.ACS"/>
+	<xsd:element name="ACS_FlightDetailRS" type="ACS_FlightDetailRS.ACS"/>
+	<xsd:complexType name="ACS_FlightDetailRQ.ACS">
+		<xsd:sequence>
+			<xsd:element name="FlightInfo">
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="Airline" type="STL:AirlineCode.IATA"/>
+						<xsd:element name="Flight" type="STL:FlightNumber.Base"/>
+						<xsd:element name="DepartureDate" type="STL:YYYY-MM-DDDate" minOccurs="0"/>
+						<xsd:element name="Origin" type="STL:AirportCode"/>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:choice minOccurs="0">
+				<xsd:element name="APIS">
+					<xsd:complexType>
+						<xsd:simpleContent>
+							<xsd:extension base="xsd:string">
+								<xsd:attribute name="PNRLocator" type="STL:UpperCaseAlphaLength6"/>
+							</xsd:extension>
+						</xsd:simpleContent>
+					</xsd:complexType>
+				</xsd:element>
+				<xsd:element name="Display" type="Display.ACS"/>
+			</xsd:choice>
+			<xsd:element name="Client" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Client issuing the request</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="STL:UpperCaseAlpha">
+						<xsd:enumeration value="KIOSK"/>
+						<xsd:enumeration value="WEB"/>
+						<xsd:enumeration value="MOBILE"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute name="Version" use="optional">
+			<xsd:annotation>
+				<xsd:documentation>Request version</xsd:documentation>
+			</xsd:annotation>
+			<xsd:simpleType>
+				<xsd:restriction base="xsd:string">
+					<xsd:enumeration value="3.0.0"/>
+					<xsd:enumeration value="3.1.0"/>
+					<xsd:enumeration value="3.2.0"/>
+				</xsd:restriction>
+			</xsd:simpleType>
+		</xsd:attribute>
+	</xsd:complexType>
+	<xsd:complexType name="Display.ACS">
+		<xsd:sequence>
+			<xsd:element name="Type">
+				<xsd:simpleType>
+					<xsd:restriction base="STL:UpperCaseAlpha">
+						<xsd:enumeration value="R"/>
+						<xsd:enumeration value="O"/>
+						<xsd:enumeration value="F"/>
+						<xsd:enumeration value="B"/>
+						<xsd:enumeration value="P"/>
+						<xsd:enumeration value="U"/>
+						<!-- R -General remarks text -->
+						<!-- O -Oversale text -->
+						<!-- F -Flight check-in message text -->
+						<!-- B -Baggage text -->
+						<!-- P -Pricing and Yield Management text -->
+						<!-- U -Cancelled Itinerary text -->
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<!-- Response -->
+	<xsd:complexType name="ACS_FlightDetailRS.ACS">
+		<xsd:sequence>
+			<xsd:element name="ItineraryResponseList" type="ItineraryResponseList.ACS" minOccurs="0"/>
+			<xsd:element name="LegInfoList" type="LegInfoList.ACS" minOccurs="0"/>
+			<xsd:element name="PassengerCounts" minOccurs="0" maxOccurs="6">
+				<xsd:complexType>
+					<xsd:complexContent>
+						<xsd:extension base="PassengerCounts.ACS">
+							<xsd:attribute name="classOfService" type="xsd:string"/>
+						</xsd:extension>
+					</xsd:complexContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="JumpSeat" type="JumpSeat.ACS" minOccurs="0"/>
+			<xsd:element name="TotalPlan" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="ApisInfoList" type="STL:ApisInfoList.ACS" minOccurs="0"/>
+			<xsd:element name="FreeTextInfoList" type="STL:FreeTextInfoList.ACS" minOccurs="0"/>
+			<xsd:element name="Result" type="STL:ResultRecord"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ItineraryResponseList.ACS">
+		<xsd:sequence>
+			<xsd:element name="ItineraryInfoResponse" type="ItineraryDetails.ACS" maxOccurs="99"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ItineraryDetails.ACS">
+		<xsd:sequence>
+			<xsd:element name="Airline" type="STL:AirlineCode.IATA" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>airline code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Flight" type="STL:FlightNumber.Base" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight number</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Origin" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight departure city code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="DepartureDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight departure date when flight status changes to PDC</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="DepartureTime" type="STL:Time_hhmma" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight departure time when flight status changes to PDC</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="ScheduledDepartureDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>scheduled flight departure date</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="ScheduledDepartureTime" type="STL:Time_hhmma" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>scheduled flight departure time</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="EstimatedDepartureDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>estimated flight departure date when flight departure date change</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="EstimatedDepartureTime" type="STL:Time_hhmma" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Estimated flight departure time</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="DepartureGate" type="STL:GateName" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight departure gate</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="DepartureTerminal" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Departure Terminal Information</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BoardingTime" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight boarding time</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="STL:Time_hhmma">
+							<xsd:attribute name="boardingIndicator" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>indicator when boarding process is on-going</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="Destination" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight arrival city code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FinalDestination" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>final flight arrival city code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="ArrivalDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight arrival date</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="ArrivalTime" type="STL:Time_hhmma" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight arrival time</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="ScheduledArrivalDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>schedule flight arrival date</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="ScheduledArrivalTime" type="STL:Time_hhmma" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>schedule flight arrival time</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="EstimatedArrivalDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>estimated flight arrival date</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="EstimatedArrivalTime" type="STL:Time_hhmma" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>estimated flight arrival time</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FlightDurationInMinutes" type="xsd:short" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Duration of flight between origin city and destination city in minutes</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="TimeToDepartureInMinutes" type="xsd:short" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Time to departure in minutes</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BaggageClaim" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>baggage claim number</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="AircraftType" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>type of aircraft of the flight like 777, S80, etc.</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="xsd:string">
+							<xsd:attribute name="change" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>indicator for aircraft change occurrence</xsd:documentation>
+								</xsd:annotation>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="FlightStatus" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight status can be one of the following values:
+					</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="AircraftConfigNumber" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>aircraft configuration number</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="AircraftRegistration" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>aircraft registration number</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="CheckinRuleNumber" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="SeatConfig" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="BagCheckInOption" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>bag checkin option includes P for pieces, PW for pieces and weights, etc.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="AutoOn" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>automatic on-board indiicator</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="HeldSeat" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>number of held seats</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="FreeTextInfoList" type="STL:FreeTextInfoList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>list of free text information</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="ApisInfoList" type="STL:ApisInfoList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>APIS information</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="LegInfoList.ACS">
+		<xsd:sequence>
+			<xsd:element name="LegInfo" type="LegInfo.ACS" minOccurs="0" maxOccurs="999"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="LegInfo.ACS">
+		<xsd:sequence>
+			<xsd:element name="LegNoOperationInd" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="LegCity" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="ControllingCityInd" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="LegStatus" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="LegDate" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="LegArrivalTime" type="STL:Time_hhmma" minOccurs="0"/>
+			<xsd:element name="LegDepartureTime" type="STL:Time_hhmma" minOccurs="0"/>
+			<xsd:element name="LegApp" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="ChangeOfGauge" type="xsd:string" minOccurs="0"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="PassengerCounts.ACS">
+		<xsd:sequence>
+			<xsd:element name="Authorized" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="Booked" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="Available" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="Thru" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="Local" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="NonRevenueLocal" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="NonRevenueThru" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="PaperTicket" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="ElectronicTicket" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="OtherLoadPaperTicket" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="OtherLoadElectronicTicket" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="Kiosk" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="StandbyRestriction" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Meals" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="SpecialMeals" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="Setups" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="LocalOnBoard" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="TotalOnBoard" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="TotalBoardingPassIssued" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="UnOccupiedSeats" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="OtherLoad" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="PLAN" type="xsd:short" minOccurs="0"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="JumpSeat.ACS">
+		<xsd:sequence>
+			<xsd:element name="Cockpit" minOccurs="0" maxOccurs="2">
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="xsd:short">
+							<xsd:attribute name="inUse" type="xsd:boolean"/>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="Cabin" minOccurs="0" maxOccurs="2">
+				<xsd:complexType>
+					<xsd:simpleContent>
+						<xsd:extension base="xsd:short">
+							<xsd:attribute name="inUse" type="xsd:boolean"/>
+						</xsd:extension>
+					</xsd:simpleContent>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ConnectionPsgInfoList.ACS">
+		<xsd:sequence>
+			<xsd:element name="ConnectionPsgInfo" type="ConnectionPsgInfo.ACS" minOccurs="0" maxOccurs="999"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ConnectionPsgInfo.ACS">
+		<xsd:sequence>
+			<xsd:element name="CityName" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="FlightNumber" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="Airline" type="STL:AirlineCode.IATA" minOccurs="0"/>
+			<xsd:element name="OutboundFlightNumber" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="OutboundGate" type="xsd:string" minOccurs="0"/>
+			<xsd:element name="EstimatedDepartureTime" type="STL:Time_hhmma" minOccurs="0"/>
+			<xsd:element name="ConnectingPassengerCount" type="xsd:short" minOccurs="0"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="ConnectionPassengerCounts.ACS">
+		<xsd:sequence>
+			<xsd:element name="TotalLocalPassengers" type="xsd:short" minOccurs="0"/>
+			<xsd:element name="TotalConnectionPassengers" type="xsd:short" minOccurs="0"/>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>

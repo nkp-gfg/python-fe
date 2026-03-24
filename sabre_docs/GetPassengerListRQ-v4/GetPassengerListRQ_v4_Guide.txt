@@ -1,0 +1,637 @@
+Version 1.0
+September 2017
+Developer Guide
+GetPassengerListRQ v4 Web Service
+Software version 2015
+Document Edition 1.0 (March 2017)
+This documentation is the confidential and proprietary intellectual property of the Sabre Airline Solutions® business. Any unauthorized use, reproduction, preparation of derivative works, performance or display of this document or software represented by this document, without the express written permission of Sabre Airline Solutions is strictly prohibited.
+Sabre Airline Solutions, the Sabre Airline Solutions logo, Sabre Holdings, the Sabre Holdings logo and SabreSonic are trademarks and/or service marks of an affiliate of Sabre Holdings Corp. All other trademarks, service marks and trade names are the property of their respective owners.
+© 2013 Sabre Inc. All rights reserved. 01_2013
+Introduction
+Developer Guide 3 Confidential and Proprietary Sabre Inc.
+DOCUMENT REVISION HISTORY
+Version
+Date
+Who
+Description
+V4.0
+Jul-2017
+Savitha Suresh
+Initial Draft
+V4.0
+Sep-2017
+Arun Bright
+Reviewed by Arun, incorporated the changes.
+Introduction
+Developer Guide 4 Confidential and Proprietary Sabre Inc.
+Table of Contents
+1 Introduction
+1.1 Overview................................................................................................................................................. 5
+2 Prerequisites
+2.1 EPR Information ..................................................................................................................................... 6
+2.2 Pre-requisites ......................................................................................................................................... 6
+2.3 Web Services SOAP Syntax ................................................................................................................... 6
+2.4 Specifying a Minor Version ..................................................................................................................... 8
+3 Usage
+3.1 Summary .............................................................................................................................................. 10
+3.2 Minor Versions ........................................................................................................................................ 8
+3.3 Listing of Passengers on Priority Lists .................................................................................................. 12
+4 Error Messages
+4.1 Error Code Table .................................................................................................................................. 14
+5 Appendix
+5.1 Glossary ............................................................................................................................................... 19
+Introduction
+Developer Guide 5 Confidential and Proprietary Sabre Inc.
+1 Introduction
+1.1 Overview
+The SabreSonic Check-In® (SSCI) GetPassengerListRQ web service retrieves the list of passengers matching specific passenger characteristics in the requested flight. Caller can retrieve the list of passenger in a flight having specific edit code or specific SSR. GetPassengerListRQ support combination of one or more Edit code/ SSR code in the request, giving the flexibility to the caller to narrow down to list of passenger having specific characteristics.
+1
+Prerequisites
+Developer Guide 6 Confidential and Proprietary Sabre Inc.
+2 Prerequisites
+2.1 EPR Information
+Authorization and authentication of a Sabre web service consumer is controlled by security attributes, keywords and other credentials. For this web service the following minimum requirements must be met.
+EPR duty codes required are: 4, 5, 6, and 7
+EPR UAT keywords required are: GDSPLY, SELECT
+The agent AAA city, duty code and partition ID are setup by Universal Services Gateway (USG) / Sabre Web Services (SWS) when the user is authenticated and the web service session is created.
+2.2 Pre-requisites
+The flight provided must be initialized in SabreSonic Check-In. Flight initialization runs approximately 72 hours prior to departure. If the flight requested is not initialized the service will return the error ‘FLIGHT NOT INITIALIZED - INVALID DATE OR CITY’.
+2.3 Web Services SOAP Syntax
+The web service request must include a SOAP envelope element, a SOAP header element and a SOAP body element. Additionally, a properly formatted web service request requires certain application specific attributes and constructs in each of these elements. The purpose of this section is to provide a detailed understanding of these requirements.
+All of the following examples assume the client wants to consume version 4 of the web service. These examples would have to change accordingly in order to consume other versions or services by either specifying a different version, a different service or both.
+First, the SOAP envelope element must include a namespace declaration that defines the type and the version of the web service that the client wants to consume. As an example, the following is a SOAP envelope header that defines that the client wants to consume version 4 of the GetPassengerListRQ service by declaring the namespace n1.
+2
+Prerequisites
+Developer Guide 7 Confidential and Proprietary Sabre Inc.
+<soapenv:Envelope xmlns:soap="http://www.w3.org/2001/12/soap-envelope" soap:encodingStyle="http://www.w3.org/2001/12/soap-encoding" xmlns:n1=" http://services.sabre.com/checkin/getPassengerList/v4 ">
+Second, the SOAP body element must use the namespace declared in the SOAP envelope as shown below: <soapenv:Body> <n1:GetPassengerListRQ> . . </n1:GetPassengerListRQ> </soapenv:Body>
+If not done correctly, then SSCI Web Services will not be able parse and validate the request correctly which will result in the request being rejected.
+Lastly, the SOAP header element must declare the “Action” element as shown below: <soapenv:Header> <eb:MessageHeader eb:id="" eb:version="4.0" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"> <eb:Action>GetPassengerListRQ</eb:Action> . . </eb:MessageHeader> </soapenv:Header>
+This element is used for proper routing of the request to the SSCI Web Services and without this element the request will be rejected and not even reach the SSCI Web Services for processing.
+Versions
+Developer Guide 8 Confidential and Proprietary Sabre Inc.
+3 Versions
+3.1 Schema and WSDL
+An overview of the WSDL and schema can be found in the following documents:
+• WSDL – GetPassengerListRQ_v4.wsdl
+• Request/Response Schema – GetPassengerListRQRS_v4.xsd
+3.2 Minor Versions
+The following enhancement(s) are available in minor versions of the request/response schema. Version Description 4.0.0 No minor versions have been released
+The above enhancement(s) require that the Version attribute be specified in the GetPassengerListRQ element of the request; otherwise, only those features in the base version (4.0.0) will be available
+3.3 Specifying a Minor Version
+When making enhancements to an existing response schema version, backward compatibility is maintained by making new response elements and/or attributes optional as well as adding an optional Version attribute to the top level element of the request payload. The Version attribute is used to request that the response payload be constructed according to a specific minor version of the response schema (e.g. 4.0.0). If the Version attribute is not specified, then the response payload is constructed according to the original version of the response schema (e.g. 4.0.0). This allows these new elements and/or attributes to be added to the request schema without requiring all existing clients to rebuild their applications with the new schema unless they want to use them.
+In order for a client to request that the response payload be constructed according to a specific minor version of the response schema (e.g. 4.1.0), the Version attribute must be added to the top level element of the request payload as shown below: <soapenv:Body> <n1:GetPassengerListRQ Version="4.0.0"> … </n1:GetPassengerListRQ> </soapenv:Body>
+The Version attribute is only used to request that the response payload be constructed according to a specific minor version of the response schema. If a client does not need the response payload to be constructed according to a specific minor version of the response schema, but instead wants the
+3
+Versions
+Developer Guide 9 Confidential and Proprietary Sabre Inc.
+response payload to be constructed according to the original version of the response schema (e.g. 4.0.0), then the Version attribute should not be specified at all.
+Usage
+Developer Guide 10 Confidential and Proprietary Sabre Inc.
+4 Usage
+4.1 Summary
+GetPassengerListRQ service retrieves the list of passenger matching the display codes. The display codes are also referred as Edit Codes / SSR. The list of Edit Codes is provided in the Appendix 6.1.Current version of the service supports only below functionalities:
+• Revenue Passengers (RV)
+• Non-Revenue Passengers(XRV)
+• Boarded Passengers(ON)
+• Not –Boarded Passengers(XON)
+• Priority List (P)
+• All Priority List (PALL)
+The below table indicates the minimum information required to call GetPassengerListRQ: Request Element Mandatory Comments
+GetPassengerListRQ/Itinerary/
+Airline
+Y
+Airline code: 2-3 Char
+Flight
+Y
+Flight number
+DepartureDate
+N
+Flight departure date
+If not provided, the service will default to the current date of the city assigned in the EPR
+Origin
+Y
+Origin airport code
+Destination #
+N
+Destination Airport code.
+If the destination is provided, the listing will for destination provided in the request, else it will be till the final destination of the flight.
+ClassOfService
+N
+Class of service for which listing is required for.
+Class of service is not supported on some types of listing.( for example : on Priority lists – P and PALL)
+GetPassengerListRQ/DisplayCodeRequest/DisplayCodes
+@condition
+N
+Supports “AND” or “OR”
+AND : Matches all DisplayCodes enterd to retrieve Passenger list
+OR : Matches any DisplayCodes enterd to retrieve Passenger list
+DisplayCode
+M
+List of Display codes supported. – Appendix 6.1
+4
+Usage
+Developer Guide 11 Confidential and Proprietary Sabre Inc.
+GetPassengerListRQ/DisplayCodeRequest/SortSequence
+N
+Sorting the passenger list. Always sorts in ascending order. Below sort options are supported:
+- Name (by last name)
+- Seat (by seat no.)
+- Sequence (by check-in sequence)
+- Group Number ( by group code)
+* If not provided, default sorting is by “Name”
+Response Element Description
+GetPassengerListRS/ItineraryInfo/Itinerary/
+Information related to the Itinerary
+Airline
+Airline 2 letter code
+Flight
+Flight number
+DepartureDate
+Flight departure date
+Origin
+Origin airport code
+Destination
+Destination Airport code
+ClassOfService
+Class of Service requested
+AircraftType
+The Aircraft Type of the flight.
+GetPassengerListRS/ItineraryInfo/DepartureArrival_Dates/
+Scheduled_DepartureDate
+Scheduled Departure Dates
+Estimated_DepartureDate
+Estimated Departure Dates
+DepartureTime
+Estimated Departure Time
+Scheduled_ArrivalDate
+Scheduled Arrival Date
+Estimated_ArrivalDate
+Estimated Arrival date
+ArrivalTime
+Estimated Arrival Time
+GetPassengerListRS/ItineraryInfo/DepartureGate
+Display the Deparuture gate
+GetPassengerListRS/ItineraryInfo/CabinInfoList/CabinInfo/
+Repeats for all the cabins returned in the result
+Cabin
+Cabin class available on the flight
+Count
+Seat count in the cabin
+Count of the passengers matching the DisplayCode in the request.
+Authorized
+Total authorized seats in the cabin
+Usage
+Developer Guide 12 Confidential and Proprietary Sabre Inc.
+Available
+Total available seats in the cabin
+GetPassengerListRS/PassengerInfoList/PassengerInfo/
+Information related to Passenger
+ThruIndicator
+In case of multileg flights, the passenger who is Checked-in on the first leg, gets this indicator turned on the 2nd leg of the flight.
+GroupCode
+Group code for the Group PNR
+BookingClass
+Passenger booking class
+Cabin
+Booked cabin
+Seat
+Seat number
+Destination
+Destination of the passenger
+BoardingPassFlag
+Is set to “True” if the boarding pass has been issued, else “False”
+For stand by passengers this indicator will be false, though the passenger has a stand by boarding pass.
+PassengerType
+Type of the passenger:
+F - Full fare passenger
+E - Employee Passenger
+BagCount
+Number of bags the passenger is carrying
+4.2 Retrieving Passengers from Priority Lists
+GetPassengerListRQ supports retrieving passengers placed on priority list, caller can either retrieve all the passengers on the priority lists (PALL) or retrieve list of unaccommodated passengers on the Priority lists (P)
+P and PALL cannot be combined with any other display codes.
+Usage
+Developer Guide 13 Confidential and Proprietary Sabre Inc.
+Functions Description
+Listing of ALL passengers on the Priority list
+GetPassengerListRQ/DisplayCodeRequest/DisplayCodes/DisplayCode = “PALL”
+Listing of passengers on the Priority list, who are not yet accommodated
+GetPassengerListRQ/DisplayCodeRequest/DisplayCodes/DisplayCode = “P”
+Below options are NOT supported on the priority list request (RQ) :
+o GetPassengerListRQ/Itinerary/ClassOfService
+o GetPassengerListRQ/DisplayCodeRequest/SortSequence
+Apart from the above mentioned common elements, Priority list requests return the following response elements. Response Element Description
+GetPassengerListRS/PassengerInfoList/PassengerInfo/
+PriorityCode
+Priority code assigned to the passenger
+UpgradeCode
+Upgrade code assigned to the passenger
+CorpID
+“T” will be displayed if the passenger has an Electronic ticket, else it will be blank.
+DesiredBookingClass
+Desired booking class passenger has requested to be accommodated
+SeniorityDate
+Company employment seniority date
+Request and Response Sample: GetPassengerListRQ_v4_SamplePayload_4_2_a.xml
+GetPassengerListRQ_v4_SamplePayload_4_2_b.xml
+GetPassengerListRQ_v4_SamplePayload_4_2_c.xml
+Error Messages
+Developer Guide 14 Confidential and Proprietary Sabre Inc.
+5 Error Messages
+5.1 Error Code Table
+The error messages listed here are only a sampling of possible responses. Additional error messages may exist. Error Code Error Message Error Description
+14000
+Validation Failed
+Parsing of request failed because invalid content was found in the request.
+14001
+Timeout
+Response timed out.
+14002
+Varies
+An application error that varies depending upon the specific nature of the exception that occurred while processing the request.
+14003
+PNR Error Message
+PNR service timed out.
+14004
+Multiple Passengers Not Allowed When Flight Number Is Omitted
+When flight number is not included, multiple passengers in the request are not allowed.
+14005
+Unmarshall Failure
+Trip search response could not be unmarshalled.
+14006
+TripSearchRS Passenger Not Found In PNR
+No passenger matching the request was found in the PNR database.
+14007
+Passenger Not Found In PNR Locator
+No passenger matching the request was found in the PNR response.
+14008
+Marshall Failure
+A request could not be marshaled correctly.
+14009
+Unmarshall Failure
+A response could not be unmarshalled correctly.
+14010
+Future
+n/a
+14011
+Future
+n/a
+14012
+Did not find a hosted air segment in reservation
+Returned for lookup by PNR locator only. Indicates that when trying to retrieve passenger information a hosted air segment could not be found in the reservation, so there is no data to retrieve since it’s not hosted by Sabre.
+14013
+Missing required element <Itinerary> or <PassengerList>
+For legacy lookup by itinerary and passenger list; both the <Itinerary> element and the <PassengerList> element are required.
+5
+Error Messages
+Developer Guide 15 Confidential and Proprietary Sabre Inc.
+Error Code Error Message Error Description
+14014
+Missing required attribute Version
+Returned for lookup by PNR locator only. The Version attribute is required for lookup by PNR locator.
+-2825
+DATABASE ERROR
+AAA city is not done
+-304
+DATABASE ERROR
+Database Error
+-303
+$SYSTEM ERROR (MEMORY ALLOCATION ERROR - CALL SABRE
+Database Error
+-303
+DATABASE ERROR
+Database Error
+-300
+DATABASE ERROR
+Database Error
+-300
+DATABASE ERROR
+Database Error
+-37
+DATABASE ERROR
+Database Error: LV19AA
+-30
+DATABASE ERROR
+Database Error: Not able to Open File Maintenance Control File
+-27
+DATABASE ERROR
+Database Error
+-25
+DATABASE ERROR
+Database Error: Lf31aa
+-25
+DATABASE ERROR
+Database Error: Lf31aa
+-22
+DATABASE ERROR
+Database Error: Lf23aa
+-21
+DATABASE ERROR
+Database Error: Lf22aa
+-2
+$DISPLAY SIMILAR NAME LIST PRIOR TO THIS ENTRY
+Display similar name list prior to this entry
+-2
+DATABASE ERROR
+Database Error: Lw10aa
+-1
+DATABASE ERROR
+Database Error: Lw10aa
+0
+BAGGAGE ROUTE MISSING INDICATOR
+621
+$NO PASSENGER DATA EXISTS
+$PNR ACTIVITY IN PROGRESS
+$NO PASSENGER DATA EXISTS
+Database Error: Passenger record not found
+650
+$NO NAME MATCH FOUND
+No such name in the list
+653
+$INVALID DISPLAY OPTION
+Display option is not correct
+655
+$DISPLAY CODE INCORRECT
+Display code omitted
+658
+$NONE LISTED
+Database Error: Lw10aa
+705
+$NONE LISTED
+Database Error: Airline work file not opened
+706
+$INVALID LINE NUMBER SELECTED
+Line number is not correct
+806
+$ASSIGN BAG TAG PRINTER
+Bagtag printer is needed
+813
+$USE BASE FLIGHT NUMBER
+Use funnel flight number instead of base flight number
+Error Messages
+Developer Guide 16 Confidential and Proprietary Sabre Inc.
+Error Code Error Message Error Description
+883
+$CODE NOT ALLOWED IN COMBINATION
+Display code not allowed to be used in combination
+1010
+$CHECK DATE - DDMMYY
+Date format is not correct
+1576
+$ACS NOT AVAILABLE
+Database Error: Maintenance control file not available
+1617
+$SECONDARY ENTRY NOT ALLOWED FROM OA LIST
+Entry GE*N1 is not for Other Airline
+2550
+$ENTRY CANNOT DEFAULT CLASS OF SERVICE
+Class of service is required for this entry
+2551
+$FLIGHT NUMBER NOT FOUND
+Flight number not found
+2552
+$INCORRECT DATE OR DATE REQUIRED
+Incorrect date entered or no date provided
+2553
+$INVALID INPUT DATE
+Invalid date entered
+2554
+$DEDICATE FLIGHT
+Flight not dedicated - dedicate the flight before this entry
+2555
+$FLIGHT DEDICATED - REMOVE AIRLINE CODE
+Flight already dedicated - remove the airline code from entry
+2556
+$ENTER FLIGHT/DATE OR REDEDICATE
+Reenter flight / date or rededicate
+2557
+AIRLINE CODE NOT FOUND
+Airline code not entered / present in the entry
+2558
+$FLIGHT NUMBER NOT FOUND
+Flight number not entered / present in the entry
+2559
+$FLIGHT NUMBER OR BOARD-POINT INCORRECT
+Check the flight number or board point entered in the entry
+2560
+$INCORRECT BOARD-POINT
+Incorrect board point entered
+2561
+$OFF-POINT NOT FOUND
+Off point not found for flight
+2563
+$NEED PROPER DUTY CODE OR KEYWORD
+Proper duty code / keyword required for the entry
+2564
+DATABASE ERROR
+Database Error: Lw10aa
+2566
+$FLIGHT NOT INITIALIZED - INVALID DATE OR CITY
+Flight not initialized - invalid date or city code
+2570
+$THIS CRT CANNOT DISPLAY A MASK
+Mask not supported on this entry for this agent
+2571
+DATABASE ERROR
+Database Error
+2572
+$INCORRECT ENTRY LENGTH
+Incorrect length of entry
+2574
+DATABASE ERROR
+Database Error
+2576
+$BEGINNING CHARACTERS IN ENTRY INVALID
+Invalid characters at the beginning of entry
+Error Messages
+Developer Guide 17 Confidential and Proprietary Sabre Inc.
+Error Code Error Message Error Description
+2577
+$INVALID FOR CONVERSATION MODE
+Invalid conversation ID / Mode found in table
+2578
+$INVALID CLASS OF SERVICE
+Database Error: Passenger with this class of service is not available
+2579
+$INVALID BOOKING CODE
+Booking code or class of service is not valid
+2580
+$CANNOT VALIDATE BOOKING CODE OR CLASS OF SERVICE
+Booking code or class of service is not valid
+2581
+BOARD CITY NOT AAA
+Board city and AAA do not match
+2585
+$USE NEW ENTRY GABP
+Use correct boarding pass printer number to assign boarding pass printer
+2591
+$CANNOT USE DEDICATED FLT- RE-ENTER ACTUAL FLIGHT NUMBER
+Cannot use dedicated flight - re-enter the actual flight number in the entry
+2592
+$MANDATORY DATE NOT PRESENT
+Mandatory date not present in entry
+2593
+$REPLACE CLASS OF SERVICE WITH
+Need to replace the class of service with '/' in the entry
+2594
+$DESTINATION CITY NOT ALLOWED
+Destination city not allowed / found on this flight number used in the entry
+2595
+$ORIGINATION CITY NOT ALLOWED
+Origination city not allowed / found on this flight number used in the entry
+2599
+$USE W* ENTRIES TO ASSIGN BP PRINTER
+Need to use the W* entries to assign boarding pass printer
+2854
+$MULTIPLE EDITS NOT ALLOWED
+Multiple edits cannot be combined / allowed together
+3073
+$MAXIMUM 10 LINE NBRS MAY BE SELECTED
+Maximum of 10 line numbers can be selected per entry
+3074
+$MAXIMUM 10 PSGRS PER ENTRY
+Maximum of 10 passengers allowed per entry
+3076
+$ON AND XON MAY NOT BE COMBINED WITH ANY OTHER EDITS
+ON & XON edits cannot be combined with any other edits
+3077
+$ENTER GLFLT-NAME$PRIORITY CODE
+Check the format of the entry
+3092
+$PASSENGER ITINERARIES MUST MATCH - ENTER SEPARATELY
+More than one passenger is included in entry
+3102
+$MAX 50 SEQUENCE NUMBERS
+Maximum of 50 sequence numbers are allowed per entry
+3357
+$FLIGHT RESTRICTED
+Flight restriction is not overridden for this agent
+3545
+$CHECK-IN MAXIMUM 99 PASSENGERS
+Maximum of 99 passengers allowed in check-in
+Error Messages
+Developer Guide 18 Confidential and Proprietary Sabre Inc.
+Error Code Error Message Error Description
+4070
+$FLIGHT RESTRICTED - REBUILD IN PROGRESS
+Flight restricted - rebuild in progress
+4678
+$FLIGHT RESTRICTED-EQUIPMENT CHANGE IN PROGRESS
+Flight restricted - equipment change in progress
+4679
+$FLIGHT RESTRICTED-BUILD IN PROGRESS
+Flight restricted - build in progress
+5532
+$REISSUE IN PROGRESS *WFR OR IGNORE
+Reissue in progress, use *WFR or ignore before this entry
+5710
+$ENTRY NOT SUPPORTED FOR OA OPERATED FLIGHT
+Entry not supported for flight operated by other carrier
+5714
+$CODESHARE DATABASE PROCESSING ERROR
+Database processing error while processing for codeshare
+7114
+ALT SPACE OR TRF OA NOT ALLOW
+ALT space or transfer not allowed on other carrier flight
+7148
+NST MAY NOT BE COMBINED WITH ANY OTHER EDITS
+NST edit cannot be combined with other edits
+Appendix
+Developer Guide 19 Confidential and Proprietary Sabre Inc.
+6 Appendix
+6.1 Edit Code Characteristic
+The edit codes listed here are only a sampling of possible codes. Additional edit codes may exist. Display Code Description
+AA
+List all passengers at-airport on a given flight. Use XAA to list passengers not at-airport on a given flight.
+AC
+List all passengers who have “add collect due” a given flight. Use XAC to list passengers with no “add collect due” on a given flight.
+AE
+List all passengers with air extras on a given flight.
+ARMD
+List all passengers travelling with weapon on a given flight. Use XARMD to list passengers travelling with no weapon on a given flight.
+AVIH
+List all passengers with pet or animal in kennel on a given flight. Use XAVIH to list passengers without pet or animal in kennel on a given flight.
+BLND
+List all passengers who are vision-impaired on a given flight. Use X BLND to list passengers who are not vision-impaired on a given flight.
+BP
+List all passengers who have boading pass on a given flight. Use XBP to list passengers who have no boading pass on a given flight.
+BT
+List all passengers who have checked bags on a given flight. Use XBT to list passengers who have no checked bags on a given flight.
+CHD
+List all passengers identified as child on a given flight. Use XCHD to list passengers not identified as child on a given flight.
+CM
+List all passengers who have comments or notes on a given flight. Use XCM to list passengers who have no comments or notes on a given flight.
+DEAF
+List all passengers who are hearing-impaired on a given flight. Use XDEAF to list passengers who are not hearing-impaired on a given flight.
+DEPA
+List all passengers who are accompanied deportee on a given flight. Use DEPA to list passengers who are not accompanied deportee on a given flight.
+DEPU
+List all passengers who are unaccompanied deportee on a given flight. Use DEPU to list passengers who are not unaccompanied deportee on a given flight.
+DG
+List all passengers who are downgraded on a given flight. Use XDG to list passengers who are not downgraded on a given flight.
+6
+Appendix
+Developer Guide 20 Confidential and Proprietary Sabre Inc.
+Display Code Description
+DOCA
+List all passengers who have address documentation on a given flight. Use XDOCA to list passengers who have no address documentation on a given flight.
+DOCO
+List all passengers who have other documentation provided on a given flight. Use XDOCS to list passengers who have no other documentation provided on a given flight.
+DOCS
+List all passengers who have standard travel documentation on a given flight. Use XDOCS to list passengers who have no standard travel documentation on a given flight.
+DOCV
+List all passengers whose documentation have been verified on a given flight. Use XDOCV to list passengers whose documentation have not been verified on a given flight.
+HAND
+List all passengers who are handcuffed on a given flight. Use XHAND to list passengers who are not handcuffed on a given flight.
+INF
+List all passengers who are infant on a given flight. Use XINF to list passengers who are not infant on a given flight.
+IB
+List all passengers who have inbound segments on a given flight. Use XIB to list passengers who have no inbound segments on a given flight.
+MAAS
+List all passengers with meet-and-assist request on a given flight. Use XMAAS to list passengers with no meet-and-assist request on a given flight.
+MEDA
+List all passengers with medical clearance required on a given flight. Use XMEDA to list passengers with no medical clearance required on a given flight.
+MILT
+List all military passengers on a given flight. Use XMILT to list non-military passengers on a given flight.
+OB
+List all passengers who have an outbound connection on a given flight. Use XOB to list all passengers who have no outbound connection.
+ON
+List all passengers who have boarded a given flight. Use XON to list all passengers who have not boarded.
+P
+List all unaccommodated priority list passengers on a given flight.
+PALL
+List all priority list passengers on a given flight
+PETC
+List all passengers with pet in cabin on a given flight. Use XPETC to list passengers with no pet in cabin on a given flight.
+PR
+List all passengers with pre-reserved seat on a given flight. Use XPR to list passengers with no pre-reserved seat on a given flight.
+Appendix
+Developer Guide 21 Confidential and Proprietary Sabre Inc.
+Display Code Description
+PSPT
+List all passengers with passport information on a given flight. Use XPSPT to list passengers with no passport information on a given flight.
+RV
+List all revenue passengers on a given flight. Use XRV to list all non-revenue passengers.
+TKT
+List all passengers with paper ticket on a given flight. Use XTKT to list passengers with no paper ticket on a given flight.
+TWOV
+List all passengers who are travelling without visa on a given flight. Use XTWOV to list passengers who are travelling with visa on a given flight.
+UG
+List all passengers who are upgraded on a given flight. Use XUG to list passengers who are not upgraded on a given flight.
+UMNR
+List all passengers who are unaccompanied minors on a given flight. Use XUMNR to list passengers who are not unaccompanied minors on a given flight.
+UPID
+List all passengers who have unique passenger id on a given flight. Use XUPID to list passengers who have no unique passenger id on a given flight.
+WCHR
+List all passengers who have wheelchair on a given flight. Use XWCHR to list passengers who have no wheelchair on a given flight.
+WCHS
+List all passengers who have wheelchair for distance on a given flight. Use XWCHS to list passengers who have no wheelchair for distance on a given flight.
+WCHC
+List all passengers who have wheelchair and need aisle chair on a given flight. Use XWCHC to list passengers who have no wheelchair and need aisle chair on a given flight.
+XT
+List all passengers with cancelled bag tags on a given flight. Use XXT to list passengers with no cancelled bag tags on a given flight.
+6.2 Glossary Term Description EPR Acronym for Employee Profile Record Each user of PSS is provided with a unique ID that combined with a user-defined password, permits access to the system. The EPR also includes security access indicators, including cities permitted for sign in, duty codes, and application keywords. PNR Acronym for Passenger Name Record
+Appendix
+Developer Guide 22 Confidential and Proprietary Sabre Inc.
+Term Description A file record in TPF used to store passenger specific information related to travel itinerary, payment, and other related information. The fundamental record in a reservation system containing the information. PSS Acronym for Passenger Service System This is the part of Sabre which handles Sabre Subscriber creation of PNRs, allows booking of airline flights, car rentals, and hotel nights, as well as providing airline prices and tickets, and other travel retail related products. SSCI Acronym for SabreSonic Check-In XML Acronym for Extensible Markup Language A specification developed by the W3C. XML is a pared-down version of SGML, designed especially for Web documents. WSDL Acronym for Web Services Definition WSDL uses a common format to describe and publish the formats, operations, and protocols of a Web service. WSDL elements describe data using one or more XML schemas. These schemas are passed to the Web service. The description of the data tells the receiver how to process the data, and the binding to a protocol or transport instructs the sender how to send the data. Both parties must have access to the same XML schema. WSDL is usually used with SOAP

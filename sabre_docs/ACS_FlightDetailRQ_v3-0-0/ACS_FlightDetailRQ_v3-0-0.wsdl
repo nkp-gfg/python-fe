@@ -1,0 +1,53 @@
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader" xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext" xmlns:acsrqrs="http://services.sabre.com/ACS/BSO/flightDetail/v3" xmlns:acs="http://acsservice" name="ACSServices" targetNamespace="http://acsservice">
+
+	<types>
+		<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+			<xsd:import namespace="http://services.sabre.com/ACS/BSO/flightDetail/v3" schemaLocation="ACS_FlightDetailRQRS_v3-0-0.xsd"/>
+			<xsd:import namespace="http://www.ebxml.org/namespaces/messageHeader" schemaLocation="msg-header-2_0.xsd"/>
+			<xsd:import namespace="http://schemas.xmlsoap.org/ws/2002/12/secext" schemaLocation="wsse.xsd"/>
+		</xsd:schema>
+	</types>
+
+	<message name="ACS_FlightDetailInput">
+		<part name="header" element="eb:MessageHeader"/>
+		<part name="header2" element="wsse:Security"/>
+		<part name="body" element="acsrqrs:ACS_FlightDetailRQ"/>
+	</message>
+
+	<message name="ACS_FlightDetailOutput">
+		<part name="header" element="eb:MessageHeader"/>
+		<part name="header2" element="wsse:Security"/>
+		<part name="body" element="acsrqrs:ACS_FlightDetailRS"/>
+	</message>
+
+	<portType name="ACS_FlightDetailPortType">
+		<operation name="ACS_FlightDetailRQ">
+			<input message="acs:ACS_FlightDetailInput"/>
+			<output message="acs:ACS_FlightDetailOutput"/>
+		</operation>
+	</portType>
+
+	<binding name="ACS_FlightDetailSoapBinding" type="acs:ACS_FlightDetailPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="ACS_FlightDetailRQ">
+			<soap:operation soapAction="OTA"/>
+			<input>
+				<soap:header message="acs:ACS_FlightDetailInput" part="header" use="literal"/>
+				<soap:header message="acs:ACS_FlightDetailInput" part="header2" use="literal"/>
+				<soap:body parts="body" use="literal"/>
+			</input>
+			<output>
+				<soap:header message="acs:ACS_FlightDetailOutput" part="header" use="literal"/>
+				<soap:header message="acs:ACS_FlightDetailOutput" part="header2" use="literal"/>
+				<soap:body parts="body" use="literal"/>
+			</output>
+		</operation>
+	</binding>
+
+	<service name="ACSFlightDetailService">
+		<port name="ACS_FlightDetailPortType" binding="acs:ACS_FlightDetailSoapBinding">
+			<soap:address location="https://webservices.platform.sabre.com/websvc"/>
+		</port>
+	</service>
+
+</definitions>

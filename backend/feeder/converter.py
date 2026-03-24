@@ -43,7 +43,37 @@ def _now_iso():
 
 # ── Flight Status ──────────────────────────────────────────────────────────
 
-def convert_flight_status(raw_data, airline, flight_number, origin):
+def _extract_flight_remarks(data):
+    """Extract remarks / display data from ACS_FlightDetailRS."""
+    remarks = []
+    # DisplayData may contain Remarks when <Display><Type>R</Type></Display> is requested
+    display_list = _ensure_list(data.get("DisplayData", []))
+    for display in display_list:
+        if isinstance(display, dict):
+            text = display.get("Text", display.get("#text", ""))
+            dtype = display.get("@type", display.get("Type", ""))
+            if text:
+                remarks.append({"type": dtype, "text": text})
+
+    # Also check for top-level Remarks element (may be a wrapper or a list)
+    remarks_raw = data.get("Remarks", data.get("RemarkList", {}))
+    if isinstance(remarks_raw, dict):
+        remark_list = _ensure_list(remarks_raw.get("Remark", []))
+    else:
+        remark_list = _ensure_list(remarks_raw)
+    for rm in remark_list:
+        if isinstance(rm, dict):
+            remarks.append({
+                "type": rm.get("@type", rm.get("Type", "")),
+                "text": rm.get("Text", rm.get("#text", "")),
+            })
+        elif isinstance(rm, str):
+            remarks.append({"type": "", "text": rm})
+
+    return remarks
+
+
+def convert_flight_status(raw_data, airline, flight_number, origin, departure_date=""):
     """Convert ACS_FlightDetailRS dict into a clean MongoDB document."""
     data = _strip_ns(raw_data)
     itin = data.get("ItineraryResponseList", {}).get(
@@ -75,9 +105,10 @@ def convert_flight_status(raw_data, airline, flight_number, origin):
         "airline": airline,
         "flightNumber": flight_number,
         "origin": origin,
-        "departureDate": itin.get("ScheduledDepartureDate", ""),
+        "departureDate": itin.get("ScheduledDepartureDate", "") or itin.get("DepartureDate", "") or departure_date,
         "fetchedAt": _now_iso(),
         "status": itin.get("FlightStatus", ""),
+        "timeToDeparture": _safe_int(itin.get("TimeToDepartureInMinutes")),
         "aircraft": {
             "type": itin.get("AircraftType", ""),
             "registration": itin.get("AircraftRegistration", ""),
@@ -85,10 +116,10 @@ def convert_flight_status(raw_data, airline, flight_number, origin):
             "seatConfig": itin.get("SeatConfig", ""),
         },
         "schedule": {
-            "scheduledDeparture": f"{itin.get('ScheduledDepartureDate', '')}T{itin.get('ScheduledDepartureTime', '')}",
-            "estimatedDeparture": f"{itin.get('EstimatedDepartureDate', '')}T{itin.get('EstimatedDepartureTime', '')}",
-            "scheduledArrival": f"{itin.get('ScheduledArrivalDate', '')}T{itin.get('ScheduledArrivalTime', '')}",
-            "estimatedArrival": f"{itin.get('EstimatedArrivalDate', '')}T{itin.get('EstimatedArrivalTime', '')}",
+            "scheduledDeparture": f"{itin.get('ScheduledDepartureDate', '') or itin.get('DepartureDate', '')}T{itin.get('ScheduledDepartureTime', '') or itin.get('DepartureTime', '')}",
+            "estimatedDeparture": f"{itin.get('EstimatedDepartureDate', '') or itin.get('DepartureDate', '')}T{itin.get('EstimatedDepartureTime', '') or itin.get('DepartureTime', '')}",
+            "scheduledArrival": f"{itin.get('ScheduledArrivalDate', '') or itin.get('ArrivalDate', '')}T{itin.get('ScheduledArrivalTime', '') or itin.get('ArrivalTime', '')}",
+            "estimatedArrival": f"{itin.get('EstimatedArrivalDate', '') or itin.get('ArrivalDate', '')}T{itin.get('EstimatedArrivalTime', '') or itin.get('ArrivalTime', '')}",
             "durationMinutes": _safe_int(itin.get("FlightDurationInMinutes")),
         },
         "gate": itin.get("DepartureGate", ""),
@@ -112,6 +143,7 @@ def convert_flight_status(raw_data, airline, flight_number, origin):
             "cockpitInUse": jump.get("@cockpitInUse", "false") == "true",
             "cabinInUse": jump.get("@cabinInUse", "false") == "true",
         },
+        "remarks": _extract_flight_remarks(data),
         "_raw": raw_data,
     }
     return doc
@@ -331,6 +363,85 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                     "eTicket": tkt.get("@eTicketNumber", ""),
                 })
 
+        # SSR — Special Service Requests (wheelchair, meal, medical, etc.)
+        raw_ssrs = _ensure_list(
+            (pax_res.get("SpecialServices") or {}).get("SpecialService", [])
+        )
+        ssr_requests = []
+        for ssr in raw_ssrs:
+            if isinstance(ssr, dict):
+                ssr_requests.append({
+                    "code": ssr.get("Code", ssr.get("@code", "")),
+                    "text": ssr.get("Text", ssr.get("FreeText", "")),
+                    "status": ssr.get("ActionCode", ssr.get("Status", "")),
+                    "airline": ssr.get("AirlineCode", ""),
+                    "type": ssr.get("@type", ""),
+                })
+
+        # Email addresses
+        raw_emails = _ensure_list(
+            (pax_res.get("EmailAddresses") or {}).get("EmailAddress", [])
+        )
+        emails = []
+        for em in raw_emails:
+            if isinstance(em, dict):
+                emails.append(em.get("Address", em.get("#text", "")))
+            elif isinstance(em, str):
+                emails.append(em)
+
+        # Phone numbers
+        raw_phones = _ensure_list(
+            (pax_res.get("PhoneNumbers") or {}).get("PhoneNumber", [])
+        )
+        phones = []
+        for ph in raw_phones:
+            if isinstance(ph, dict):
+                phones.append({
+                    "number": ph.get("Number", ph.get("#text", "")),
+                    "type": ph.get("@type", ph.get("Type", "")),
+                })
+            elif isinstance(ph, str):
+                phones.append({"number": ph, "type": ""})
+
+        # Remarks
+        raw_remarks = _ensure_list(
+            (pax_res.get("Remarks") or {}).get("Remark", [])
+        )
+        remarks = []
+        for rm in raw_remarks:
+            if isinstance(rm, dict):
+                remarks.append({
+                    "type": rm.get("@type", rm.get("Type", "")),
+                    "text": rm.get("Text", rm.get("RemarkText", rm.get("#text", ""))),
+                })
+            elif isinstance(rm, str):
+                remarks.append({"type": "", "text": rm})
+
+        # Ancillary services
+        raw_ancillaries = _ensure_list(
+            (pax_res.get("AncillaryServices") or {}).get("AncillaryService", [])
+        )
+        ancillary_services = []
+        for anc in raw_ancillaries:
+            if isinstance(anc, dict):
+                ancillary_services.append({
+                    "code": anc.get("CommercialName", anc.get("Code", "")),
+                    "status": anc.get("StatusCode", anc.get("ActionCode", "")),
+                    "quantity": _safe_int(anc.get("Quantity", 1)),
+                    "emdNumber": anc.get("EMDNumber", ""),
+                    "groupCode": anc.get("GroupCode", ""),
+                    "subGroupCode": anc.get("SubGroupCode", ""),
+                })
+
+        # Received from (last agent who modified PNR)
+        received_from = ""
+        rf = inner.get("ReceivedFrom", pax_res.get("ReceivedFrom", {}))
+        if isinstance(rf, dict):
+            received_from = rf.get("Name", rf.get(
+                "AgentName", rf.get("#text", "")))
+        elif isinstance(rf, str):
+            received_from = rf
+
         reservations.append({
             "pnr": pnr,
             "numberInParty": _safe_int(inner.get("@numberInParty")),
@@ -340,6 +451,12 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
             "passengers": passengers,
             "segments": segments,
             "tickets": tickets,
+            "ssrRequests": ssr_requests,
+            "emails": emails,
+            "phones": phones,
+            "remarks": remarks,
+            "ancillaryServices": ancillary_services,
+            "receivedFrom": received_from,
         })
 
     doc = {
@@ -692,5 +809,106 @@ def merge_trip_reports(mlx_doc, mlc_doc, airline, flight_number, departure_date,
         "cancelledCount": mlx_doc.get("totalPassengers", 0) if mlx_doc else 0,
         "everBookedPassengers": mlc_doc.get("passengers", []) if mlc_doc else [],
         "everBookedCount": mlc_doc.get("totalPassengers", 0) if mlc_doc else 0,
+    }
+    return doc
+
+
+# ── Schedule (VerifyFlightDetailsRS) ───────────────────────────────────────
+
+def convert_schedule(raw_data, airline, flight_number, departure_date):
+    """
+    Convert VerifyFlightDetailsRS into a normalized schedule document
+    for the flight_schedules collection.
+
+    Returns a flat document with published timetable data:
+    departure/arrival times, aircraft, duration, route, terminals, time zones.
+    """
+    data = _strip_ns(raw_data)
+
+    # Check for errors
+    app_results = data.get("ApplicationResults", {})
+    status = app_results.get("@status", "")
+    if status != "Complete":
+        error_msg = ""
+        err = app_results.get("Error", {})
+        if isinstance(err, dict):
+            sys_results = err.get("SystemSpecificResults", {})
+            msg = sys_results.get("Message", {})
+            if isinstance(msg, dict):
+                error_msg = msg.get("#text", "")
+            elif isinstance(msg, str):
+                error_msg = msg
+        return {
+            "airline": airline,
+            "flightNumber": flight_number,
+            "departureDate": departure_date,
+            "fetchedAt": _now_iso(),
+            "success": False,
+            "error": error_msg or f"Status: {status}",
+            "segments": [],
+            "_raw": raw_data,
+        }
+
+    # Extract segments from OriginDestinationOptions
+    options = data.get("OriginDestinationOptions", {})
+    od_option = options.get("OriginDestinationOption", {})
+    if isinstance(od_option, list):
+        od_option = od_option[0] if od_option else {}
+
+    origin_tz = od_option.get("@OriginTimeZone", "")
+    dest_tz = od_option.get("@DestinationTimeZone", "")
+
+    raw_segments = _ensure_list(od_option.get("FlightSegment", []))
+    segments = []
+    for seg in raw_segments:
+        dep_dt = seg.get("@DepartureDateTime", "")
+        arr_dt = seg.get("@ArrivalDateTime", "")
+        origin_loc = seg.get("OriginLocation", {})
+        dest_loc = seg.get("DestinationLocation", {})
+        equip = seg.get("Equipment", {})
+        marketing = seg.get("MarketingAirline", {})
+        meal = seg.get("Meal", {})
+
+        segments.append({
+            "departureDateTime": dep_dt,
+            "arrivalDateTime": arr_dt,
+            "origin": origin_loc.get("@LocationCode", ""),
+            "originTerminal": origin_loc.get("@Terminal", ""),
+            "destination": dest_loc.get("@LocationCode", ""),
+            "destinationTerminal": dest_loc.get("@Terminal", ""),
+            "aircraftType": equip.get("@AirEquipType", ""),
+            "marketingAirline": marketing.get("@Code", ""),
+            "flightNumber": marketing.get("@FlightNumber", ""),
+            "airMilesFlown": _safe_int(seg.get("@AirMilesFlown")),
+            "elapsedTime": seg.get("@ElapsedTime", ""),
+            "accumulatedElapsedTime": seg.get("@AccumulatedElapsedTime", ""),
+            "mealCode": meal.get("@Code", "") if isinstance(meal, dict) else "",
+        })
+
+    # Build the top-level summary from the first segment
+    first = segments[0] if segments else {}
+    doc = {
+        "airline": airline,
+        "flightNumber": flight_number,
+        "departureDate": departure_date,
+        "fetchedAt": _now_iso(),
+        "success": True,
+        "error": None,
+        # Top-level summary (from first/only segment)
+        "origin": first.get("origin", ""),
+        "destination": first.get("destination", ""),
+        "scheduledDeparture": first.get("departureDateTime", ""),
+        "scheduledArrival": first.get("arrivalDateTime", ""),
+        "aircraftType": first.get("aircraftType", ""),
+        "elapsedTime": first.get("elapsedTime", ""),
+        "airMilesFlown": first.get("airMilesFlown", 0),
+        "originTerminal": first.get("originTerminal", ""),
+        "destinationTerminal": first.get("destinationTerminal", ""),
+        "originTimeZone": origin_tz,
+        "destinationTimeZone": dest_tz,
+        "mealCode": first.get("mealCode", ""),
+        # Full segment list (for multi-leg flights)
+        "segments": segments,
+        "_raw": raw_data,
     }
     return doc

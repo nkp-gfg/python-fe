@@ -1,0 +1,36 @@
+------------------------------
+RQ 
+------------------------------
+
+<Trip_SearchRQ Version="4.5.0" xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07" xmlns="http://webservices.sabre.com/triprecord">
+<ReadRequests>
+<ReservationReadRequest>
+   <DateCriteria>
+      <ReservationStartDate After="2019-07-16T07:00:00"/>      <ReservationEndDate Before="2019-07-26T14:00:00"/>
+   </DateCriteria>
+  <NameCriteria>
+    <Name>
+      <LastName MatchMode="EXACT">GOMEZ</LastName>
+ 
+    </Name>
+  </NameCriteria>
+  <PosCriteria AirlineCode="LA"/>
+  <ReturnOptions ResponseFormat="STL" ViewName="TripSearch" SearchType="ACTIVE" MaxItemsReturned="100"/>           
+</ReservationReadRequest>
+</ReadRequests>
+</Trip_SearchRQ>
+
+------------------------------
+RS
+------------------------------
+
+ <Trip_SearchRS xmlns="http://webservices.sabre.com/triprecord" xmlns:ns2="http://services.sabre.com/STL/v01" xmlns:ns4="http://webservices.sabre.com/sabreXML/2003/07" xmlns:ns3="http://webservices.sabre.com/pnrbuilder" xmlns:ns6="http://tds.sabre.com/itinerary" xmlns:ns5="http://tds.sabre.com/rules" xmlns:ns8="http://services.sabre.com/STL/v02" xmlns:ns7="http://services.sabre.com/res/orr/v0" xmlns:ns13="http://www.sabre.com/eps/schemas" xmlns:tir37="http://services.sabre.com/res/tir/v3_7" xmlns:ns9="http://www.sabre.com/ssg/des/v1" xmlns:ns12="http://opentravel.org/common/v02" xmlns:ns11="http://www.OpenTravel.org/ns/OTA2/AppInfo_v01_00" xmlns:tir39="http://services.sabre.com/res/tir/v3_9" xmlns:ns10="http://services.sabre.com/STL_Header/v02_00" xmlns:stl114="http://webservices.sabre.com/pnrbuilder/v1_14" xmlns:ns15="http://webservices.sabre.com/servicesplatform/orr/rules/1.0.0" xmlns:ns14="http://tds.sabre.com/distribution" xmlns:stl115="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:stl117="http://webservices.sabre.com/pnrbuilder/v1_17" xmlns:or111="http://services.sabre.com/res/or/v1_11" xmlns:or16="http://services.sabre.com/res/or/v1_6" xmlns:or17="http://services.sabre.com/res/or/v1_7" xmlns:or18="http://services.sabre.com/res/or/v1_8" xmlns:or19="http://services.sabre.com/res/or/v1_9" TimeStamp="2019-06-13T02:28:56" Target="Production" Version="4.5.0">
+     <Success>Success</Success>
+     <ReservationsList NumberResults="1" NumberPages="1" TotalResults="1">
+         <Reservations>
+             <Reservation Locator="IWPXFE">
+                 <stl19:GetReservationRS xmlns:stl19="http://webservices.sabre.com/pnrbuilder/v1_19" xmlns:ns4="http://webservices.sabre.com/pnrconn/ReaccSearch" xmlns:ns6="http://services.sabre.com/res/orr/v0" xmlns:raw="http://tds.sabre.com/itinerary" Version="1.15.0"></stl19:GetReservationRS>
+             </Reservation>
+         </Reservations>
+     </ReservationsList>
+ </Trip_SearchRS>

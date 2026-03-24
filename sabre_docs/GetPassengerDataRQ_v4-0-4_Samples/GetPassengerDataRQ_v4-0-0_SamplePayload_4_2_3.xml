@@ -1,0 +1,204 @@
+<SamplePayloads>
+<!--Request-->
+
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sec="http://schemas.xmlsoap.org/ws/2002/12/secext" xmlns:mes="http://www.ebxml.org/namespaces/messageHeader" xmlns:v4="http://services.sabre.com/checkin/getPassengerData/v4">
+   <soapenv:Header>
+      <eb:MessageHeader eb:id="" eb:version="1.0" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader">
+         <eb:From>
+            <eb:PartyId eb:type="URI">Client</eb:PartyId>
+         </eb:From>
+         <eb:To>
+            <eb:PartyId eb:type="URI">Server</eb:PartyId>
+         </eb:To>
+         <eb:CPAId>IPCC</eb:CPAId>
+         <eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId>
+         <eb:Service>GetPassengerDataRQ</eb:Service>
+         <eb:Action>GetPassengerDataRQ</eb:Action>
+         <eb:MessageData>
+            <eb:MessageId>mid:1</eb:MessageId>
+            <eb:Timestamp>2008-03-03T12:45:52</eb:Timestamp>
+         </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+         <wsse:BinarySecurityToken EncodingType="wsse:Base64Binary" valueType="String">Shared/IDL:IceSess\/SessMgr:1\.0.IDL/Common/!ICESMS\/STSA!ICESMSLB\/STS.LB!-3425969934644883839!891272!0</wsse:BinarySecurityToken>
+      </wsse:Security>
+   </soapenv:Header>
+   <soapenv:Body>
+      <v4:GetPassengerDataRQ validateCheckInRequirements="true">
+         <!--You have a CHOICE of the next 2 items at this level-->
+         <ItineraryAndPassengerInfo>
+            <Itinerary>
+               <Airline>AZ</Airline>
+               <Flight>317</Flight>
+               <DepartureDate>2016-03-17</DepartureDate>
+               <Origin>CDG</Origin>
+            </Itinerary>
+            <PassengerList>
+               <Passenger>
+                  <LastName>JOHN</LastName>
+                  <PassengerID>B7FCF1EE0001</PassengerID>
+               </Passenger>
+            </PassengerList>
+         </ItineraryAndPassengerInfo>
+         <AncillaryInfoList>
+            <GroupCode category="ALL">BG</GroupCode>
+         </AncillaryInfoList>
+      </v4:GetPassengerDataRQ>
+   </soapenv:Body>
+</soapenv:Envelope>
+<!--Response-->
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+   <soap-env:Header>
+      <eb:MessageHeader eb:version="1.0" soap-env:mustUnderstand="1" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader">
+         <eb:From>
+            <eb:PartyId eb:type="URI">Server</eb:PartyId>
+         </eb:From>
+         <eb:To>
+            <eb:PartyId eb:type="URI">Client</eb:PartyId>
+         </eb:To>
+         <eb:CPAId>IPCC</eb:CPAId>
+         <eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId>
+         <eb:Service>GetPassengerDataRQ</eb:Service>
+         <eb:Action>GetPassengerDataRS</eb:Action>
+         <eb:MessageData>
+            <eb:MessageId>45876ffd-8124-4a3f-8191-940eedb22ef5@61</eb:MessageId>
+            <eb:Timestamp>2016-03-17T05:34:51</eb:Timestamp>
+            <eb:RefToMessageId>mid:1</eb:RefToMessageId>
+         </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+         <wsse:BinarySecurityToken valueType="String" EncodingType="wsse:Base64Binary">Shared/IDL:IceSess\/SessMgr:1\.0.IDL/Common/!ICESMS\/STSA!ICESMSLB\/STS.LB!-3425969934644883839!891272!0</wsse:BinarySecurityToken>
+      </wsse:Security>
+   </soap-env:Header>
+   <soap-env:Body>
+      <ns3:GetPassengerDataRS xmlns:ns3="http://services.sabre.com/checkin/getPassengerData/v4" xmlns:ns2="http://services.sabre.com/STL/v3">
+         <PassengerDataResponseList>
+            <PassengerDataResponse>
+               <LineNumber>1</LineNumber>
+               <LastName>JOHN</LastName>
+               <FirstName>M</FirstName>
+               <PassengerID>B7FCF1EE0001</PassengerID>
+               <PNRLocator nameAssociationID="1" nameRefNumber="01.01">OLRKTG</PNRLocator>
+               <VCRNumber couponNumber="1">0552120002615</VCRNumber>
+               <BaggageRouteList>
+                  <ns2:BaggageRoute>
+                     <ns2:SegmentID>1</ns2:SegmentID>
+                     <ns2:Airline>AZ</ns2:Airline>
+                     <ns2:Flight>317</ns2:Flight>
+                     <ns2:BookingClass>Y</ns2:BookingClass>
+                     <ns2:Origin>CDG</ns2:Origin>
+                     <ns2:Destination>FCO</ns2:Destination>
+                     <ns2:DepartureDate>2016-03-17</ns2:DepartureDate>
+                     <ns2:DepartureTime>07:00AM</ns2:DepartureTime>
+                     <ns2:ArrivalDate>2016-03-17</ns2:ArrivalDate>
+                     <ns2:ArrivalTime>09:00AM</ns2:ArrivalTime>
+                     <ns2:SegmentStatus>HK</ns2:SegmentStatus>
+                     <ns2:PassengerID>B7FCF1EE0001</ns2:PassengerID>
+                  </ns2:BaggageRoute>
+               </BaggageRouteList>
+               <PassengerItineraryList>
+                  <PassengerItinerary>
+                     <SegmentID>1</SegmentID>
+                     <Airline>AZ</Airline>
+                     <Flight>317</Flight>
+                     <BookingClass>Y</BookingClass>
+                     <Origin>CDG</Origin>
+                     <Destination>FCO</Destination>
+                     <DepartureDate>2016-03-17</DepartureDate>
+                     <AircraftType>32S</AircraftType>
+                     <Cabin>Y</Cabin>
+                     <PassengerType>F</PassengerType>
+                     <BagCount>1</BagCount>
+                     <TotalBagWeightAndUnit>10</TotalBagWeightAndUnit>
+                     <EditCodeList>
+                        <ns2:EditCode>M</ns2:EditCode>
+                        <ns2:EditCode>DOCS</ns2:EditCode>
+                        <ns2:EditCode>ETI</ns2:EditCode>
+                        <ns2:EditCode>AE</ns2:EditCode>
+                     </EditCodeList>
+                     <CheckInNumber>1</CheckInNumber>
+                     <BagTagInfoList>
+                        <BagTagInfo>
+                           <ns2:BagTagNumber>9055456456</ns2:BagTagNumber>
+                           <ns2:WeightAndSize>
+                              <ns2:WeightAndUnit unit="KG">10</ns2:WeightAndUnit>
+                           </ns2:WeightAndSize>
+                           <ns2:Airline>AZ</ns2:Airline>
+                           <ns2:BagOrigin>CDG</ns2:BagOrigin>
+                           <ns2:BagFinalDestination>FCO</ns2:BagFinalDestination>
+                        </BagTagInfo>
+                     </BagTagInfoList>
+                     <AEDetailsList>
+                        <ns2:AEDetails>
+                           <ns2:ItemID>5</ns2:ItemID>
+                           <ns2:ATPCOGroupCode>BG</ns2:ATPCOGroupCode>
+                           <ns2:ATPCOSubCode>123</ns2:ATPCOSubCode>
+                           <ns2:StatusCode>HD</ns2:StatusCode>
+                           <ns2:UsedEMD>false</ns2:UsedEMD>
+                           <ns2:QuantityUsed>0</ns2:QuantityUsed>
+                           <ns2:QuantityBought>1</ns2:QuantityBought>
+                           <ns2:PurchaseDate>2016-03-17</ns2:PurchaseDate>
+                           <ns2:PurchaseTime>11:59PM</ns2:PurchaseTime>
+                           <ns2:Disassociated>false</ns2:Disassociated>
+                           <ns2:MarketingAirline>AZ</ns2:MarketingAirline>
+                           <ns2:MarketingFlight>0317</ns2:MarketingFlight>
+                           <ns2:Origin>CDG</ns2:Origin>
+                           <ns2:Destination>FCO</ns2:Destination>
+                           <ns2:OperatingAirline>AZ</ns2:OperatingAirline>
+                           <ns2:OperatingFlight>0317</ns2:OperatingFlight>
+                           <ns2:PriceDetails>
+                              <ns2:TotalPrice currencyCode="USD">30.00</ns2:TotalPrice>
+                              <ns2:BasePrice currencyCode="USD">30.00</ns2:BasePrice>
+                              <ns2:EquivalentPrice>0</ns2:EquivalentPrice>
+                           </ns2:PriceDetails>
+                        </ns2:AEDetails>
+                     </AEDetailsList>
+                     <VCRInfoList>
+                        <VCRInfo>
+                           <VCRNumber couponNumber="1">0552120002615</VCRNumber>
+                           <FareBasisCode>Y7OWAZ</FareBasisCode>
+                           <BagAllowance unit="PC">2</BagAllowance>
+                        </VCRInfo>
+                     </VCRInfoList>
+                  </PassengerItinerary>
+               </PassengerItineraryList>
+               <FreeTextInfoList>
+                  <ns2:FreeTextInfo>
+                     <ns2:EditCode>AE</ns2:EditCode>
+                     <ns2:TextLine>
+                        <ns2:Text>AZ 0317/CDGFCO/     BG /HD/1 /0</ns2:Text>
+                     </ns2:TextLine>
+                  </ns2:FreeTextInfo>
+                  <ns2:FreeTextInfo>
+                     <ns2:EditCode>BT</ns2:EditCode>
+                     <ns2:TextLine>
+                        <ns2:Text>AZ FCO    9055456456.10</ns2:Text>
+                     </ns2:TextLine>
+                  </ns2:FreeTextInfo>
+                  <ns2:FreeTextInfo>
+                     <ns2:EditCode>BT</ns2:EditCode>
+                     <ns2:TextLine>
+                        <ns2:Text>1 / 10 KG</ns2:Text>
+                     </ns2:TextLine>
+                  </ns2:FreeTextInfo>
+                  <ns2:FreeTextInfo>
+                     <ns2:EditCode>DOCS</ns2:EditCode>
+                     <ns2:TextLine>
+                        <ns2:Text>P/US/123456789/US/01JAN70/F/01JAN20/ALPHA/PAX</ns2:Text>
+                     </ns2:TextLine>
+                  </ns2:FreeTextInfo>
+               </FreeTextInfoList>
+            </PassengerDataResponse>
+         </PassengerDataResponseList>
+         <Result messageId="ID-acs-int2-sgdcelab-sabre-com-60162-1458167357059-2-273582" timeStamp="2016-03-17T05:34:51.066Z">
+            <ns2:Status>BusinessLogicError</ns2:Status>
+            <ns2:CompletionStatus>Complete</ns2:CompletionStatus>
+            <ns2:System>ACS-BSO</ns2:System>
+            <ns2:SystemSpecificResults serviceName="Pricing">
+               <ns2:ErrorMessage code="41007">Did not find any ancillary data that matched group code and/or category</ns2:ErrorMessage>
+            </ns2:SystemSpecificResults>
+         </Result>
+      </ns3:GetPassengerDataRS>
+   </soap-env:Body>
+</soap-env:Envelope>
+</SamplePayloads>

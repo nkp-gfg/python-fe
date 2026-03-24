@@ -153,6 +153,13 @@ def ensure_indexes():
          ("fetchedAt", -1)],
         name="trip_report_lookup")
 
+    # flight_schedules
+    db["flight_schedules"].create_index(
+        [("airline", 1), ("flightNumber", 1),
+         ("departureDate", 1),
+         ("fetchedAt", -1)],
+        name="schedule_lookup")
+
     logger.info("MongoDB indexes ensured.")
 
 
@@ -351,6 +358,12 @@ def store_reservations(doc):
 def store_trip_reports(doc):
     """Insert a trip_reports document. Returns the inserted _id."""
     result = get_db()["trip_reports"].insert_one(doc)
+    return result.inserted_id
+
+
+def store_flight_schedule(doc):
+    """Insert a flight_schedules document. Returns the inserted _id."""
+    result = get_db()["flight_schedules"].insert_one(doc)
     return result.inserted_id
 
 

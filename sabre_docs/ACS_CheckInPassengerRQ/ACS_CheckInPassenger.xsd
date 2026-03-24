@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns="http://services.sabre.com/ACS/BSO/checkInPassenger/v3" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:STL="http://services.sabre.com/STL/v3" targetNamespace="http://services.sabre.com/ACS/BSO/checkInPassenger/v3" version="3.1.0">
+	<xsd:import namespace="http://services.sabre.com/STL/v3" schemaLocation="SabreTypeLibrary_v.3.0.0.xsd"/>
+	<xsd:element name="ACS_CheckInPassengerRQ" type="ACS_CheckInPassengerRQ.ACS"/>
+	<xsd:element name="ACS_CheckInPassengerRS" type="ACS_CheckInPassengerRS.ACS"/>
+	<!-- ACS check-in passenger request -->
+	<xsd:complexType name="ACS_CheckInPassengerRQ.ACS">
+		<xsd:annotation>
+			<xsd:documentation>Check-In Passenger</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element name="Itinerary" type="Itinerary.ACS"/>
+			<xsd:element name="AlterSpaceItinerary" type="Itinerary.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>itinerary info for alternate space checkin</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PrintingOptions" type="PrintingOptions.ACS" minOccurs="0"/>
+			<xsd:element name="PassengerInfoList" type="PassengerInfoList.ACS"/>
+			<xsd:element name="Client" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>client issuing the request</xsd:documentation>
+				</xsd:annotation>
+				<xsd:simpleType>
+					<xsd:restriction base="STL:UpperCaseAlpha">
+						<xsd:enumeration value="KIOSK"/>
+						<xsd:enumeration value="WEB"/>
+						<xsd:enumeration value="MOBILE"/>
+					</xsd:restriction>
+				</xsd:simpleType>
+			</xsd:element>
+		</xsd:sequence>
+		<xsd:attribute name="Version" use="optional">
+			<xsd:annotation>
+				<xsd:documentation>Request version</xsd:documentation>
+			</xsd:annotation>
+			<xsd:simpleType>
+				<xsd:restriction base="xsd:string">
+					<xsd:enumeration value="3.1.0"/>
+					<xsd:enumeration value="3.1.1"/>
+					<xsd:enumeration value="3.1.2"/>
+					<xsd:enumeration value="3.1.3"/>
+				</xsd:restriction>
+			</xsd:simpleType>
+		</xsd:attribute>
+		<xsd:attribute name="voluntarySplit" type="xsd:boolean">
+			<xsd:annotation>
+				<xsd:documentation>Voluntary split sitting</xsd:documentation>
+			</xsd:annotation>
+		</xsd:attribute>
+	</xsd:complexType>
+	<xsd:complexType name="Itinerary.ACS">
+		<xsd:sequence>
+			<xsd:element name="Airline" type="STL:AirlineCode.IATA">
+				<xsd:annotation>
+					<xsd:documentation>airline code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Flight" type="STL:FlightNumber.Base">
+				<xsd:annotation>
+					<xsd:documentation>airline flight number</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BookingClass" type="STL:UpperCaseAlphaNumericSlashLength1to2">
+				<xsd:annotation>
+					<xsd:documentation>passenger's booking class of service</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="DepartureDate" type="STL:YYYY-MM-DDDate" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight departure date</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Origin" type="STL:AirportCode">
+				<xsd:annotation>
+					<xsd:documentation>flight departure city code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="Destination" type="STL:AirportCode" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>flight arrival city code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="PassengerInfoList.ACS">
+		<xsd:choice>
+			<xsd:element name="PassengerInfo" type="PassengerInfo.ACS" maxOccurs="15">
+				<xsd:annotation>
+					<xsd:documentation>multiple passenger checkin</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:choice>
+	</xsd:complexType>
+	<xsd:complexType name="PassengerInfo.ACS">
+		<xsd:sequence>
+			<xsd:element name="LastName" type="STL:UpperCaseStringLength1to30">
+				<xsd:annotation>
+					<xsd:documentation>passenger's last name</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PassengerID" type="STL:UpperCaseAlphaNumericLength12">
+				<xsd:annotation>
+					<xsd:documentation>string of characters uniquely identifying the passenger</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:choice>
+				<xsd:element name="SeatRequest" type="STL:UpperCaseAlphaNumericLength2to3" minOccurs="0">
+					<xsd:annotation>
+						<xsd:documentation>desired seat</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="SeatCharacteristics" type="STL:SeatCharacteristic" minOccurs="0" maxOccurs="3">
+					<xsd:annotation>
+						<xsd:documentation>desired seat characteristics</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+			</xsd:choice>
+			<xsd:element name="ChangeBookingClass" type="STL:UpperCaseStringLength1to2" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>class of service to upgrade or downgrade to.</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PriorityClassificationInfo" type="PriorityClassificationInfo.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>may include Priority Code, Upgrade Priority Code and Seniority Date (for airlines using Seniority Date priority listing).</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="BaggageRequestList" type="STL:BaggageRequestList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>list of on-demand bags, if not specified, 0 or no bags is assumed</xsd:documentation>
+					<xsd:documentation>STILL IN DEVELOP</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="EditCodeList" type="EditCodeDetailsList.ACS" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>list of edit codes</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="PriorityClassificationInfo.ACS">
+		<xsd:sequence>
+            <xsd:element name="PriorityCode" type="STL:UpperCaseAlphaNumericLength1to10" minOccurs="0">
+                <xsd:annotation>
+                    <xsd:documentation>priority code needed for priority listing</xsd:documentation>
+                </xsd:annotation>
+            </xsd:element>
+            <xsd:element name="UpgradePriorityCode" type="STL:UpperCaseAlphaNumericLength2to3" minOccurs="0">
+                <xsd:annotation>
+                    <xsd:documentation>priority code for upgrade</xsd:documentation>
+                </xsd:annotation>
+            </xsd:element>
+            <xsd:element name="SeniorityDate" type="STL:DateYYYY-MM-DD.Merchandising" minOccurs="0">
+                <xsd:annotation>
+                    <xsd:documentation>for airlines using Seniority Date priority listing</xsd:documentation>
+                </xsd:annotation>
+            </xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="PrintingOptions.ACS">
+		<xsd:sequence>
+			<xsd:element name="PrintFormat" type="PrintFormat.ACS">
+				<xsd:annotation>
+					<xsd:documentation>either PECTAB or PNG format</xsd:documentation>
+					<xsd:documentation>if select PECTAB or PNG, the host/TPF skips BP printing</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="EditCodeDetailsList.ACS">
+		<xsd:annotation>
+			<xsd:documentation>Edit Code Details</xsd:documentation>
+		</xsd:annotation>
+		<xsd:sequence>
+			<xsd:element name="EditCode" minOccurs="0" maxOccurs="10">
+				<xsd:annotation>
+					<xsd:documentation>other edit codes such as wchr, blnd, tkt, milt, etc.
+NOTE: exception will be occur when duplicate edit codes are used.</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:complexContent>
+						<xsd:extension base="EditCode.ACS">
+							<xsd:attribute name="actionCode" use="required">
+								<xsd:annotation>
+									<xsd:documentation>EDIT to add edit code or DELETE to delete</xsd:documentation>
+								</xsd:annotation>
+								<xsd:simpleType>
+									<xsd:restriction base="xsd:string">
+										<xsd:enumeration value="EDIT"/>
+										<xsd:enumeration value="DELETE"/>
+									</xsd:restriction>
+								</xsd:simpleType>
+							</xsd:attribute>
+						</xsd:extension>
+					</xsd:complexContent>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="EditCode.ACS">
+		<xsd:sequence>
+			<xsd:element name="Code" type="STL:UpperCaseAlphaLength1to4">
+				<xsd:annotation>
+					<xsd:documentation>edit code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="RelatedData" type="STL:UpperCaseStringLength1to216" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>information related to edit code</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:sequence>
+	</xsd:complexType>
+	<!-- ACS check-in passenger response -->
+	<xsd:complexType name="ACS_CheckInPassengerRS.ACS">
+		<xsd:sequence>
+			<xsd:element name="FreeTextInfoList" type="STL:FreeTextInfoList.ACS" minOccurs="0"/>
+			<xsd:element name="ItineraryPassengerList" type="STL:ItineraryPassengerList.ACS" minOccurs="0"/>
+			<xsd:element name="FlightSeatMapInfoList" type="STL:FlightSeatMapInfo.ACS" minOccurs="0" maxOccurs="unbounded">
+				<xsd:annotation>
+					<xsd:documentation>flight seat map response when seat preference is not available</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="PECTABDataList" type="STL:PECTABDataList.ACS" minOccurs="0"/>
+			<xsd:element name="Result" type="STL:ResultRecord"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:simpleType name="PrintFormat.ACS">
+		<xsd:restriction base="xsd:string">
+			<xsd:enumeration value="PECTAB"/>
+			<xsd:enumeration value="PNG"/>
+			<xsd:enumeration value="BPXML"/>
+			<xsd:enumeration value="BPXMLPNGLCMV"/>
+			<xsd:enumeration value="DIGITALSIGNATURE"/>
+			<xsd:enumeration value="DIGITALSIGNATUREPNGLCMV"/>
+		</xsd:restriction>
+	</xsd:simpleType>	
+</xsd:schema>

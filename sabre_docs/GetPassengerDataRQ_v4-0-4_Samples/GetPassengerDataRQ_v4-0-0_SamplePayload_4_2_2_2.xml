@@ -1,0 +1,135 @@
+<SamplePayloads>
+<!--Request-->
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sec="http://schemas.xmlsoap.org/ws/2002/12/secext" xmlns:mes="http://www.ebxml.org/namespaces/messageHeader" xmlns:v4="http://services.sabre.com/checkin/getPassengerData/v4">
+   <soapenv:Header>
+      <eb:MessageHeader eb:id="" eb:version="1.0" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader">
+         <eb:From>
+            <eb:PartyId eb:type="URI">Client</eb:PartyId>
+         </eb:From>
+         <eb:To>
+            <eb:PartyId eb:type="URI">Server</eb:PartyId>
+         </eb:To>
+         <eb:CPAId>IPCC</eb:CPAId>
+         <eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId>
+         <eb:Service>GetPassengerDataRQ</eb:Service>
+         <eb:Action>GetPassengerDataRQ</eb:Action>
+         <eb:MessageData>
+            <eb:MessageId>mid:1</eb:MessageId>
+            <eb:Timestamp>2008-03-03T12:45:52</eb:Timestamp>
+         </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+         <wsse:BinarySecurityToken EncodingType="wsse:Base64Binary" valueType="String">Shared/IDL:IceSess\/SessMgr:1\.0.IDL/Common/!ICESMS\/STSA!ICESMSLB\/STS.LB!-3426197265885961855!779528!0</wsse:BinarySecurityToken>
+      </wsse:Security>
+   </soapenv:Header>
+   <soapenv:Body>
+      <v4:GetPassengerDataRQ validateCheckInRequirements="true">
+         <!--You have a CHOICE of the next 2 items at this level-->
+         <ItineraryAndPassengerInfo>
+            <Itinerary>
+               <Airline>AZ</Airline>
+               <Flight>2071</Flight>
+               <DepartureDate>2016-03-16</DepartureDate>
+               <Origin>LIN</Origin>
+            </Itinerary>
+            <GroupCode>AB2</GroupCode>
+         </ItineraryAndPassengerInfo>
+      </v4:GetPassengerDataRQ>
+   </soapenv:Body>
+</soapenv:Envelope>
+<!--Response-->
+
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+   <soap-env:Header>
+      <eb:MessageHeader eb:version="1.0" soap-env:mustUnderstand="1" xmlns:eb="http://www.ebxml.org/namespaces/messageHeader">
+         <eb:From>
+            <eb:PartyId eb:type="URI">Server</eb:PartyId>
+         </eb:From>
+         <eb:To>
+            <eb:PartyId eb:type="URI">Client</eb:PartyId>
+         </eb:To>
+         <eb:CPAId>IPCC</eb:CPAId>
+         <eb:ConversationId>9DB7_921682_1204548352874</eb:ConversationId>
+         <eb:Service>GetPassengerDataRQ</eb:Service>
+         <eb:Action>GetPassengerDataRS</eb:Action>
+         <eb:MessageData>
+            <eb:MessageId>03a51566-df27-4fc9-9613-ab1c0a956eef@176</eb:MessageId>
+            <eb:Timestamp>2016-03-16T14:03:17</eb:Timestamp>
+            <eb:RefToMessageId>mid:1</eb:RefToMessageId>
+         </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+         <wsse:BinarySecurityToken valueType="String" EncodingType="wsse:Base64Binary">Shared/IDL:IceSess\/SessMgr:1\.0.IDL/Common/!ICESMS\/STSA!ICESMSLB\/STS.LB!-3426197265885961855!779528!0</wsse:BinarySecurityToken>
+      </wsse:Security>
+   </soap-env:Header>
+   <soap-env:Body>
+      <ns3:GetPassengerDataRS xmlns:ns3="http://services.sabre.com/checkin/getPassengerData/v4" xmlns:ns2="http://services.sabre.com/STL/v3">
+         <PassengerDataResponseList similarNameFound="true">
+            <PassengerDataResponse>
+               <LineNumber>1</LineNumber>
+               <LastName>JOSE</LastName>
+               <FirstName>P</FirstName>
+               <PassengerID>B79C9CA60001</PassengerID>
+               <PNRLocator nameAssociationID="1">GFLARH</PNRLocator>
+               <GroupCode>AB2</GroupCode>
+               <VCRNumber couponNumber="1">0552120002533</VCRNumber>
+               <PassengerItineraryList>
+                  <PassengerItinerary>
+                     <Airline>AZ</Airline>
+                     <Flight>2071</Flight>
+                     <BookingClass>Y</BookingClass>
+                     <Origin>LIN</Origin>
+                     <Destination>FCO</Destination>
+                     <DepartureDate>2016-03-16</DepartureDate>
+                     <EstimatedDepartureTime>03:00PM</EstimatedDepartureTime>
+                     <AircraftType>E90</AircraftType>
+                     <PassengerType>F</PassengerType>
+                     <BagCount>1</BagCount>
+                     <EditCodeList>
+                        <ns2:EditCode>M</ns2:EditCode>
+                        <ns2:EditCode>DOCS</ns2:EditCode>
+                        <ns2:EditCode>ETI</ns2:EditCode>
+                     </EditCodeList>
+                     <CheckInNumber>1</CheckInNumber>
+                  </PassengerItinerary>
+               </PassengerItineraryList>
+            </PassengerDataResponse>
+            <PassengerDataResponse>
+               <LineNumber>2</LineNumber>
+               <LastName>RICHARDS</LastName>
+               <FirstName>V</FirstName>
+               <PassengerID>B79C9CA60002</PassengerID>
+               <PNRLocator nameAssociationID="2">GFLARH</PNRLocator>
+               <GroupCode>AB2</GroupCode>
+               <VCRNumber couponNumber="1">0552120002534</VCRNumber>
+               <PassengerItineraryList>
+                  <PassengerItinerary>
+                     <Airline>AZ</Airline>
+                     <Flight>2071</Flight>
+                     <BookingClass>Y</BookingClass>
+                     <Origin>LIN</Origin>
+                     <Destination>FCO</Destination>
+                     <DepartureDate>2016-03-16</DepartureDate>
+                     <EstimatedDepartureTime>03:00PM</EstimatedDepartureTime>
+                     <AircraftType>E90</AircraftType>
+                     <PassengerType>F</PassengerType>
+                     <BagCount>NB</BagCount>
+                     <EditCodeList>
+                        <ns2:EditCode>M</ns2:EditCode>
+                        <ns2:EditCode>DOCS</ns2:EditCode>
+                        <ns2:EditCode>ETI</ns2:EditCode>
+                     </EditCodeList>
+                     <CheckInNumber>2</CheckInNumber>
+                  </PassengerItinerary>
+               </PassengerItineraryList>
+            </PassengerDataResponse>
+         </PassengerDataResponseList>
+         <Result messageId="ID-acs-int2-sgdcelab-sabre-com-37969-1458126856426-2-2741" timeStamp="2016-03-16T14:03:17.850Z">
+            <ns2:Status>Success</ns2:Status>
+            <ns2:CompletionStatus>Complete</ns2:CompletionStatus>
+            <ns2:System>ACS-BSO</ns2:System>
+         </Result>
+      </ns3:GetPassengerDataRS>
+   </soap-env:Body>
+</soap-env:Envelope>
+</SamplePayloads>

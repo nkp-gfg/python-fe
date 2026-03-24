@@ -1,13 +1,13 @@
 """Passenger list API endpoints."""
 
-import logging
+import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_origin
 from backend.sabre.client import SabreClient, SabreError
 from backend.feeder.converter import convert_passenger_data
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["passengers"])
 
 
@@ -16,6 +16,24 @@ def _strip_id(doc):
         doc.pop("_id", None)
         doc.pop("_raw", None)
     return doc
+
+
+def _build_nationality_lookup(db, flight_number, date):
+    """Build PNR+lastName → nationality lookup from reservations."""
+    res_query = {"flightNumber": flight_number}
+    if date:
+        res_query["departureDate"] = date
+    res_doc = db["reservations"].find_one(res_query, sort=[("fetchedAt", -1)])
+    lookup = {}
+    if res_doc:
+        for rv in res_doc.get("reservations", []):
+            pnr = rv.get("pnr", "")
+            for p in rv.get("passengers", []):
+                nat = p.get("nationality", "")
+                if nat:
+                    key = (pnr, p.get("lastName", "").upper())
+                    lookup[key] = nat
+    return lookup
 
 
 @router.get("/{flight_number}/passengers")
@@ -37,6 +55,14 @@ def get_passengers(
     doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
     if not doc:
         raise HTTPException(status_code=404, detail="Passenger list not found")
+
+    # Enrich passengers with nationality from reservations
+    nat_lookup = _build_nationality_lookup(db, flight_number, date)
+    passengers = doc.get("passengers", [])
+    for p in passengers:
+        key = (p.get("pnr", ""), p.get("lastName", "").upper())
+        p["nationality"] = nat_lookup.get(key, "")
+
     return _strip_id(doc)
 
 
@@ -253,6 +279,7 @@ def get_passenger_detail(
     if not last_name:
         raise HTTPException(
             status_code=400, detail="Could not determine last name for PNR")
+    first_name = matching[0].get("firstName", "")
 
     try:
         with SabreClient() as client:
@@ -262,6 +289,7 @@ def get_passenger_detail(
                 departure_date=date,
                 origin=origin,
                 last_name=last_name,
+                first_name=first_name or None,
                 pnr=pnr,
             )
     except SabreError as e:

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="CommonTypes.xsd" />
+
+  <xs:element name="MultiFlightRS" type="MultiflightResponse">
+    <xs:annotation>
+      <xs:documentation>Root element of response</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+
+  <xs:complexType name="ResponseSegmentTypeStl">
+    <xs:attribute name="polled" type="BoolYNType" use="optional">
+      <xs:annotation>
+        <xs:documentation>True Availability Indicator (if the segment was polled)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="origin" type="AirportCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>Origin</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="destination" type="AirportCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>Destination</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="carrierCode" type="AirlineCodeType" use="required">
+      <xs:annotation>
+        <xs:documentation>Segment's Carrier</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="flightNumber" type="xs:positiveInteger" use="required">
+      <xs:annotation>
+        <xs:documentation>Segment's Flight Number</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="departureDate" type="DateYYYYMMDDType" use="required">
+      <xs:annotation>
+        <xs:documentation>Exact Departure Date, Year to Day</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="returnCode" type="ReturnCodeType" use="optional" />
+    <xs:attribute name="values" type="StatusValuesTypeStl" use="optional" />
+    <xs:attribute name="classes" type="ClassCodeListType" use="optional" />
+    <xs:attribute name="segmentId" type="xs:unsignedShort" use="required">
+      <xs:annotation>
+        <xs:documentation>Segment Id</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="ResponseSolutionTypeStl">
+    <xs:sequence>
+      <xs:element name="Segment" type="ResponseSegmentTypeStl" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ResponseOriginDestinationItemTypeStl">
+    <xs:sequence>
+      <xs:element name="Itinerary" type="ResponseSolutionTypeStl" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="origin" type="AirportCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Segment's Origin</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="destination" type="AirportCodeType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Segment's Destination</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="departureDate" type="DateYYYYMMDDType" use="optional">
+      <xs:annotation>
+        <xs:documentation>Exact Date, Year to Day</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="ResponseAssociateItemTypeStl">
+    <xs:attribute name="carrierCode" type="AirlineCodeType" />
+    <xs:attribute name="returnCode" type="ReturnCodeType" />
+  </xs:complexType>
+
+  <xs:complexType name="MultiflightResponse">
+    <xs:annotation>
+      <xs:documentation>MultiFlightXmlRS Availability Response Type - root type</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="OriginDestination" type="ResponseOriginDestinationItemTypeStl" minOccurs="0" maxOccurs="unbounded" />
+      <xs:element name="AssociateItem" type="ResponseAssociateItemTypeStl" minOccurs="0" maxOccurs="1" />
+      <xs:element name="Diagnostic" type="xs:string" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation>Diagnostic Message</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="version" type="VersionType" use="required">
+      <xs:annotation>
+        <xs:documentation>Interface Version</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+	  <xs:attribute name="returnCode" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Return Code. Gives information if the request was handled correctly, 0-ok, other-error</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="returnMessage" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Return Message. Gives detailed information about the error that occurred while processing the request. Returns OK on success.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+</xs:schema>
