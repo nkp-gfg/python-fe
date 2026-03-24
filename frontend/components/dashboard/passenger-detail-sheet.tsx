@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Loader2,
@@ -10,6 +11,9 @@ import {
   Globe,
   Tag,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { fetchPassengerDetail } from "@/lib/api";
 import type {
@@ -38,6 +42,51 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+
+/* ── reusable sort header ── */
+function SortHeader<K extends string>({
+  label,
+  field,
+  sortKey,
+  sortDir,
+  onToggle,
+}: {
+  label: string;
+  field: K;
+  sortKey: K;
+  sortDir: "asc" | "desc";
+  onToggle: (k: K) => void;
+}) {
+  const active = sortKey === field;
+  return (
+    <button className="flex items-center gap-0.5 hover:text-foreground" onClick={() => onToggle(field)}>
+      {label}
+      {active
+        ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
+        : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+    </button>
+  );
+}
+
+function useSortable<K extends string>(defaultKey: K) {
+  const [sortKey, setSortKey] = useState<K>(defaultKey);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  function toggle(key: K) {
+    if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+  return { sortKey, sortDir, toggle };
+}
+
+function sortBy<T>(list: T[], key: string, dir: "asc" | "desc", accessor: (item: T, key: string) => string | number): T[] {
+  return [...list].sort((a, b) => {
+    const m = dir === "asc" ? 1 : -1;
+    const va = accessor(a, key);
+    const vb = accessor(b, key);
+    if (typeof va === "number" && typeof vb === "number") return (va - vb) * m;
+    return String(va).localeCompare(String(vb)) * m;
+  });
+}
 
 /** Safely render a value that may be an XML-to-JSON object like {"@unit":"KG","#text":"23"} */
 function safeText(val: unknown): string {
@@ -172,6 +221,18 @@ function ItinerarySection({ segments }: { segments: ItinerarySegment[] }) {
 
 function BaggageSection({ passenger }: { passenger: DetailedPassenger }) {
   const routes = passenger.baggageRoutes;
+  type BaggageSortKey = "flight" | "route" | "departureDate" | "bookingClass" | "segmentStatus";
+  const { sortKey, sortDir, toggle } = useSortable<BaggageSortKey>("flight");
+  const sorted = useMemo(
+    () => sortBy(routes, sortKey, sortDir, (r, k) => {
+      if (k === "flight") return `${r.airline}${r.flight}`;
+      if (k === "route") return `${r.origin}${r.destination}`;
+      if (k === "departureDate") return r.departureDate;
+      if (k === "bookingClass") return r.bookingClass;
+      return r.segmentStatus;
+    }),
+    [routes, sortKey, sortDir]
+  );
   if (routes.length === 0) return null;
   return (
     <Card>
@@ -185,15 +246,15 @@ function BaggageSection({ passenger }: { passenger: DetailedPassenger }) {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
-              <TableHead>Flight</TableHead>
-              <TableHead>Route</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Class</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead><SortHeader label="Flight" field="flight" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Route" field="route" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Date" field="departureDate" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Class" field="bookingClass" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Status" field="segmentStatus" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {routes.map((r, i) => (
+            {sorted.map((r, i) => (
               <TableRow key={r.segmentId || i}>
                 <TableCell className="font-mono text-xs">{r.airline}{r.flight}</TableCell>
                 <TableCell className="text-xs">{r.origin}→{r.destination}</TableCell>
@@ -232,8 +293,18 @@ function TimaticSection({ entries }: { entries: TimaticEntry[] }) {
 }
 
 function AncillarySection({ segments }: { segments: ItinerarySegment[] }) {
-  const allAe = segments.flatMap((s) =>
-    s.aeDetails.map((ae) => ({ ...ae, flight: `${s.airline}${s.flight}` }))
+  const allAe = useMemo(
+    () => segments.flatMap((s) => s.aeDetails.map((ae) => ({ ...ae, flight: `${s.airline}${s.flight}` }))),
+    [segments]
+  );
+  const { sortKey, sortDir, toggle } = useSortable<"flight" | "groupCode" | "statusCode" | "quantity" | "price" | "usedEMD">("flight");
+  const sorted = useMemo(
+    () => sortBy(allAe, sortKey, sortDir, (ae, k) => {
+      if (k === "quantity") return Number(ae.quantity) || 0;
+      if (k === "price") return Number(ae.price) || 0;
+      return String((ae as Record<string, unknown>)[k] ?? "");
+    }),
+    [allAe, sortKey, sortDir]
   );
   if (allAe.length === 0) return null;
   return (
@@ -248,16 +319,16 @@ function AncillarySection({ segments }: { segments: ItinerarySegment[] }) {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
-              <TableHead>Flight</TableHead>
-              <TableHead>Group</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Qty</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>EMD</TableHead>
+              <TableHead><SortHeader label="Flight" field="flight" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Group" field="groupCode" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Status" field="statusCode" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Qty" field="quantity" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Price" field="price" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="EMD" field="usedEMD" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {allAe.map((ae, i) => (
+            {sorted.map((ae, i) => (
               <TableRow key={i}>
                 <TableCell className="font-mono text-xs">{ae.flight}</TableCell>
                 <TableCell className="text-xs">{ae.groupCode}</TableCell>
@@ -275,8 +346,18 @@ function AncillarySection({ segments }: { segments: ItinerarySegment[] }) {
 }
 
 function FareBaggageSection({ segments }: { segments: ItinerarySegment[] }) {
-  const allVcr = segments.flatMap((s) =>
-    s.vcrInfo.map((v) => ({ ...v, flight: `${s.airline}${s.flight}`, origin: s.origin, destination: s.destination }))
+  const allVcr = useMemo(
+    () => segments.flatMap((s) => s.vcrInfo.map((v) => ({ ...v, flight: `${s.airline}${s.flight}`, origin: s.origin, destination: s.destination }))),
+    [segments]
+  );
+  const { sortKey, sortDir, toggle } = useSortable<"flight" | "route" | "fareBasisCode" | "bagAllowance">("flight");
+  const sorted = useMemo(
+    () => sortBy(allVcr, sortKey, sortDir, (v, k) => {
+      if (k === "route") return `${v.origin}${v.destination}`;
+      if (k === "fareBasisCode" || k === "bagAllowance") return safeText((v as Record<string, unknown>)[k]);
+      return String((v as Record<string, unknown>)[k] ?? "");
+    }),
+    [allVcr, sortKey, sortDir]
   );
   if (allVcr.length === 0) return null;
   return (
@@ -291,14 +372,14 @@ function FareBaggageSection({ segments }: { segments: ItinerarySegment[] }) {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
-              <TableHead>Flight</TableHead>
-              <TableHead>Route</TableHead>
-              <TableHead>Fare Basis</TableHead>
-              <TableHead>Bag Allowance</TableHead>
+              <TableHead><SortHeader label="Flight" field="flight" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Route" field="route" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Fare Basis" field="fareBasisCode" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
+              <TableHead><SortHeader label="Bag Allowance" field="bagAllowance" sortKey={sortKey} sortDir={sortDir} onToggle={toggle} /></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {allVcr.map((v, i) => (
+            {sorted.map((v, i) => (
               <TableRow key={i}>
                 <TableCell className="font-mono text-xs">{v.flight}</TableCell>
                 <TableCell className="text-xs">{v.origin}→{v.destination}</TableCell>

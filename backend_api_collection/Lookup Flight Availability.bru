@@ -1,0 +1,25 @@
+meta {
+  name: Lookup Flight Availability
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/flights/2006/availability/lookup
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "airline": "GF",
+    "origin": "LHR",
+    "departureDate": "2026-03-19",
+    "classCodes": "YJ",
+    "resolveIndicator": "Y"
+  }
+}

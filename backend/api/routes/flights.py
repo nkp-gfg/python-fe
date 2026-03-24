@@ -818,7 +818,7 @@ def _derive_flight_phase(fs, analysis):
     }
 
 
-def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_doc=None, trip_report_doc=None, schedule_doc=None):
+def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_doc=None, trip_report_doc=None, schedule_doc=None, availability_doc=None):
     if pl:
         passengers = pl.get("passengers", [])
         passenger_summary = {
@@ -957,6 +957,7 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
         },
         "tree": tree,
         "schedule": _strip_id(schedule_doc) if schedule_doc else None,
+        "availability": _strip_id(availability_doc) if availability_doc else None,
     }
 
 
@@ -1061,6 +1062,38 @@ def list_flights(
         for r in schedule_results
     }
 
+    # MultiFlight availability summary (latest)
+    availability_pipeline = [
+        {"$match": match} if match else {"$match": {}},
+        {"$sort": {"fetchedAt": -1}},
+        {
+            "$group": {
+                "_id": {
+                    "airline": "$airline",
+                    "flightNumber": "$flightNumber",
+                    "origin": "$origin",
+                    "departureDate": "$departureDate",
+                },
+                "success": {"$first": "$success"},
+                "returnCode": {"$first": "$returnCode"},
+                "summary": {"$first": "$summary"},
+                "requestProfile": {"$first": "$requestProfile"},
+                "fetchedAt": {"$first": "$fetchedAt"},
+            }
+        },
+    ]
+    availability_results = list(
+        db["multi_flight_availability"].aggregate(availability_pipeline))
+    availability_by_key = {
+        (
+            r["_id"].get("airline"),
+            r["_id"].get("flightNumber"),
+            r["_id"].get("origin"),
+            r["_id"].get("departureDate"),
+        ): r
+        for r in availability_results
+    }
+
     flights = []
     for r in results:
         fid = r["_id"]
@@ -1091,6 +1124,26 @@ def list_flights(
                 "elapsedTime": schedule_data.get("elapsedTime", ""),
                 "airMilesFlown": schedule_data.get("airMilesFlown", 0),
             }
+        availability_data = availability_by_key.get(
+            (
+                fid.get("airline", "GF"),
+                fid.get("flightNumber"),
+                fid.get("origin", ""),
+                fid.get("departureDate", ""),
+            )
+        )
+        availability_summary = None
+        if availability_data:
+            summary = availability_data.get("summary", {})
+            availability_summary = {
+                "success": bool(availability_data.get("success", False)),
+                "returnCode": availability_data.get("returnCode", -1),
+                "segments": summary.get("segments", 0),
+                "errorSegments": summary.get("errorSegments", 0),
+                "classes": summary.get("availableClasses", []),
+                "requestProfile": availability_data.get("requestProfile"),
+                "fetchedAt": availability_data.get("fetchedAt", ""),
+            }
         flights.append({
             "airline": fid.get("airline", "GF"),
             "flightNumber": fid.get("flightNumber", ""),
@@ -1107,6 +1160,7 @@ def list_flights(
             "operationalSummary": summary["operationalSummary"],
             "flightPhase": summary["flightPhase"],
             "publishedSchedule": sched_info,
+            "availabilitySummary": availability_summary,
             "fetchedAt": str(r.get("fetchedAt", "")),
         })
     return flights
@@ -1190,11 +1244,23 @@ def get_flight_dashboard(
         schedule_doc.pop("_id", None)
         schedule_doc.pop("_raw", None)
 
+    # MultiFlight availability
+    av_query = {"flightNumber": flight_number}
+    if origin:
+        av_query["origin"] = origin
+    if date:
+        av_query["departureDate"] = date
+    availability_doc = db["multi_flight_availability"].find_one(
+        av_query, sort=[("fetchedAt", -1)])
+    if availability_doc:
+        availability_doc.pop("_id", None)
+        availability_doc.pop("_raw", None)
+
     if not fs and not pl:
         raise HTTPException(status_code=404, detail="Flight not found")
 
     return _build_dashboard_payload(fs, pl, origin, date, change_summary,
-                                    reservation_doc, trip_report_doc, schedule_doc)
+                                    reservation_doc, trip_report_doc, schedule_doc, availability_doc)
 
 
 @router.get("/{flight_number}/tree")
@@ -1250,7 +1316,7 @@ def get_flight_tree(
         raise HTTPException(status_code=404, detail="Flight not found")
 
     payload = _build_dashboard_payload(fs, pl, origin, date, {},
-                                       reservation_doc, trip_report_doc, None)
+                                       reservation_doc, trip_report_doc, None, None)
     return payload.get("tree") or {
         "title": "Aircraft Humans Breakdown Tree",
         "badge": "Sabre Live",

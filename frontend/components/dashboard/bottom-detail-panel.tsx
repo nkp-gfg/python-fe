@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchPassengers } from "@/lib/api";
 import type { PassengerRecord, FlightDashboard } from "@/lib/types";
@@ -24,6 +24,9 @@ import {
   Baby,
   Briefcase,
   ShieldCheck,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
 } from "lucide-react";
 
 export type DetailView =
@@ -82,6 +85,24 @@ const VIEW_CONFIG: Record<DetailView, { title: string; icon: React.ReactNode; de
     description: "All seated passenger records on the manifest (excludes lap infants who share a seat).",
   },
 };
+
+type SortKey = "lastName" | "pnr" | "nationality" | "cabin" | "seat" | "status" | "ticketNumber" | "bagCount";
+type SortDir = "asc" | "desc";
+
+function sortPassengers(list: PassengerRecord[], key: SortKey, dir: SortDir): PassengerRecord[] {
+  return [...list].sort((a, b) => {
+    const m = dir === "asc" ? 1 : -1;
+    if (key === "status") {
+      const sa = a.isBoarded ? 3 : a.isCheckedIn ? 2 : 1;
+      const sb = b.isBoarded ? 3 : b.isCheckedIn ? 2 : 1;
+      return (sa - sb) * m;
+    }
+    if (key === "bagCount") return ((a.bagCount ?? 0) - (b.bagCount ?? 0)) * m;
+    const va = key === "lastName" ? `${a.lastName}, ${a.firstName}` : String(a[key] ?? "");
+    const vb = key === "lastName" ? `${b.lastName}, ${b.firstName}` : String(b[key] ?? "");
+    return va.localeCompare(vb) * m;
+  });
+}
 
 function filterPassengers(passengers: PassengerRecord[], view: DetailView): PassengerRecord[] {
   switch (view) {
@@ -151,8 +172,31 @@ export function BottomDetailPanel({
     queryFn: () => fetchPassengers(flightNumber, origin, date),
   });
 
+  const [sortKey, setSortKey] = useState<SortKey>("lastName");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+
+  function renderSortHeader(label: string, field: SortKey, className?: string) {
+    const active = sortKey === field;
+    return (
+      <button className={cn("flex items-center gap-0.5 hover:text-foreground", className)} onClick={() => toggleSort(field)}>
+        {label}
+        {active
+          ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
+          : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+      </button>
+    );
+  }
+
   const allPassengers = useMemo(() => data?.passengers ?? [], [data]);
-  const filtered = useMemo(() => filterPassengers(allPassengers, view), [allPassengers, view]);
+  const filtered = useMemo(() => {
+    const base = filterPassengers(allPassengers, view);
+    return sortPassengers(base, sortKey, sortDir);
+  }, [allPassengers, view, sortKey, sortDir]);
 
   // Summary counts for the filtered set
   const summary = useMemo(() => {
@@ -258,15 +302,15 @@ export function BottomDetailPanel({
             <TableHeader>
               <TableRow className="text-[10px]">
                 <TableHead className="py-1.5 px-2">#</TableHead>
-                <TableHead className="py-1.5 px-2">Name</TableHead>
-                <TableHead className="py-1.5 px-2">PNR</TableHead>
-                <TableHead className="py-1.5 px-2">Nat.</TableHead>
-                <TableHead className="py-1.5 px-2">Cabin</TableHead>
-                <TableHead className="py-1.5 px-2">Seat</TableHead>
-                <TableHead className="py-1.5 px-2">Status</TableHead>
+                <TableHead className="py-1.5 px-2">{renderSortHeader("Name", "lastName")}</TableHead>
+                <TableHead className="py-1.5 px-2">{renderSortHeader("PNR", "pnr")}</TableHead>
+                <TableHead className="py-1.5 px-2">{renderSortHeader("Nat.", "nationality")}</TableHead>
+                <TableHead className="py-1.5 px-2">{renderSortHeader("Cabin", "cabin")}</TableHead>
+                <TableHead className="py-1.5 px-2">{renderSortHeader("Seat", "seat")}</TableHead>
+                <TableHead className="py-1.5 px-2">{renderSortHeader("Status", "status")}</TableHead>
                 <TableHead className="py-1.5 px-2">Type</TableHead>
-                <TableHead className="py-1.5 px-2">Ticket</TableHead>
-                <TableHead className="py-1.5 px-2 text-right">Bags</TableHead>
+                <TableHead className="py-1.5 px-2">{renderSortHeader("Ticket", "ticketNumber")}</TableHead>
+                <TableHead className="py-1.5 px-2 text-right">{renderSortHeader("Bags", "bagCount", "ml-auto")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

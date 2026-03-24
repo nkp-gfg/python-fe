@@ -25,7 +25,7 @@ Input JSON format:
 """
 
 from backend.feeder import storage
-from backend.feeder.converter import convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports, convert_schedule
+from backend.feeder.converter import convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports, convert_schedule, convert_multi_flight_availability
 from backend.feeder.differ import detect_changes
 from backend.sabre.client import SabreClient, SabreError
 import json
@@ -323,6 +323,7 @@ def run_feeder(flights):
                 }
 
             # 5. Flight Schedule (VerifyFlightDetailsLLSRQ)
+            schedule_doc = None
             try:
                 raw, xml, meta = client.verify_flight_details(
                     airline, fn, dep_date, origin="", destination="")
@@ -364,6 +365,111 @@ def run_feeder(flights):
                 logger.warning("schedule_failed",
                                flight=f"{airline}{fn}", error=str(e))
                 flight_result["apis"]["schedule"] = {
+                    "status": "error",
+                    "error": str(e),
+                }
+
+            # 6. MultiFlight Availability (class inventory by itinerary)
+            try:
+                if not schedule_doc or not schedule_doc.get("success"):
+                    raise SabreError(
+                        "Skipping MultiFlightAvailability: no successful schedule available")
+
+                segments = schedule_doc.get("segments", [])
+                if not segments:
+                    raise SabreError(
+                        "Skipping MultiFlightAvailability: schedule has no segments")
+
+                first = segments[0]
+                # MultiFlight requires YYYYMMDD + HHMM values.
+                dep_dt = first.get("departureDateTime", "")
+                arr_dt = first.get("arrivalDateTime", "")
+                dep_date_mf = dep_dt[:10].replace(
+                    "-", "") if dep_dt else dep_date.replace("-", "")
+                arr_date_mf = arr_dt[:10].replace(
+                    "-", "") if arr_dt else dep_date.replace("-", "")
+                dep_time_mf = dep_dt[11:16].replace(
+                    ":", "") if len(dep_dt) >= 16 else "0000"
+                arr_time_mf = arr_dt[11:16].replace(
+                    ":", "") if len(arr_dt) >= 16 else dep_time_mf
+
+                request_payload = {
+                    "version": int(os.environ.get("SABRE_MULTIFLIGHT_VERSION", "1")),
+                    "originDestinations": [
+                        {
+                            "origin": first.get("origin", ""),
+                            "destination": first.get("destination", ""),
+                            "itineraries": [
+                                {
+                                    "segments": [
+                                        {
+                                            "segmentId": 1,
+                                            "origin": first.get("origin", ""),
+                                            "destination": first.get("destination", ""),
+                                            "carrierCode": airline,
+                                            "departureTime": dep_time_mf,
+                                            "arrivalTime": arr_time_mf,
+                                            "flightNumber": int(fn),
+                                            "departureDate": dep_date_mf,
+                                            "arrivalDate": arr_date_mf,
+                                            "classCodes": os.environ.get("SABRE_MULTIFLIGHT_CLASS_CODES", "YJ"),
+                                            "resolveIndicator": "Y",
+                                        }
+                                    ]
+                                }
+                            ],
+                        }
+                    ],
+                    "agentInfo": {
+                        "agentCityCode": os.environ.get("SABRE_MULTIFLIGHT_AGENT_CITY", first.get("origin", "")),
+                        "agencyPcc": os.environ["SABRE_PSEUDO_CITY_CODE"],
+                        "crsPartitionCode": os.environ.get("SABRE_MULTIFLIGHT_PARTITION", os.environ.get("SABRE_CPAID", airline)),
+                        "agentCountry": os.environ.get("SABRE_MULTIFLIGHT_AGENT_COUNTRY", "BH"),
+                    },
+                }
+
+                if os.environ.get("SABRE_MULTIFLIGHT_INCLUDE_OPTIONAL_ITEMS", "false").lower() == "true":
+                    request_payload["pointOfCommencement"] = {
+                        "cityCode": first.get("origin", ""),
+                        "departureDate": dep_date_mf,
+                        "departureTime": dep_time_mf,
+                    }
+                    request_payload["associateItem"] = {
+                        "carrierCode": airline,
+                    }
+
+                raw, xml, meta = client.get_multi_flight_availability(
+                    request_payload)
+                details = _process_api_call(
+                    "MultiFlightAvailability", "multi_flight_availability", flight_info,
+                    raw, xml, meta,
+                    convert_multi_flight_availability, (
+                        raw, airline, fn, dep_date, origin),
+                )
+
+                availability_doc = convert_multi_flight_availability(
+                    raw, airline, fn, dep_date, origin)
+                availability_doc["requestProfile"] = meta.get(
+                    "multiFlightAttempt")
+                storage.store_multi_flight_availability(availability_doc)
+
+                flight_result["apis"]["multiFlightAvailability"] = {
+                    "status": "success",
+                    **details,
+                    "returnCode": availability_doc.get("returnCode"),
+                    "segments": availability_doc.get("summary", {}).get("segments", 0),
+                    "requestProfile": meta.get("multiFlightAttempt"),
+                }
+                logger.info("multi_flight_availability_complete",
+                            flight=f"{airline}{fn}",
+                            return_code=availability_doc.get("returnCode"),
+                            segments=availability_doc.get(
+                                "summary", {}).get("segments", 0),
+                            request_profile=meta.get("multiFlightAttempt"))
+            except SabreError as e:
+                logger.warning("multi_flight_availability_failed",
+                               flight=f"{airline}{fn}", error=str(e))
+                flight_result["apis"]["multiFlightAvailability"] = {
                     "status": "error",
                     "error": str(e),
                 }

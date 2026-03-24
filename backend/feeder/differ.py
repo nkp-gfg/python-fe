@@ -291,12 +291,101 @@ def diff_reservations(before_snap, after_snap, flight_info):
     return changes
 
 
+# ── MultiFlight Availability Diff ─────────────────────────────────────────
+
+def _availability_segments_map(snapshot_data):
+    segments = {}
+    for od in snapshot_data.get("originDestinations", []):
+        for itinerary in od.get("itineraries", []):
+            for seg in itinerary.get("segments", []):
+                key = "|".join([
+                    str(seg.get("segmentId", "")),
+                    seg.get("carrierCode", ""),
+                    str(seg.get("flightNumber", "")),
+                    seg.get("departureDate", ""),
+                    seg.get("origin", ""),
+                    seg.get("destination", ""),
+                ])
+                segments[key] = seg
+    return segments
+
+
+def diff_multi_flight_availability(before_snap, after_snap, flight_info):
+    """Compare two multi_flight_availability snapshots."""
+    before = before_snap["data"]
+    after = after_snap["data"]
+    before_id = before_snap["snapshotId"]
+    after_id = after_snap["snapshotId"]
+    changes = []
+
+    before_segments = _availability_segments_map(before)
+    after_segments = _availability_segments_map(after)
+
+    before_keys = set(before_segments.keys())
+    after_keys = set(after_segments.keys())
+
+    for key in after_keys - before_keys:
+        seg = after_segments[key]
+        changes.append(_make_change(
+            flight_info, "AVAILABILITY_SEGMENT_ADDED", before_id, after_id,
+            field="availability.segment",
+            new_value=(
+                f"segmentId={seg.get('segmentId')} "
+                f"{seg.get('origin')}-{seg.get('destination')} "
+                f"classes={','.join(seg.get('classes', []))}"
+            ),
+        ))
+
+    for key in before_keys - after_keys:
+        seg = before_segments[key]
+        changes.append(_make_change(
+            flight_info, "AVAILABILITY_SEGMENT_REMOVED", before_id, after_id,
+            field="availability.segment",
+            old_value=(
+                f"segmentId={seg.get('segmentId')} "
+                f"{seg.get('origin')}-{seg.get('destination')} "
+                f"classes={','.join(seg.get('classes', []))}"
+            ),
+        ))
+
+    for key in before_keys & after_keys:
+        b = before_segments[key]
+        a = after_segments[key]
+
+        if str(b.get("returnCode", "")) != str(a.get("returnCode", "")):
+            changes.append(_make_change(
+                flight_info, "AVAILABILITY_SEGMENT_STATUS_CHANGE", before_id, after_id,
+                field=f"availability.segment.{a.get('segmentId')}.returnCode",
+                old_value=b.get("returnCode", ""),
+                new_value=a.get("returnCode", ""),
+            ))
+
+        b_classes = {x.get("classCode", ""): x.get("seats", 0)
+                     for x in b.get("availabilityByClass", [])}
+        a_classes = {x.get("classCode", ""): x.get("seats", 0)
+                     for x in a.get("availabilityByClass", [])}
+
+        for cls in set(list(b_classes.keys()) + list(a_classes.keys())):
+            bv = b_classes.get(cls, 0)
+            av = a_classes.get(cls, 0)
+            if bv != av:
+                changes.append(_make_change(
+                    flight_info, "AVAILABILITY_CLASS_SEATS_CHANGE", before_id, after_id,
+                    field=f"availability.segment.{a.get('segmentId')}.class.{cls}",
+                    old_value=bv,
+                    new_value=av,
+                ))
+
+    return changes
+
+
 # ── Dispatcher ────────────────────────────────────────────────────────────
 
 DIFF_FUNCTIONS = {
     "flight_status": diff_flight_status,
     "passenger_list": diff_passenger_list,
     "reservations": diff_reservations,
+    "multi_flight_availability": diff_multi_flight_availability,
 }
 
 

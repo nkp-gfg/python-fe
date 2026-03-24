@@ -13,6 +13,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timezone
+from xml.sax.saxutils import escape
 
 import requests
 import structlog
@@ -51,7 +52,19 @@ class SabreClient:
     def __init__(self):
         self._token = None
         self._conversation_id = None
+        base_url = os.environ["SABRE_BASE_URL"]
+        self._base_url = base_url
         self._endpoint = f"{os.environ['SABRE_BASE_URL']}/{os.environ['SABRE_CPAID']}"
+        self._multiflight_endpoint = os.environ.get(
+            "SABRE_MULTIFLIGHT_URL", base_url)
+        self._multiflight_action = os.environ.get(
+            "SABRE_MULTIFLIGHT_SOAP_ACTION", "ASAAOperation")
+        self._multiflight_action_fallbacks = [
+            a.strip() for a in os.environ.get(
+                "SABRE_MULTIFLIGHT_SOAP_ACTION_FALLBACKS",
+                "ASAAOperation,,MultiFlightRQ",
+            ).split(",")
+        ]
         self._cpaid = os.environ["SABRE_CPAID"]
         self._username = os.environ["SABRE_USERNAME"]
         self._password = os.environ["SABRE_PASSWORD"]
@@ -112,19 +125,21 @@ class SabreClient:
         before_sleep=_log_retry,
         reraise=True,
     )
-    def _post(self, action, body, timeout=30):
+    def _post(self, action, body, timeout=30, endpoint=None):
         """Send a SOAP POST and return (raw_response_text, http_status, duration_ms, request_body)."""
         self._rate_limit()
+        target_endpoint = endpoint or self._endpoint
         headers = {
             "Content-Type": "text/xml; charset=utf-8",
             "SOAPAction": action,
         }
         start = time.monotonic()
-        resp = requests.post(self._endpoint, data=body,
+        resp = requests.post(target_endpoint, data=body,
                              headers=headers, timeout=timeout)
         duration_ms = int((time.monotonic() - start) * 1000)
         logger.info("sabre_api_call", action=action,
-                    http_status=resp.status_code, duration_ms=duration_ms)
+                    http_status=resp.status_code, duration_ms=duration_ms,
+                    endpoint=target_endpoint)
         if resp.status_code != 200:
             raise SabreError(
                 f"{action} returned HTTP {resp.status_code}: {resp.text[:500]}")
@@ -373,3 +388,208 @@ class SabreClient:
             "conversationId": self._conversation_id,
         }
         return data, xml_text, meta
+
+    # ── MultiFlight Availability ──────────────────────────────────────────
+
+    @staticmethod
+    def _mf_attr(name, value):
+        if value is None:
+            return ""
+        value_s = str(value).strip()
+        if value_s == "":
+            return ""
+        return f' {name}="{escape(value_s)}"'
+
+    def _build_multiflight_origin_destinations_xml(self, origin_destinations):
+        parts = []
+        for od in origin_destinations:
+            parts.append(
+                f'<mf:OriginDestination{self._mf_attr("origin", od.get("origin"))}{self._mf_attr("destination", od.get("destination"))}>'
+            )
+            for itin in od.get("itineraries", []):
+                parts.append("<mf:Itinerary>")
+                for seg in itin.get("segments", []):
+                    parts.append(
+                        "<mf:Segment"
+                        f'{self._mf_attr("origin", seg.get("origin"))}'
+                        f'{self._mf_attr("destination", seg.get("destination"))}'
+                        f'{self._mf_attr("carrierCode", seg.get("carrierCode"))}'
+                        f'{self._mf_attr("marketingCarrier", seg.get("marketingCarrier"))}'
+                        f'{self._mf_attr("departureTime", seg.get("departureTime"))}'
+                        f'{self._mf_attr("arrivalTime", seg.get("arrivalTime"))}'
+                        f'{self._mf_attr("flightNumber", seg.get("flightNumber"))}'
+                        f'{self._mf_attr("marketingFlightNumber", seg.get("marketingFlightNumber"))}'
+                        f'{self._mf_attr("departureDate", seg.get("departureDate"))}'
+                        f'{self._mf_attr("arrivalDate", seg.get("arrivalDate"))}'
+                        f'{self._mf_attr("segmentId", seg.get("segmentId"))}'
+                        f'{self._mf_attr("classCodes", seg.get("classCodes"))}'
+                        f'{self._mf_attr("resolveIndicator", seg.get("resolveIndicator"))}'
+                        "/>"
+                    )
+                parts.append("</mf:Itinerary>")
+            parts.append("</mf:OriginDestination>")
+        return "".join(parts)
+
+    def _build_multiflight_agent_info_xml(self, agent_info):
+        return (
+            "<mf:AgentInfo"
+            f'{self._mf_attr("agentCityCode", agent_info.get("agentCityCode"))}'
+            f'{self._mf_attr("agencyPcc", agent_info.get("agencyPcc"))}'
+            f'{self._mf_attr("mainAgencyPcc", agent_info.get("mainAgencyPcc"))}'
+            f'{self._mf_attr("agencyIata", agent_info.get("agencyIata"))}'
+            f'{self._mf_attr("homeAgencyIata", agent_info.get("homeAgencyIata"))}'
+            f'{self._mf_attr("crsPartitionCode", agent_info.get("crsPartitionCode"))}'
+            f'{self._mf_attr("agentDepartmentCode", agent_info.get("agentDepartmentCode"))}'
+            f'{self._mf_attr("agentDutyCode", agent_info.get("agentDutyCode"))}'
+            f'{self._mf_attr("currencyCode", agent_info.get("currencyCode"))}'
+            f'{self._mf_attr("agentCountry", agent_info.get("agentCountry"))}'
+            f'{self._mf_attr("accountingCity", agent_info.get("accountingCity"))}'
+            f'{self._mf_attr("accountingCode", agent_info.get("accountingCode"))}'
+            f'{self._mf_attr("accountingOfficeCode", agent_info.get("accountingOfficeCode"))}'
+            "/>"
+        )
+
+    def _build_multiflight_optional_xml(self, point_of_commencement=None, associate_item=None):
+        poc_xml = ""
+        if point_of_commencement:
+            poc_xml = (
+                "<mf:PointOfCommencement"
+                f'{self._mf_attr("cityCode", point_of_commencement.get("cityCode"))}'
+                f'{self._mf_attr("departureDate", point_of_commencement.get("departureDate"))}'
+                f'{self._mf_attr("departureTime", point_of_commencement.get("departureTime"))}'
+                "/>"
+            )
+        associate_xml = ""
+        if associate_item and associate_item.get("carrierCode"):
+            associate_xml = (
+                "<mf:AssociateItem"
+                f'{self._mf_attr("carrierCode", associate_item.get("carrierCode"))}'
+                "/>"
+            )
+        return poc_xml, associate_xml
+
+    def get_multi_flight_availability(self, request_payload):
+        """
+        Call MultiFlightRQ for itinerary-level class availability.
+        Returns (parsed_body_dict, raw_xml_string, request_meta).
+        """
+        origin_destinations = request_payload.get("originDestinations", [])
+        if not origin_destinations:
+            raise SabreError(
+                "MultiFlight request requires at least one originDestination")
+
+        agent_info = request_payload.get("agentInfo", {})
+        required_agent_fields = ["agentCityCode",
+                                 "agencyPcc", "crsPartitionCode", "agentCountry"]
+        missing_agent = [
+            f for f in required_agent_fields if not agent_info.get(f)]
+        if missing_agent:
+            raise SabreError(
+                f"MultiFlight request missing required agentInfo fields: {', '.join(missing_agent)}")
+
+        version = int(request_payload.get("version", 1))
+        if version not in (0, 1):
+            raise SabreError("MultiFlight version must be 0 or 1")
+
+        od_xml = self._build_multiflight_origin_destinations_xml(
+            origin_destinations)
+        agent_xml = self._build_multiflight_agent_info_xml(agent_info)
+        include_optional = os.environ.get(
+            "SABRE_MULTIFLIGHT_INCLUDE_OPTIONAL_ITEMS", "false").lower() == "true"
+        poc_xml, associate_xml = self._build_multiflight_optional_xml(
+            request_payload.get(
+                "pointOfCommencement") if include_optional else None,
+            request_payload.get("associateItem") if include_optional else None,
+        )
+
+        ebxml_versions = [
+            v.strip() for v in os.environ.get(
+                "SABRE_MULTIFLIGHT_EBXML_VERSIONS", "1.0,2.0.0").split(",") if v.strip()
+        ]
+        must_understand_values = [
+            v.strip() for v in os.environ.get(
+                "SABRE_MULTIFLIGHT_MUST_UNDERSTAND_VALUES", "1,0").split(",") if v.strip()
+        ]
+
+        # Try combinations to handle provider-specific ASAA expectations.
+        last_error = None
+        attempted = []
+        endpoint_candidates = []
+        for endpoint in [self._multiflight_endpoint, self._endpoint, self._base_url]:
+            if endpoint and endpoint not in endpoint_candidates:
+                endpoint_candidates.append(endpoint)
+
+        actions = []
+        for action in [self._multiflight_action] + self._multiflight_action_fallbacks:
+            if action not in actions:
+                actions.append(action)
+
+        attempt_number = 0
+        for ebxml_version in ebxml_versions:
+            for must_understand in must_understand_values:
+                body = templates.MULTI_FLIGHT.format(
+                    **self._common_vars(),
+                    version=version,
+                    ebxml_version=ebxml_version,
+                    must_understand=must_understand,
+                    origin_destinations_xml=od_xml,
+                    agent_info_xml=agent_xml,
+                    point_of_commencement_xml=poc_xml,
+                    associate_item_xml=associate_xml,
+                )
+                for action in actions:
+                    attempt_number += 1
+                    for endpoint in endpoint_candidates:
+                        attempted.append(
+                            f"endpoint='{endpoint}' action='{action}' ebxml={ebxml_version} mustUnderstand={must_understand}")
+                        try:
+                            xml_text, http_status, duration_ms, request_xml = self._post(
+                                action,
+                                body,
+                                timeout=60,
+                                endpoint=endpoint,
+                            )
+                            parsed = self._parse_xml(xml_text)
+                            data = self._extract_body(parsed, "MultiFlightRS")
+                            meta = {
+                                "requestXml": request_xml,
+                                "httpStatus": http_status,
+                                "durationMs": duration_ms,
+                                "sessionToken": self._token,
+                                "conversationId": self._conversation_id,
+                                "multiFlightAttempt": {
+                                    "attempt": attempt_number,
+                                    "action": action,
+                                    "ebxmlVersion": ebxml_version,
+                                    "mustUnderstand": must_understand,
+                                    "endpoint": endpoint,
+                                },
+                            }
+                            logger.info(
+                                "multiflight_attempt_succeeded",
+                                attempt=attempt_number,
+                                action=action,
+                                ebxml_version=ebxml_version,
+                                must_understand=must_understand,
+                                endpoint=endpoint,
+                            )
+                            return data, xml_text, meta
+                        except SabreError as exc:
+                            last_error = exc
+                            logger.warning(
+                                "multiflight_attempt_failed",
+                                action=action,
+                                ebxml_version=ebxml_version,
+                                must_understand=must_understand,
+                                endpoint=endpoint,
+                                error=str(exc),
+                            )
+                            if "Availability not found" in str(exc):
+                                logger.warning(
+                                    "multiflight_endpoint_misconfiguration_hint",
+                                    endpoint=endpoint,
+                                    hint="Endpoint appears to point to FalconEye API route instead of Sabre SOAP URL",
+                                )
+
+        raise SabreError(
+            f"MultiFlight failed after {len(attempted)} attempts ({'; '.join(attempted)}). Last error: {last_error}")

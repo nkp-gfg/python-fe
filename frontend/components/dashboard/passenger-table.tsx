@@ -7,6 +7,7 @@ import {
   Loader2,
   ChevronUp,
   ChevronDown,
+  ArrowUpDown,
   Filter,
   Luggage,
   X,
@@ -29,6 +30,7 @@ export type FilterCabin = "all" | "Y" | "J";
 export type FilterStatus = "all" | "booked" | "checkedIn" | "boarded";
 export type FilterType = "all" | "revenue" | "nonRevenue" | "child" | "infant";
 export type FilterLoyalty = "all" | "FF" | "BLU" | "SLV" | "GLD" | "BLK";
+export type FilterNationality = string; // "all" or a country code like "GB"
 
 interface PassengerTableProps {
   flightNumber: string;
@@ -43,6 +45,8 @@ interface PassengerTableProps {
   setFilterType: (v: FilterType) => void;
   filterLoyalty: FilterLoyalty;
   setFilterLoyalty: (v: FilterLoyalty) => void;
+  filterNationality: FilterNationality;
+  setFilterNationality: (v: FilterNationality) => void;
 }
 
 type SortKey = "lastName" | "cabin" | "seat" | "status" | "bookingClass" | "bagCount";
@@ -69,6 +73,8 @@ export function PassengerTable({
   setFilterType,
   filterLoyalty,
   setFilterLoyalty,
+  filterNationality,
+  setFilterNationality,
 }: PassengerTableProps) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
@@ -131,6 +137,11 @@ export function PassengerTable({
       list = list.filter((p) => p.editCodes.includes(filterLoyalty));
     }
 
+    // Nationality filter
+    if (filterNationality !== "all") {
+      list = list.filter((p) => p.nationality === filterNationality);
+    }
+
     // Sort
     list.sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
@@ -146,7 +157,7 @@ export function PassengerTable({
     });
 
     return list;
-  }, [passengers, search, filterCabin, filterStatus, filterType, filterLoyalty, sortKey, sortDir]);
+  }, [passengers, debouncedSearch, filterCabin, filterStatus, filterType, filterLoyalty, filterNationality, sortKey, sortDir]);
 
   function getStatusBadge(p: PassengerRecord) {
     if (p.isBoarded) return <Badge className="bg-emerald-500/15 text-emerald-600 border-transparent text-[10px]">Boarded</Badge>;
@@ -159,7 +170,9 @@ export function PassengerTable({
     return (
       <button className="flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort(field)}>
         {label}
-        {active && (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+        {active
+          ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
+          : <ArrowUpDown className="h-3 w-3 opacity-30" />}
       </button>
     );
   }
@@ -314,9 +327,9 @@ export function PassengerTable({
               </button>
             )}
           </div>
-          {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all") && (
+          {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all" || filterNationality !== "all") && (
             <button
-              onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); }}
+              onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); setFilterNationality("all"); }}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
             >
               <X className="h-3 w-3" />
@@ -330,7 +343,7 @@ export function PassengerTable({
       </div>
 
       {/* Active filter chips */}
-      {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all") && (
+      {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all" || filterNationality !== "all") && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] text-muted-foreground mr-0.5">Active:</span>
           {search && (
@@ -373,8 +386,16 @@ export function PassengerTable({
               </button>
             </Badge>
           )}
+          {filterNationality !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              Nationality: {filterNationality}
+              <button onClick={() => setFilterNationality("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove nationality filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
           <button
-            onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); }}
+            onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); setFilterNationality("all"); }}
             className="text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-1 underline underline-offset-2"
           >
             Clear all

@@ -6,6 +6,7 @@ import type {
   PassengerDetailResponse, ChangeRecord, ChangeSummaryResponse,
   SnapshotMeta, FlightStatusRecord, ReservationsResponse,
   FlightSchedule, ScheduleLookupRequest,
+  MultiFlightAvailability, AvailabilityLookupRequest,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -236,4 +237,25 @@ export function lookupSchedule(
   payload: ScheduleLookupRequest,
 ): Promise<FlightSchedule> {
   return post<FlightSchedule>("/flights/schedule/lookup", payload);
+}
+
+// --- MultiFlight Availability ---
+
+export function fetchAvailability(
+  flightNumber: string,
+  origin?: string,
+  date?: string,
+): Promise<MultiFlightAvailability> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  const qs = params.toString() ? `?${params}` : "";
+  return get<MultiFlightAvailability>(`/flights/${flightNumber}/availability${qs}`);
+}
+
+export function lookupAvailability(
+  flightNumber: string,
+  payload: AvailabilityLookupRequest,
+): Promise<MultiFlightAvailability> {
+  return post<MultiFlightAvailability>(`/flights/${flightNumber}/availability/lookup`, payload);
 }

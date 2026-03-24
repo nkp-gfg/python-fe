@@ -64,6 +64,21 @@ export interface FlightListItem {
   };
   flightPhase?: FlightPhase;
   publishedSchedule?: PublishedScheduleSummary | null;
+  availabilitySummary?: {
+    success: boolean;
+    returnCode: number;
+    segments: number;
+    errorSegments: number;
+    classes: string[];
+    requestProfile?: {
+      attempt: number;
+      action: string;
+      ebxmlVersion: string;
+      mustUnderstand: string;
+      endpoint: string;
+    } | null;
+    fetchedAt: string;
+  } | null;
   fetchedAt: string;
 }
 
@@ -227,12 +242,71 @@ export interface FlightDashboard {
   flightPhase: FlightPhase;
   tree: FlightTree | null;
   schedule: FlightSchedule | null;
+  availability: MultiFlightAvailability | null;
   stateSummary: {
     booked: StateBucket;
     checkedIn: StateBucket;
     boarded: StateBucket;
     others: OthersSummary;
   };
+}
+
+export interface AvailabilityByClass {
+  classCode: string;
+  seats: number;
+}
+
+export interface MultiFlightSegmentAvailability {
+  segmentId: number;
+  origin: string;
+  destination: string;
+  carrierCode: string;
+  flightNumber: string;
+  departureDate: string;
+  returnCode: string;
+  polled: boolean;
+  classes: string[];
+  values: number[];
+  availabilityByClass: AvailabilityByClass[];
+}
+
+export interface MultiFlightItineraryAvailability {
+  segments: MultiFlightSegmentAvailability[];
+}
+
+export interface MultiFlightOriginDestinationAvailability {
+  origin: string;
+  destination: string;
+  departureDate: string;
+  itineraries: MultiFlightItineraryAvailability[];
+}
+
+export interface MultiFlightAvailability {
+  airline: string;
+  flightNumber: string;
+  origin: string;
+  departureDate: string;
+  fetchedAt: string;
+  version: number;
+  returnCode: number;
+  returnMessage: string;
+  diagnostic: string;
+  originDestinations: MultiFlightOriginDestinationAvailability[];
+  summary: {
+    segments: number;
+    polledSegments: number;
+    errorSegments: number;
+    availableClasses: string[];
+  };
+  success: boolean;
+  durationMs?: number;
+  requestProfile?: {
+    attempt: number;
+    action: string;
+    ebxmlVersion: string;
+    mustUnderstand: string;
+    endpoint: string;
+  } | null;
 }
 
 // --- Flight Phase ---
@@ -265,6 +339,13 @@ export interface SabreApiResult {
   changesStored?: number;
   isDuplicate?: boolean;
   error?: string;
+  requestProfile?: {
+    attempt: number;
+    action: string;
+    ebxmlVersion: string;
+    mustUnderstand: string;
+    endpoint: string;
+  };
 }
 
 export interface SabreFlightIngestResult {
@@ -280,6 +361,7 @@ export interface SabreFlightIngestResult {
     flightStatus: SabreApiResult;
     passengerList: SabreApiResult;
     reservations: SabreApiResult;
+    multiFlightAvailability?: SabreApiResult;
   };
 }
 
@@ -713,6 +795,14 @@ export interface FlightSchedule {
   destinationTimeZone: string;
   mealCode: string;
   segments: ScheduleSegment[];
+}
+
+export interface AvailabilityLookupRequest {
+  airline?: string;
+  origin?: string;
+  departureDate: string;
+  classCodes?: string;
+  resolveIndicator?: "Y" | "N";
 }
 
 export interface PublishedScheduleSummary {

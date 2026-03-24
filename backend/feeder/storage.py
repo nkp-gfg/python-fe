@@ -88,6 +88,7 @@ def ensure_indexes():
     _drop_index_if_exists(db["reservations"], "res_pnr")          # old name
     _drop_index_if_exists(db["reservations"], "res_pnr_lookup")   # new name
     _drop_index_if_exists(db["trip_reports"], "trip_report_lookup")
+    _drop_index_if_exists(db["multi_flight_availability"], "multi_av_lookup")
 
     # sabre_requests
     db["sabre_requests"].create_index(
@@ -159,6 +160,13 @@ def ensure_indexes():
          ("departureDate", 1),
          ("fetchedAt", -1)],
         name="schedule_lookup")
+
+    # multi_flight_availability
+    db["multi_flight_availability"].create_index(
+        [("airline", 1), ("flightNumber", 1),
+         ("origin", 1), ("departureDate", 1),
+         ("fetchedAt", -1)],
+        name="multi_av_lookup")
 
     logger.info("MongoDB indexes ensured.")
 
@@ -364,6 +372,12 @@ def store_trip_reports(doc):
 def store_flight_schedule(doc):
     """Insert a flight_schedules document. Returns the inserted _id."""
     result = get_db()["flight_schedules"].insert_one(doc)
+    return result.inserted_id
+
+
+def store_multi_flight_availability(doc):
+    """Insert a multi_flight_availability document. Returns the inserted _id."""
+    result = get_db()["multi_flight_availability"].insert_one(doc)
     return result.inserted_id
 
 

@@ -5,7 +5,7 @@ Run with:
     uvicorn backend.api.main:app --reload
 """
 
-from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule
+from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, availability
 from backend.api.database import get_db, close_db
 from backend.feeder import storage as feeder_storage
 import logging
@@ -74,6 +74,7 @@ app.include_router(passengers.router)
 app.include_router(reservations.router)
 app.include_router(changes.router)
 app.include_router(schedule.router)
+app.include_router(availability.router)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────

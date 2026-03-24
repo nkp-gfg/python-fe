@@ -26,13 +26,11 @@ import {
   Search,
   ShieldAlert,
   Timer,
-  UserCheck,
   Users,
   Clock,
   Briefcase,
   Ticket,
   Star,
-  Globe,
   X,
 } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
@@ -60,12 +58,14 @@ import type { DetailView } from "@/components/dashboard/bottom-detail-panel";
 import { PassengerTree } from "@/components/dashboard/passenger-tree";
 import { IngestionPanel } from "@/components/dashboard/ingestion-panel";
 import { TileInfoPanel, type TileInfoKey } from "@/components/dashboard/tile-info-panel";
-import { PassengerTable, type FilterCabin, type FilterStatus, type FilterType, type FilterLoyalty } from "@/components/dashboard/passenger-table";
+import { PassengerTable, type FilterCabin, type FilterStatus, type FilterType, type FilterLoyalty, type FilterNationality } from "@/components/dashboard/passenger-table";
 import { StandbyPanel } from "@/components/dashboard/standby-panel";
 import { PassengerDetailSheet } from "@/components/dashboard/passenger-detail-sheet";
 import { ChangeTimeline } from "@/components/dashboard/change-timeline";
 import { StatusHistory } from "@/components/dashboard/status-history";
 import { ReservationView } from "@/components/dashboard/reservation-view";
+import { AvailabilityPanel } from "@/components/dashboard/availability-panel";
+import { ExecutiveValueFramework } from "@/components/dashboard/executive-value-framework";
 
 type FlightSelection = {
   flightNumber: string;
@@ -94,12 +94,13 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [detailPnr, setDetailPnr] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [bottomView, setBottomView] = useState<DetailView | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "passengers" | "standby" | "changes" | "history" | "reservations">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "availability" | "passengers" | "standby" | "changes" | "history" | "reservations">("overview");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [filterCabin, setFilterCabin] = useState<FilterCabin>("all");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [filterLoyalty, setFilterLoyalty] = useState<FilterLoyalty>("all");
+  const [filterNationality, setFilterNationality] = useState<FilterNationality>("all");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sidebarPanelRef = useRef<any>(null);
 
@@ -174,7 +175,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     if (!raw) return `${fallbackDate}T00:00:00`;
     const m = raw.match(/(\d{4}-\d{2}-\d{2})T(\d{1,2}):(\d{2})(AM|PM)?/i);
     if (!m) return `${fallbackDate}T00:00:00`;
-    let [, datePart, hStr, min, ampm] = m;
+    const [, datePart, hStr, min, ampm] = m;
     let h = parseInt(hStr, 10);
     if (ampm) {
       const up = ampm.toUpperCase();
@@ -508,6 +509,20 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           <span className="mx-1">&bull;</span>
                           <span>{flight.departureDate}</span>
                         </div>
+                        {flight.availabilitySummary && (
+                          <div className={cn("flex items-center gap-1.5 text-[10px]", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                            <span
+                              className="inline-flex items-center rounded border px-1.5 py-0.5 font-medium"
+                              title={getAvailabilityBadgeTooltip(flight.availabilitySummary)}
+                            >
+                              AV {flight.availabilitySummary.success ? "OK" : `RC${flight.availabilitySummary.returnCode}`}
+                            </span>
+                            <span>Seg {flight.availabilitySummary.segments}</span>
+                            {flight.availabilitySummary.errorSegments > 0 && (
+                              <span className="text-amber-500">Err {flight.availabilitySummary.errorSegments}</span>
+                            )}
+                          </div>
+                        )}
                       </button>
                       </div>
                     );
@@ -703,6 +718,20 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         <span className="mx-1">•</span>
                         <span>{flight.departureDate}</span>
                       </div>
+                      {flight.availabilitySummary && (
+                        <div className={cn("flex items-center gap-1.5 text-[10px]", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                          <span
+                            className="inline-flex items-center rounded border px-1.5 py-0.5 font-medium"
+                            title={getAvailabilityBadgeTooltip(flight.availabilitySummary)}
+                          >
+                            AV {flight.availabilitySummary.success ? "OK" : `RC${flight.availabilitySummary.returnCode}`}
+                          </span>
+                          <span>Seg {flight.availabilitySummary.segments}</span>
+                          {flight.availabilitySummary.errorSegments > 0 && (
+                            <span className="text-amber-500">Err {flight.availabilitySummary.errorSegments}</span>
+                          )}
+                        </div>
+                      )}
                     </button>
                     </div>
                   );
@@ -729,6 +758,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         )}>
           {([
             { key: "overview", icon: LayoutDashboard, label: "Overview" },
+            { key: "availability", icon: Radar, label: "Availability" },
             { key: "passengers", icon: Users, label: "Passengers" },
             { key: "standby", icon: Timer, label: "Standby" },
             { key: "changes", icon: Activity, label: "Changes" },
@@ -990,19 +1020,19 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       </div>
                     </div>
 
-                    {/* Nationality - top 5 */}
+                    {/* Nationalities — all from database, interactive */}
                     <div className="rounded-lg border bg-card p-2.5 shadow-sm col-span-2 sm:col-span-2">
                       <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Top Nationalities</p>
-                      <div className="flex items-baseline gap-3">
+                      <div className="flex items-baseline gap-3 overflow-x-auto">
                         {(() => {
                           const nc = dashboard.analysis?.nationalityCounts ?? {};
-                          const sorted = Object.entries(nc).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                          const sorted = Object.entries(nc).sort((a, b) => b[1] - a[1]);
                           if (sorted.length === 0) return <p className="text-xs text-muted-foreground">No data</p>;
                           return sorted.map(([nat, count]) => (
-                            <div key={nat} className="text-center">
+                            <button key={nat} onClick={() => { setFilterNationality(filterNationality === nat ? "all" : nat); setActiveTab("passengers"); }} className={cn("text-center transition-colors rounded px-1 -mx-0.5 shrink-0", filterNationality === nat && "ring-1 ring-sky-500")}>
                               <p className="text-lg font-bold">{count}</p>
                               <p className="text-[9px] text-muted-foreground">{nat}</p>
-                            </div>
+                            </button>
                           ));
                         })()}
                       </div>
@@ -1277,6 +1307,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         </Card>
                       )}
 
+                      <ExecutiveValueFramework />
+
                       {/* Bottom Detail Panel */}
                       {bottomView && effectiveSelected && (
                         <BottomDetailPanel
@@ -1293,6 +1325,17 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         />
                       )}
                     </div>
+                    )}
+
+                    {/* Passengers Tab */}
+                    {activeTab === "availability" && (
+                      <div className="mt-1">
+                      <AvailabilityPanel
+                        flightNumber={effectiveSelected.flightNumber}
+                        origin={effectiveSelected.origin}
+                        date={effectiveSelected.date}
+                      />
+                      </div>
                     )}
 
                     {/* Passengers Tab */}
@@ -1314,6 +1357,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         setFilterType={setFilterType}
                         filterLoyalty={filterLoyalty}
                         setFilterLoyalty={setFilterLoyalty}
+                        filterNationality={filterNationality}
+                        setFilterNationality={setFilterNationality}
                       />
                       </div>
                     )}
@@ -1502,6 +1547,29 @@ function getStatusColor(status: string) {
     default:
       return "bg-secondary text-secondary-foreground";
   }
+}
+
+function getAvailabilityBadgeTooltip(summary: NonNullable<FlightListItem["availabilitySummary"]>): string {
+  const base = [
+    `Return code: ${summary.returnCode}`,
+    `Segments: ${summary.segments}`,
+    `Error segments: ${summary.errorSegments}`,
+  ];
+
+  if (!summary.requestProfile) {
+    return base.join("\n");
+  }
+
+  const profile = summary.requestProfile;
+  return [
+    ...base,
+    "",
+    "Request profile:",
+    `Attempt: ${profile.attempt}`,
+    `Action: ${profile.action}`,
+    `ebXML: ${profile.ebxmlVersion}`,
+    `mustUnderstand: ${profile.mustUnderstand}`,
+  ].join("\n");
 }
 
 function ScheduleDelay({ schedule }: { schedule?: { scheduledDeparture?: string; estimatedDeparture?: string; scheduledArrival?: string; estimatedArrival?: string } }) {
