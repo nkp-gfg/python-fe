@@ -14,6 +14,7 @@ import {
   ChevronUp,
   ChevronDown,
   ArrowUpDown,
+  History,
 } from "lucide-react";
 import { fetchPassengerDetail } from "@/lib/api";
 import type {
@@ -42,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { PassengerTimeline } from "./passenger-timeline";
 
 /* ── reusable sort header ── */
 function SortHeader<K extends string>({
@@ -498,6 +500,10 @@ function PassengerDetailContent({
           <TabsTrigger value="docs">Documents</TabsTrigger>
           <TabsTrigger value="baggage">Baggage</TabsTrigger>
           <TabsTrigger value="extras">Extras</TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-1">
+            <History className="h-3 w-3" />
+            History
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="itinerary" className="mt-4 space-y-4">
@@ -532,6 +538,15 @@ function PassengerDetailContent({
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <PassengerTimeline
+            flightNumber={flightNumber}
+            pnr={pnr}
+            origin={origin}
+            date={date}
+          />
         </TabsContent>
       </Tabs>
     </div>

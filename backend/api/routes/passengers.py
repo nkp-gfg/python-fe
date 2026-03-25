@@ -3,6 +3,7 @@
 import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
+from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
 from backend.sabre.client import SabreClient, SabreError
 from backend.feeder.converter import convert_passenger_data
@@ -18,12 +19,23 @@ def _strip_id(doc):
     return doc
 
 
-def _build_nationality_lookup(db, flight_number, date):
+def _build_nationality_lookup(db, flight_number, date, origin=None, snapshot_sequence=None):
     """Build PNR+lastName → nationality lookup from reservations."""
-    res_query = {"flightNumber": flight_number}
-    if date:
-        res_query["departureDate"] = date
-    res_doc = db["reservations"].find_one(res_query, sort=[("fetchedAt", -1)])
+    if snapshot_sequence:
+        res_doc = get_snapshot_data_as_of(
+            db,
+            flight_number=flight_number,
+            snapshot_type="reservations",
+            snapshot_sequence=snapshot_sequence,
+            origin=origin,
+            departure_date=date,
+        )
+    else:
+        res_query = {"flightNumber": flight_number}
+        if date:
+            res_query["departureDate"] = date
+        res_doc = db["reservations"].find_one(
+            res_query, sort=[("fetchedAt", -1)])
     lookup = {}
     if res_doc:
         for rv in res_doc.get("reservations", []):
@@ -41,6 +53,11 @@ def get_passengers(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    snapshot_sequence: int = Query(
+        None,
+        ge=1,
+        description="Load historical view as-of this snapshot sequence number",
+    ),
 ):
     """Get the latest passenger list for a flight."""
     validate_date(date)
@@ -52,12 +69,28 @@ def get_passengers(
     if date:
         query["departureDate"] = date
 
-    doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
+    if snapshot_sequence:
+        doc = get_snapshot_data_as_of(
+            db,
+            flight_number=flight_number,
+            snapshot_type="passenger_list",
+            snapshot_sequence=snapshot_sequence,
+            origin=origin,
+            departure_date=date,
+        )
+    else:
+        doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
     if not doc:
         raise HTTPException(status_code=404, detail="Passenger list not found")
 
     # Enrich passengers with nationality from reservations
-    nat_lookup = _build_nationality_lookup(db, flight_number, date)
+    nat_lookup = _build_nationality_lookup(
+        db,
+        flight_number,
+        date,
+        origin=origin,
+        snapshot_sequence=snapshot_sequence,
+    )
     passengers = doc.get("passengers", [])
     for p in passengers:
         key = (p.get("pnr", ""), p.get("lastName", "").upper())
@@ -125,6 +158,11 @@ def get_standby_list(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    snapshot_sequence: int = Query(
+        None,
+        ge=1,
+        description="Load historical view as-of this snapshot sequence number",
+    ),
 ):
     """Return the prioritized standby and upgrade queue for a flight.
 
@@ -145,7 +183,17 @@ def get_standby_list(
     if date:
         query["departureDate"] = date
 
-    doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
+    if snapshot_sequence:
+        doc = get_snapshot_data_as_of(
+            db,
+            flight_number=flight_number,
+            snapshot_type="passenger_list",
+            snapshot_sequence=snapshot_sequence,
+            origin=origin,
+            departure_date=date,
+        )
+    else:
+        doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
     if not doc:
         raise HTTPException(status_code=404, detail="Passenger list not found")
 

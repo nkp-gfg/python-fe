@@ -25,6 +25,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from backend.api.runtime_config import get_multiflight_settings
 from . import templates
 
 logger = structlog.get_logger(__name__)
@@ -65,6 +66,13 @@ class SabreClient:
                 "ASAAOperation,,MultiFlightRQ",
             ).split(",")
         ]
+        runtime_multiflight = get_multiflight_settings()
+        self._multiflight_timeout_seconds = int(
+            runtime_multiflight["timeoutSeconds"])
+        self._multiflight_max_attempts = int(
+            runtime_multiflight["maxAttempts"])
+        self._multiflight_include_cpaid_endpoint = bool(
+            runtime_multiflight["includeCpaidEndpoint"])
         self._cpaid = os.environ["SABRE_CPAID"]
         self._username = os.environ["SABRE_USERNAME"]
         self._password = os.environ["SABRE_PASSWORD"]
@@ -515,7 +523,11 @@ class SabreClient:
         last_error = None
         attempted = []
         endpoint_candidates = []
-        for endpoint in [self._multiflight_endpoint, self._endpoint, self._base_url]:
+        candidate_sources = [self._multiflight_endpoint, self._base_url]
+        if self._multiflight_include_cpaid_endpoint:
+            candidate_sources.append(self._endpoint)
+
+        for endpoint in candidate_sources:
             if endpoint and endpoint not in endpoint_candidates:
                 endpoint_candidates.append(endpoint)
 
@@ -538,15 +550,17 @@ class SabreClient:
                     associate_item_xml=associate_xml,
                 )
                 for action in actions:
-                    attempt_number += 1
                     for endpoint in endpoint_candidates:
+                        if attempt_number >= self._multiflight_max_attempts:
+                            break
+                        attempt_number += 1
                         attempted.append(
                             f"endpoint='{endpoint}' action='{action}' ebxml={ebxml_version} mustUnderstand={must_understand}")
                         try:
                             xml_text, http_status, duration_ms, request_xml = self._post(
                                 action,
                                 body,
-                                timeout=60,
+                                timeout=self._multiflight_timeout_seconds,
                                 endpoint=endpoint,
                             )
                             parsed = self._parse_xml(xml_text)
@@ -576,7 +590,7 @@ class SabreClient:
                             return data, xml_text, meta
                         except SabreError as exc:
                             last_error = exc
-                            logger.warning(
+                            logger.debug(
                                 "multiflight_attempt_failed",
                                 action=action,
                                 ebxml_version=ebxml_version,
@@ -585,11 +599,23 @@ class SabreClient:
                                 error=str(exc),
                             )
                             if "Availability not found" in str(exc):
-                                logger.warning(
+                                logger.info(
                                     "multiflight_endpoint_misconfiguration_hint",
                                     endpoint=endpoint,
                                     hint="Endpoint appears to point to FalconEye API route instead of Sabre SOAP URL",
                                 )
+                    if attempt_number >= self._multiflight_max_attempts:
+                        break
+                if attempt_number >= self._multiflight_max_attempts:
+                    break
+            if attempt_number >= self._multiflight_max_attempts:
+                break
 
+        logger.warning(
+            "multiflight_unavailable",
+            attempts=len(attempted),
+            timeout_seconds=self._multiflight_timeout_seconds,
+            last_error=str(last_error),
+        )
         raise SabreError(
             f"MultiFlight failed after {len(attempted)} attempts ({'; '.join(attempted)}). Last error: {last_error}")

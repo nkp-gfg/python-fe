@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Loader2, Clock, Plane, DoorOpen, Hash } from "lucide-react";
 import { format } from "date-fns";
-import { fetchStatusHistory, fetchSnapshots } from "@/lib/api";
+import { compareSnapshot, fetchStatusHistory, fetchSnapshots, restoreSnapshotVersion } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -21,6 +23,10 @@ interface StatusHistoryProps {
   flightNumber: string;
   origin: string;
   date: string;
+  selectedSnapshotSequence?: number | null;
+  onLoadSnapshot?: (sequenceNumber: number) => void;
+  onClearSnapshot?: () => void;
+  onRestoreComplete?: () => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -42,7 +48,18 @@ function formatTs(ts: string): string {
   }
 }
 
-export function StatusHistory({ flightNumber, origin, date }: StatusHistoryProps) {
+export function StatusHistory({
+  flightNumber,
+  origin,
+  date,
+  selectedSnapshotSequence,
+  onLoadSnapshot,
+  onClearSnapshot,
+  onRestoreComplete,
+}: StatusHistoryProps) {
+  const [compareMode, setCompareMode] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+
   const { data: records, isLoading: loadingHistory } = useQuery({
     queryKey: ["statusHistory", flightNumber, origin, date],
     queryFn: () => fetchStatusHistory(flightNumber, origin, date),
@@ -50,7 +67,13 @@ export function StatusHistory({ flightNumber, origin, date }: StatusHistoryProps
 
   const { data: snapshots, isLoading: loadingSnaps } = useQuery({
     queryKey: ["snapshots", flightNumber, origin, date],
-    queryFn: () => fetchSnapshots(flightNumber, origin, date),
+    queryFn: () => fetchSnapshots(flightNumber, origin, date, "passenger_list"),
+  });
+
+  const { data: compareData, isLoading: compareLoading } = useQuery({
+    queryKey: ["snapshotCompare", flightNumber, origin, date, selectedSnapshotSequence],
+    queryFn: () => compareSnapshot(flightNumber, selectedSnapshotSequence!, origin, date),
+    enabled: Boolean(compareMode && selectedSnapshotSequence),
   });
 
   const isLoading = loadingHistory || loadingSnaps;
@@ -66,6 +89,22 @@ export function StatusHistory({ flightNumber, origin, date }: StatusHistoryProps
 
   const history = records ?? [];
   const snaps = snapshots ?? [];
+
+  async function handleRestore() {
+    if (!selectedSnapshotSequence || restoring) return;
+    const ok = window.confirm(
+      `Restore snapshot #${selectedSnapshotSequence} as latest data for this flight? This writes new latest documents.`
+    );
+    if (!ok) return;
+
+    try {
+      setRestoring(true);
+      await restoreSnapshotVersion(flightNumber, selectedSnapshotSequence, origin, date);
+      onRestoreComplete?.();
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -145,12 +184,92 @@ export function StatusHistory({ flightNumber, origin, date }: StatusHistoryProps
           <CardTitle className="text-sm flex items-center gap-2">
             <Hash className="h-4 w-4 text-muted-foreground" />
             Data Snapshots
+            {selectedSnapshotSequence && (
+              <Badge variant="outline" className="text-[10px]">
+                Viewing #{selectedSnapshotSequence}
+              </Badge>
+            )}
+            {selectedSnapshotSequence && onClearSnapshot && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                onClick={onClearSnapshot}
+              >
+                Back to latest
+              </Button>
+            )}
+            {selectedSnapshotSequence && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                onClick={() => setCompareMode((v) => !v)}
+              >
+                {compareMode ? "Hide Compare" : "Compare vs latest"}
+              </Button>
+            )}
+            {selectedSnapshotSequence && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                disabled={restoring}
+                onClick={handleRestore}
+              >
+                {restoring ? "Restoring..." : "Restore this version"}
+              </Button>
+            )}
             <Badge variant="secondary" className="ml-auto text-[10px]">
               {snaps.length}
             </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {compareMode && selectedSnapshotSequence && (
+            <div className="mb-4 rounded-md border p-3 space-y-2">
+              <div className="text-xs font-medium">Delta View: selected snapshot vs latest</div>
+              {compareLoading && (
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Calculating deltas...
+                </div>
+              )}
+              {!compareLoading && compareData && (
+                <div className="space-y-2">
+                  {Object.entries(compareData.types).map(([type, value]) => (
+                    <div key={type} className="rounded border p-2">
+                      <div className="text-xs font-medium mb-1">{type}</div>
+                      {!value.available && (
+                        <div className="text-[11px] text-muted-foreground">No comparable snapshots.</div>
+                      )}
+                      {value.available && value.deltas && (
+                        <div className="grid gap-1">
+                          {Object.entries(value.deltas)
+                            .filter(([, d]) => d.changed)
+                            .map(([field, d]) => (
+                              <div key={field} className="text-[11px] flex items-center justify-between gap-3">
+                                <span className="text-muted-foreground">{field}</span>
+                                <span>
+                                  {String(d.selected)} <span className="text-muted-foreground">→</span> {String(d.latest)}
+                                  {typeof d.diff === "number" && (
+                                    <span className="ml-1 text-muted-foreground">({d.diff > 0 ? `+${d.diff}` : d.diff})</span>
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                          {Object.values(value.deltas).every((d) => !d.changed) && (
+                            <div className="text-[11px] text-muted-foreground">No changes.</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {snaps.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-6">No snapshots recorded.</p>
           ) : (
@@ -161,6 +280,7 @@ export function StatusHistory({ flightNumber, origin, date }: StatusHistoryProps
                   <TableHead>Type</TableHead>
                   <TableHead>Fetched At</TableHead>
                   <TableHead>Checksum</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -173,6 +293,16 @@ export function StatusHistory({ flightNumber, origin, date }: StatusHistoryProps
                     <TableCell className="text-xs">{formatTs(s.fetchedAt)}</TableCell>
                     <TableCell className="font-mono text-[10px] text-muted-foreground truncate max-w-[120px]">
                       {s.checksum ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant={selectedSnapshotSequence === s.sequenceNumber ? "secondary" : "outline"}
+                        className="h-7 text-[10px]"
+                        onClick={() => onLoadSnapshot?.(s.sequenceNumber)}
+                      >
+                        {selectedSnapshotSequence === s.sequenceNumber ? "Loaded" : "Load"}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

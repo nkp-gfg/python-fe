@@ -14,7 +14,11 @@ def get_db():
     global _client, _db
     if _db is None:
         uri = os.environ["MONGODB_URI"]
-        _client = MongoClient(uri)
+        _client = MongoClient(
+            uri,
+            serverSelectionTimeoutMS=10_000,
+            connectTimeoutMS=10_000,
+        )
         _db = _client[DB_NAME]
     return _db
 

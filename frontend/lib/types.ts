@@ -395,6 +395,12 @@ export interface SabreJobStatus {
   error: string | null;
 }
 
+export interface MultiFlightAdminConfig {
+  timeoutSeconds: number;
+  maxAttempts: number;
+  includeCpaidEndpoint: boolean;
+}
+
 // --- Passenger Table Types ---
 
 export interface PassengerRecord {
@@ -659,6 +665,45 @@ export interface SnapshotMeta {
   checksum?: string;
 }
 
+export interface SnapshotDeltaItem {
+  selected: string | number | null;
+  latest: string | number | null;
+  diff: number | null;
+  changed: boolean;
+}
+
+export interface SnapshotCompareTypeResult {
+  available: boolean;
+  reason?: string;
+  selectedSequence?: number;
+  latestSequence?: number;
+  changed?: boolean;
+  deltas?: Record<string, SnapshotDeltaItem>;
+}
+
+export interface SnapshotCompareResponse {
+  flightNumber: string;
+  origin?: string;
+  departureDate?: string;
+  snapshotSequence: number;
+  types: Record<string, SnapshotCompareTypeResult>;
+}
+
+export interface SnapshotRestoreResultItem {
+  snapshotType: string;
+  targetCollection: string;
+  sourceSequence: number;
+}
+
+export interface SnapshotRestoreResponse {
+  flightNumber: string;
+  origin?: string;
+  departureDate?: string;
+  requestedSequence: number;
+  restoredAt: string;
+  restored: SnapshotRestoreResultItem[];
+}
+
 export interface FlightStatusRecord {
   airline: string;
   flightNumber: string;
@@ -820,3 +865,206 @@ export interface ScheduleLookupRequest {
   flightNumber: string;
   departureDate: string;
 }
+
+// --- Passenger Timeline Types ---
+
+export type TimelineEventCategory = 
+  | "booking" 
+  | "checkin" 
+  | "boarding" 
+  | "upgrade" 
+  | "seat" 
+  | "baggage" 
+  | "other";
+
+export interface TimelineUpgradeInfo {
+  direction?: "UPGRADE" | "DOWNGRADE";
+  upgradeType?: "LMU" | "PAID" | "COMPLIMENTARY" | "OPERATIONAL" | string;
+  upgradeCode?: string;
+}
+
+export interface TimelineEvent {
+  timestamp: string;
+  changeType: string;
+  category: TimelineEventCategory;
+  description: string;
+  details: {
+    field?: string;
+    oldValue?: string | number | boolean;
+    newValue?: string | number | boolean;
+  };
+  upgradeInfo?: TimelineUpgradeInfo;
+  originalBooking?: {
+    cabin?: string;
+    bookingClass?: string;
+  };
+}
+
+export interface PassengerCurrentState {
+  cabin?: string;
+  bookingClass?: string;
+  seat?: string;
+  isCheckedIn: boolean;
+  isBoarded: boolean;
+  bagCount: number;
+}
+
+export interface PassengerTimelineResponse {
+  flightNumber: string;
+  pnr: string;
+  departureDate?: string;
+  origin?: string;
+  originalBooking: {
+    cabin?: string;
+    bookingClass?: string;
+  };
+  currentState?: PassengerCurrentState;
+  events: TimelineEvent[];
+  eventCount: number;
+}
+
+// --- Flight Timeline Types ---
+
+export type FlightEventCategory =
+  | "booking"
+  | "checkin"
+  | "boarding"
+  | "upgrade"
+  | "downgrade"
+  | "seat"
+  | "baggage"
+  | "security"
+  | "gate"
+  | "flight_ops"
+  | "standby"
+  | "loyalty"
+  | "document"
+  | "capacity"
+  | "reservation"
+  | "snapshot"
+  | "other";
+
+export interface FlightTimelineEvent {
+  timestamp: string;
+  category: FlightEventCategory;
+  eventType: string;
+  description: string;
+  passengerName?: string;
+  pnr?: string;
+  details?: {
+    field?: string;
+    oldValue?: string | number | boolean;
+    newValue?: string | number | boolean;
+    snapshotType?: string;
+    sequenceNumber?: number;
+  };
+  passenger?: {
+    pnr: string;
+    lastName: string;
+    firstName: string;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export interface FlightTimelineStats {
+  totalChanges: number;
+  totalEvents: number;
+  totalCheckins: number;
+  totalBoardings: number;
+  totalUpgrades: number;
+  totalSeatChanges: number;
+  checkedIn: number;
+  boarded: number;
+  upgrades: number;
+  seatChanges: number;
+  statusChanges: number;
+  timeRange: {
+    first?: string;
+    last?: string;
+  };
+}
+
+export interface FlightTimelineResponse {
+  flightNumber: string;
+  origin?: string;
+  departureDate?: string;
+  events: FlightTimelineEvent[];
+  eventCount: number;
+  stats: FlightTimelineStats;
+}
+
+// --- Activity Feed Types ---
+
+export interface ActivityFeedEvent {
+  timestamp: string;
+  flightNumber: string;
+  origin: string;
+  date: string;
+  departureDate?: string;
+  category: FlightEventCategory;
+  eventType: string;
+  description: string;
+  passengerName?: string;
+  pnr?: string;
+  passenger?: {
+    pnr: string;
+    lastName: string;
+    firstName: string;
+  };
+}
+
+export interface ActivityFeedResponse {
+  events: ActivityFeedEvent[];
+  count: number;
+  totalEvents: number;
+  flightsAffected: number;
+}
+
+// --- Boarding Progress Types ---
+
+export interface ProgressDataPoint {
+  timestamp: string;
+  count: number;
+  cumulativeCount: number;
+  passenger?: {
+    pnr: string;
+    lastName: string;
+    firstName: string;
+  };
+}
+
+export interface ProgressSeries {
+  current: number;
+  total: number;
+  percentage: number;
+  data: ProgressDataPoint[];
+  series?: ProgressDataPoint[];
+}
+
+export interface FlightMilestone {
+  timestamp: string;
+  status: string;
+  type: string;
+  label: string;
+  previousStatus?: string;
+}
+
+export interface BoardingProgressResponse {
+  flightNumber: string;
+  origin?: string;
+  departureDate?: string;
+  totalPassengers: number;
+  checkinProgress: ProgressSeries;
+  boardingProgress: ProgressSeries;
+  milestones: FlightMilestone[];
+}
+
+// --- History Badge Types ---
+
+export interface PassengerHistoryBadge {
+  changeCount: number;
+  hasUpgrade: boolean;
+  lastChange: string;
+}
+
+export type PassengerHistoryBadges = Record<string, PassengerHistoryBadge>;

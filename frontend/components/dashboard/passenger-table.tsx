@@ -36,6 +36,7 @@ interface PassengerTableProps {
   flightNumber: string;
   origin: string;
   date: string;
+  snapshotSequence?: number | null;
   onSelectPassenger?: (pnr: string) => void;
   filterCabin: FilterCabin;
   setFilterCabin: (v: FilterCabin) => void;
@@ -64,6 +65,7 @@ export function PassengerTable({
   flightNumber,
   origin,
   date,
+  snapshotSequence,
   onSelectPassenger,
   filterCabin,
   setFilterCabin,
@@ -82,8 +84,8 @@ export function PassengerTable({
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["passengers", flightNumber, origin, date],
-    queryFn: () => fetchPassengers(flightNumber, origin, date),
+    queryKey: ["passengers", flightNumber, origin, date, snapshotSequence],
+    queryFn: () => fetchPassengers(flightNumber, origin, date, snapshotSequence),
   });
 
   function toggleSort(key: SortKey) {

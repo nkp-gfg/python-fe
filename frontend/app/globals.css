@@ -144,3 +144,12 @@
     @apply font-sans;
   }
 }
+/* Hide scrollbar while keeping scroll functionality */
+@utility scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

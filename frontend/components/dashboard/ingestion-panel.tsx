@@ -14,24 +14,37 @@ import {
   Plus,
   RefreshCw,
   ServerCog,
+  Settings2,
 } from "lucide-react";
 
-import { ingestFlight, ingestBatch, fetchJobStatus } from "@/lib/api";
+import { ingestFlight, ingestBatch, fetchJobStatus, fetchMultiFlightConfig, updateMultiFlightConfig } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import type {
+  MultiFlightAdminConfig,
   SabreIngestRequest,
   SabreFlightIngestResult,
   SabreApiResult,
 } from "@/lib/types";
 
 // Helper components for crisp input styles
-const inputStyles = "flex h-9 w-full rounded-md border border-input bg-background/50 px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+const inputStyles = "flex h-10 w-full rounded-lg border border-input bg-background/50 px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+
+function getFlightDashboardHref(flight: {
+  flightNumber: string;
+  origin: string;
+  departureDate: string;
+}) {
+  return `/dashboard/${encodeURIComponent(flight.flightNumber)}?origin=${encodeURIComponent(flight.origin)}&date=${encodeURIComponent(flight.departureDate)}`;
+}
 
 export function IngestionPanel() {
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const { pushToast } = useToast();
   const [formData, setFormData] = useState({
     airline: "GF",
     flightNumber: "",
@@ -43,12 +56,31 @@ export function IngestionPanel() {
   const [batchQueue, setBatchQueue] = useState<SabreIngestRequest[]>([]);
   const [singleResult, setSingleResult] = useState<SabreFlightIngestResult | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [configDraftOverride, setConfigDraftOverride] = useState<MultiFlightAdminConfig | null>(null);
+  const defaultConfigDraft: MultiFlightAdminConfig = {
+    timeoutSeconds: 10,
+    maxAttempts: 6,
+    includeCpaidEndpoint: false,
+  };
 
   const singleMutation = useMutation({
     mutationKey: ["ingest"],
     mutationFn: ingestFlight,
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       setSingleResult(data.result);
+      const hasMultiFlightWarning = data.result.apis.multiFlightAvailability?.status === "error";
+      pushToast({
+        variant: hasMultiFlightWarning ? "warning" : "success",
+        title: hasMultiFlightWarning
+          ? `Ingest completed with warnings for ${variables.airline ?? "GF"}${variables.flightNumber}`
+          : `Ingest completed for ${variables.airline ?? "GF"}${variables.flightNumber}`,
+        description: hasMultiFlightWarning
+          ? "Core Sabre sync completed. Optional MultiFlight availability was unavailable."
+          : "Background ingestion job completed successfully.",
+      });
+    },
+    onError: (error) => {
+      pushToast({ variant: "error", title: "Ingest failed", description: error.message });
     },
   });
 
@@ -57,6 +89,35 @@ export function IngestionPanel() {
     mutationFn: ingestBatch,
     onSuccess: (data) => {
       setActiveJobId(data.jobId);
+      pushToast({
+        variant: "info",
+        title: "Batch submitted",
+        description: `${data.flightsQueued} flight${data.flightsQueued === 1 ? "" : "s"} queued in the background.`,
+      });
+    },
+    onError: (error) => {
+      pushToast({ variant: "error", title: "Batch submission failed", description: error.message });
+    },
+  });
+
+  const configQuery = useQuery({
+    queryKey: ["multiflight-config"],
+    queryFn: fetchMultiFlightConfig,
+  });
+
+  const configMutation = useMutation({
+    mutationKey: ["multiflight-config-update"],
+    mutationFn: updateMultiFlightConfig,
+    onSuccess: (data) => {
+      setConfigDraftOverride(data);
+      pushToast({
+        variant: "success",
+        title: "MultiFlight settings saved",
+        description: "New values apply to subsequent Sabre sessions.",
+      });
+    },
+    onError: (error) => {
+      pushToast({ variant: "error", title: "Failed to save MultiFlight settings", description: error.message });
     },
   });
 
@@ -70,6 +131,8 @@ export function IngestionPanel() {
       return 3000;
     },
   });
+
+  const configDraft = configDraftOverride ?? configQuery.data ?? defaultConfigDraft;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -148,20 +211,26 @@ export function IngestionPanel() {
     batchMutation.mutate({ flights: batchQueue });
   };
 
+  const saveMultiFlightSettings = () => {
+    configMutation.mutate(configDraft);
+  };
+
   const isBatchRunning = Boolean(activeJobId && (!jobStatus || jobStatus.status === "accepted" || jobStatus.status === "running"));
   const isFormValid = Boolean(formData.flightNumber && formData.origin && isoDate && timeValid);
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto p-4 md:p-6 bg-muted/10">
       {/* Form Section */}
-      <Card className="shadow-sm">
-        <CardContent className="p-5">
-          <div className="mb-5 flex items-center gap-2 border-b pb-3">
-            <ServerCog className="h-4 w-4 text-blue-500" />
-            <h2 className="text-sm font-semibold tracking-wide">Single Flight Sync</h2>
+      <Card className="shadow-md border-border/60 flex-shrink-0">
+        <CardContent className="p-4 md:p-6">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 flex-shrink-0">
+              <ServerCog className="h-4 w-4 text-blue-500" />
+            </div>
+            <h2 className="text-base font-semibold">Single Flight Sync</h2>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <LabelInput label="Airline Code">
               <input name="airline" disabled value={formData.airline} className={inputStyles} />
             </LabelInput>
@@ -223,24 +292,24 @@ export function IngestionPanel() {
             </LabelInput>
           </div>
 
-          <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Button
               onClick={handleIngestSingle}
               disabled={!isFormValid || singleMutation.isPending || isBatchRunning}
-              className="w-full sm:flex-1"
+              className="flex-1"
             >
               {singleMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <CloudDownload className="mr-2 h-4 w-4" />
               )}
-              Ingest Flight
+              {singleMutation.isPending ? "Running..." : "Start Ingest"}
             </Button>
             <Button
               variant="outline"
               onClick={handleAddToBatch}
               disabled={!isFormValid || isBatchRunning}
-              className="w-full sm:flex-1"
+              className="flex-1"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add to Batch
@@ -253,9 +322,23 @@ export function IngestionPanel() {
             </div>
           )}
 
+          {singleMutation.isPending && (
+            <div className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+              Background ingestion job is running. The result card will update when Sabre sync completes.
+            </div>
+          )}
+
           {singleResult && (
             <div className="mt-6 space-y-3">
-              <h3 className="text-xs font-semibold uppercase text-muted-foreground">Sync Results</h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs font-semibold uppercase text-muted-foreground">Background Job Result</h3>
+                <Link
+                  href={getFlightDashboardHref(singleResult.flight)}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Open Flight
+                </Link>
+              </div>
               <FlightResultCard result={singleResult} />
             </div>
           )}
@@ -263,33 +346,38 @@ export function IngestionPanel() {
       </Card>
 
       {/* Batch Section */}
-      <Card className="shadow-sm">
-        <CardContent className="p-5">
-          <div className="mb-5 flex items-center justify-between border-b pb-3">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-emerald-500" />
-              <h2 className="text-sm font-semibold tracking-wide">Batch Queue</h2>
+      <Card className="shadow-md border-border/60 flex-shrink-0">
+        <CardContent className="p-4 md:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 flex-shrink-0">
+                <Database className="h-4 w-4 text-emerald-500" />
+              </div>
+              <h2 className="text-base font-semibold">Batch Queue</h2>
             </div>
-            <Badge variant="secondary" className="font-mono">
+            <Badge variant="secondary" className="font-mono text-xs">
               {batchQueue.length} items
             </Badge>
           </div>
 
           {batchQueue.length > 0 && !activeJobId && (
-            <div className="mb-5 space-y-2">
+            <div className="mb-4 space-y-2 max-h-40 overflow-y-auto">
               {batchQueue.map((f, i) => (
-                <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md border bg-muted/40 p-3 text-sm">
-                  <div className="font-semibold text-foreground">
+                <div key={i} className="flex flex-col xs:flex-row xs:items-center justify-between rounded-md border bg-muted/40 p-2.5 text-sm">
+                  <Link
+                    href={getFlightDashboardHref(f)}
+                    className="font-semibold text-foreground hover:underline"
+                  >
                     {f.airline}{f.flightNumber} <span className="font-normal text-muted-foreground ml-1">· {f.origin}</span>
-                  </div>
-                  <div className="text-muted-foreground text-xs mt-1 sm:mt-0">{f.departureDateTime}</div>
+                  </Link>
+                  <div className="text-muted-foreground text-xs mt-1 xs:mt-0">{f.departureDateTime}</div>
                 </div>
               ))}
             </div>
           )}
 
           {batchQueue.length === 0 && !activeJobId && (
-            <div className="py-8 text-center text-sm text-muted-foreground opacity-80">
+            <div className="py-8 text-center text-sm text-muted-foreground/70">
               Queue is empty. Add flights above to process them in bulk.
             </div>
           )}
@@ -305,7 +393,7 @@ export function IngestionPanel() {
               ) : (
                 <Play className="mr-2 h-4 w-4" />
               )}
-              Run Background Batch
+              {batchMutation.isPending ? "Processing..." : "Run Batch"}
             </Button>
           )}
 
@@ -316,33 +404,34 @@ export function IngestionPanel() {
           )}
 
           {activeJobId && jobStatus && (
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium capitalize text-foreground flex items-center gap-2">
-                  Status: 
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">Status:</span>
                   <span className={cn(
+                    "capitalize font-medium",
                     jobStatus.status === "completed" ? "text-emerald-500" :
                     jobStatus.status === "failed" ? "text-destructive" : "text-blue-500"
                   )}>{jobStatus.status}</span>
-                </span>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => refetchJob()}
                     disabled={jobFetching}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                   >
-                    <RefreshCw className={cn("h-3.5 w-3.5", jobFetching && "animate-spin")} />
+                    <RefreshCw className={cn("h-3 w-3", jobFetching && "animate-spin")} />
                   </button>
-                  <span className="text-muted-foreground font-medium">
+                  <span className="text-xs text-muted-foreground font-medium">
                     {jobStatus.flightsProcessed} / {jobStatus.flightsQueued}
                   </span>
                 </div>
               </div>
               
-              <div className="h-2.5 rounded-full bg-secondary overflow-hidden">
+              <div className="h-2 rounded-full bg-secondary overflow-hidden">
                 <div 
                   className={cn(
-                    "h-full transition-all duration-500",
+                    "h-full transition-all duration-300",
                     jobStatus.status === "failed" ? "bg-destructive" :
                     jobStatus.status === "completed" ? "bg-emerald-500" : "bg-blue-500"
                   )}
@@ -378,14 +467,91 @@ export function IngestionPanel() {
           )}
         </CardContent>
       </Card>
+
+      <Card className="shadow-sm border-border/40 bg-card/60 flex-shrink-0">
+        <CardContent className="p-4 md:p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 flex-shrink-0">
+              <Settings2 className="h-4 w-4 text-amber-500" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">MultiFlight Runtime Settings</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Admin config for optional availability retries.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <LabelInput label="Timeout Per Attempt (seconds)">
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={configDraft.timeoutSeconds}
+                onChange={(e) => setConfigDraftOverride({ ...configDraft, timeoutSeconds: Number(e.target.value) || 1 })}
+                className={inputStyles}
+              />
+            </LabelInput>
+            <LabelInput label="Maximum Attempts">
+              <input
+                type="number"
+                min={1}
+                max={24}
+                value={configDraft.maxAttempts}
+                onChange={(e) => setConfigDraftOverride({ ...configDraft, maxAttempts: Number(e.target.value) || 1 })}
+                className={inputStyles}
+              />
+            </LabelInput>
+          </div>
+
+          <label className="mt-4 flex items-center gap-3 rounded-lg border border-input bg-background/40 px-3 py-2.5 text-sm cursor-pointer hover:border-ring/50 transition-colors">
+            <input
+              type="checkbox"
+              aria-label="Include CPAID-suffixed endpoint"
+              checked={configDraft.includeCpaidEndpoint}
+              onChange={(e) => setConfigDraftOverride({ ...configDraft, includeCpaidEndpoint: e.target.checked })}
+              className="h-4 w-4 rounded border-input flex-shrink-0"
+            />
+            <div className="flex-1">
+              <div className="font-medium text-sm">Include CPAID-suffixed endpoint</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Enable only if your Sabre tenant requires the `/GF` endpoint variant.</div>
+            </div>
+          </label>
+
+          {configQuery.isLoading && (
+            <div className="mt-3 text-sm text-muted-foreground text-center">Loading current settings…</div>
+          )}
+
+          <div className="mt-5 flex gap-2 justify-end">
+            <Button 
+              variant="outline"
+              onClick={() => setConfigDraftOverride(null)}
+              disabled={configMutation.isPending || !configDraftOverride}
+            >
+              Reset
+            </Button>
+            <Button 
+              onClick={saveMultiFlightSettings} 
+              disabled={configMutation.isPending || configQuery.isLoading}
+              className="gap-2"
+            >
+              {configMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Settings2 className="h-4 w-4" />
+              )}
+              {configMutation.isPending ? "Saving..." : "Save Settings"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 function LabelInput({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-xs font-medium text-foreground">{label}</label>
+    <div className={cn("flex flex-col gap-2", className)}>
+      <label className="text-sm font-medium text-foreground/80">{label}</label>
       {children}
     </div>
   );
@@ -396,9 +562,12 @@ function FlightResultCard({ result }: { result: SabreFlightIngestResult }) {
   return (
     <div className="rounded-lg border bg-card p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between border-b pb-2">
-        <div className="font-semibold text-foreground">
+        <Link
+          href={getFlightDashboardHref(f)}
+          className="font-semibold text-foreground hover:underline"
+        >
           {f.airline}{f.flightNumber} <span className="font-normal text-muted-foreground ml-1">· {f.origin}</span>
-        </div>
+        </Link>
         {result.success ? (
           <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 bg-emerald-500/10">Success</Badge>
         ) : (

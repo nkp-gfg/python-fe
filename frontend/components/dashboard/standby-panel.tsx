@@ -21,6 +21,7 @@ interface StandbyPanelProps {
   flightNumber: string;
   origin: string;
   date: string;
+  snapshotSequence?: number | null;
 }
 
 function AvailabilityBar({ cabin }: { cabin: CabinAvailability }) {
@@ -118,10 +119,10 @@ function QueueTable({
   );
 }
 
-export function StandbyPanel({ flightNumber, origin, date }: StandbyPanelProps) {
+export function StandbyPanel({ flightNumber, origin, date, snapshotSequence }: StandbyPanelProps) {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["standby", flightNumber, origin, date],
-    queryFn: () => fetchStandbyList(flightNumber, origin, date),
+    queryKey: ["standby", flightNumber, origin, date, snapshotSequence],
+    queryFn: () => fetchStandbyList(flightNumber, origin, date, snapshotSequence),
   });
 
   if (isLoading) {

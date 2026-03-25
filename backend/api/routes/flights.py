@@ -1,13 +1,43 @@
 """Flight status API endpoints."""
 
+import time
 import structlog
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
 from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import PyMongoError
 from backend.api.database import get_db
+from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["flights"])
+
+# Simple TTL cache for dashboard data (30 second expiration)
+_dashboard_cache = {}
+_cache_ttl = 30  # seconds
+
+
+def _get_cache_key(flight_number, origin, date, snapshot_sequence):
+    return f"{flight_number}:{origin}:{date}:{snapshot_sequence}"
+
+
+def _get_cached(key):
+    if key in _dashboard_cache:
+        data, ts = _dashboard_cache[key]
+        if time.time() - ts < _cache_ttl:
+            return data
+        del _dashboard_cache[key]
+    return None
+
+
+def _set_cache(key, data):
+    # Limit cache size
+    if len(_dashboard_cache) > 100:
+        oldest_key = min(_dashboard_cache,
+                         key=lambda k: _dashboard_cache[k][1])
+        del _dashboard_cache[oldest_key]
+    _dashboard_cache[key] = (data, time.time())
 
 
 def _strip_id(doc):
@@ -1166,11 +1196,117 @@ def list_flights(
     return flights
 
 
+def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_sequence=None):
+    """Fetch all dashboard data in parallel using ThreadPoolExecutor."""
+    query = {"flightNumber": flight_number}
+    if origin:
+        query["origin"] = origin
+    if date:
+        query["departureDate"] = date
+
+    res_query = {"flightNumber": flight_number}
+    if origin:
+        res_query["departureAirport"] = origin
+    if date:
+        res_query["departureDate"] = date
+
+    report_query = {"flightNumber": flight_number}
+    if origin:
+        report_query["origin"] = origin
+    if date:
+        report_query["departureDate"] = date
+
+    sched_query = {"flightNumber": flight_number}
+    if date:
+        sched_query["departureDate"] = date
+
+    av_query = {"flightNumber": flight_number}
+    if origin:
+        av_query["origin"] = origin
+    if date:
+        av_query["departureDate"] = date
+
+    change_match = {"flightNumber": flight_number}
+    if origin:
+        change_match["origin"] = origin
+    if date:
+        change_match["departureDate"] = date
+
+    results = {}
+
+    def fetch_flight_status():
+        if snapshot_sequence:
+            return get_snapshot_data_as_of(db, flight_number, "flight_status", snapshot_sequence, origin, date)
+        doc = db["flight_status"].find_one(query, sort=[("fetchedAt", -1)])
+        return _strip_id(doc)
+
+    def fetch_passenger_list():
+        if snapshot_sequence:
+            return get_snapshot_data_as_of(db, flight_number, "passenger_list", snapshot_sequence, origin, date)
+        doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
+        return _strip_id(doc)
+
+    def fetch_reservations():
+        if snapshot_sequence:
+            return get_snapshot_data_as_of(db, flight_number, "reservations", snapshot_sequence, origin, date)
+        doc = db["reservations"].find_one(res_query, sort=[("fetchedAt", -1)])
+        return _strip_id(doc)
+
+    def fetch_trip_reports():
+        doc = db["trip_reports"].find_one(
+            report_query, sort=[("fetchedAt", -1)])
+        return _strip_id(doc)
+
+    def fetch_schedule():
+        doc = db["flight_schedules"].find_one(
+            sched_query, sort=[("fetchedAt", -1)])
+        return _strip_id(doc)
+
+    def fetch_availability():
+        doc = db["multi_flight_availability"].find_one(
+            av_query, sort=[("fetchedAt", -1)])
+        return _strip_id(doc)
+
+    def fetch_change_summary():
+        pipeline = [
+            {"$match": change_match},
+            {"$group": {"_id": "$changeType", "count": {"$sum": 1}}},
+        ]
+        change_results = list(db["changes"].aggregate(pipeline))
+        return {r["_id"]: r["count"] for r in change_results}
+
+    # Run all queries in parallel
+    with ThreadPoolExecutor(max_workers=7) as executor:
+        futures = {
+            executor.submit(fetch_flight_status): "flight_status",
+            executor.submit(fetch_passenger_list): "passenger_list",
+            executor.submit(fetch_reservations): "reservations",
+            executor.submit(fetch_trip_reports): "trip_reports",
+            executor.submit(fetch_schedule): "schedule",
+            executor.submit(fetch_availability): "availability",
+            executor.submit(fetch_change_summary): "change_summary",
+        }
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                results[key] = future.result()
+            except Exception as e:
+                logger.error(f"Error fetching {key}: {e}")
+                results[key] = None
+
+    return results
+
+
 @router.get("/{flight_number}/dashboard")
 def get_flight_dashboard(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    snapshot_sequence: int = Query(
+        None,
+        ge=1,
+        description="Load historical view as-of this snapshot sequence number",
+    ),
 ):
     """
     Combined dashboard endpoint — returns flight status + deep passenger
@@ -1178,89 +1314,38 @@ def get_flight_dashboard(
     """
     validate_date(date)
     validate_origin(origin)
+
+    # Check cache first
+    cache_key = _get_cache_key(flight_number, origin, date, snapshot_sequence)
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
     db = get_db()
-    query = {"flightNumber": flight_number}
-    if origin:
-        query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
-    # Flight status
-    fs = db["flight_status"].find_one(query, sort=[("fetchedAt", -1)])
-    if fs:
-        fs.pop("_id", None)
-        fs.pop("_raw", None)
+    # Fetch all data in parallel
+    data = _fetch_dashboard_data_parallel(
+        db, flight_number, origin, date, snapshot_sequence)
 
-    # Passenger list
-    pl = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
-    if pl:
-        pl.pop("_id", None)
-        pl.pop("_raw", None)
-
-    # Reservations (for gender cross-reference and enrichment)
-    res_query = {"flightNumber": flight_number}
-    if origin:
-        res_query["departureAirport"] = origin
-    if date:
-        res_query["departureDate"] = date
-    reservation_doc = db["reservations"].find_one(
-        res_query, sort=[("fetchedAt", -1)])
-    if reservation_doc:
-        reservation_doc.pop("_id", None)
-        reservation_doc.pop("_raw", None)
-
-    # Trip reports (for offloaded / no-show)
-    report_query = {"flightNumber": flight_number}
-    if origin:
-        report_query["origin"] = origin
-    if date:
-        report_query["departureDate"] = date
-    trip_report_doc = db["trip_reports"].find_one(
-        report_query, sort=[("fetchedAt", -1)])
-    if trip_report_doc:
-        trip_report_doc.pop("_id", None)
-        trip_report_doc.pop("_raw", None)
-
-    # Change summary
-    change_match = {"flightNumber": flight_number}
-    if origin:
-        change_match["origin"] = origin
-    if date:
-        change_match["departureDate"] = date
-    change_pipeline = [
-        {"$match": change_match},
-        {"$group": {"_id": "$changeType", "count": {"$sum": 1}}},
-    ]
-    change_results = list(db["changes"].aggregate(change_pipeline))
-    change_summary = {r["_id"]: r["count"] for r in change_results}
-
-    # Flight schedule
-    sched_query = {"flightNumber": flight_number}
-    if date:
-        sched_query["departureDate"] = date
-    schedule_doc = db["flight_schedules"].find_one(
-        sched_query, sort=[("fetchedAt", -1)])
-    if schedule_doc:
-        schedule_doc.pop("_id", None)
-        schedule_doc.pop("_raw", None)
-
-    # MultiFlight availability
-    av_query = {"flightNumber": flight_number}
-    if origin:
-        av_query["origin"] = origin
-    if date:
-        av_query["departureDate"] = date
-    availability_doc = db["multi_flight_availability"].find_one(
-        av_query, sort=[("fetchedAt", -1)])
-    if availability_doc:
-        availability_doc.pop("_id", None)
-        availability_doc.pop("_raw", None)
+    fs = data.get("flight_status")
+    pl = data.get("passenger_list")
+    reservation_doc = data.get("reservations")
+    trip_report_doc = data.get("trip_reports")
+    schedule_doc = data.get("schedule")
+    availability_doc = data.get("availability")
+    change_summary = data.get("change_summary") or {}
 
     if not fs and not pl:
         raise HTTPException(status_code=404, detail="Flight not found")
 
-    return _build_dashboard_payload(fs, pl, origin, date, change_summary,
-                                    reservation_doc, trip_report_doc, schedule_doc, availability_doc)
+    result = _build_dashboard_payload(fs, pl, origin, date, change_summary,
+                                      reservation_doc, trip_report_doc, schedule_doc, availability_doc)
+
+    # Cache the result (don't cache snapshot views)
+    if not snapshot_sequence:
+        _set_cache(cache_key, result)
+
+    return result
 
 
 @router.get("/{flight_number}/tree")
@@ -1268,49 +1353,40 @@ def get_flight_tree(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    snapshot_sequence: int = Query(
+        None,
+        ge=1,
+        description="Load historical view as-of this snapshot sequence number",
+    ),
 ):
     """Return a dedicated tree payload for the selected flight."""
     validate_date(date)
     validate_origin(origin)
+
+    # Tree uses same cache as dashboard
+    cache_key = _get_cache_key(flight_number, origin, date, snapshot_sequence)
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached.get("tree") or {
+            "title": "Aircraft Humans Breakdown Tree",
+            "badge": "Sabre Live",
+            "width": 940,
+            "height": 600,
+            "nodes": [],
+            "edges": [],
+            "statusCards": [],
+        }
+
     db = get_db()
-    query = {"flightNumber": flight_number}
-    if origin:
-        query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
-    fs = db["flight_status"].find_one(query, sort=[("fetchedAt", -1)])
-    pl = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
-    if fs:
-        fs.pop("_id", None)
-        fs.pop("_raw", None)
-    if pl:
-        pl.pop("_id", None)
-        pl.pop("_raw", None)
+    # Reuse parallel data fetching (only need fs, pl, reservations, trip_reports for tree)
+    data = _fetch_dashboard_data_parallel(
+        db, flight_number, origin, date, snapshot_sequence)
 
-    # Reservations (for gender cross-reference)
-    res_query = {"flightNumber": flight_number}
-    if origin:
-        res_query["departureAirport"] = origin
-    if date:
-        res_query["departureDate"] = date
-    reservation_doc = db["reservations"].find_one(
-        res_query, sort=[("fetchedAt", -1)])
-    if reservation_doc:
-        reservation_doc.pop("_id", None)
-        reservation_doc.pop("_raw", None)
-
-    # Trip reports (for offloaded / no-show)
-    report_query = {"flightNumber": flight_number}
-    if origin:
-        report_query["origin"] = origin
-    if date:
-        report_query["departureDate"] = date
-    trip_report_doc = db["trip_reports"].find_one(
-        report_query, sort=[("fetchedAt", -1)])
-    if trip_report_doc:
-        trip_report_doc.pop("_id", None)
-        trip_report_doc.pop("_raw", None)
+    fs = data.get("flight_status")
+    pl = data.get("passenger_list")
+    reservation_doc = data.get("reservations")
+    trip_report_doc = data.get("trip_reports")
 
     if not fs and not pl:
         raise HTTPException(status_code=404, detail="Flight not found")
@@ -1333,6 +1409,11 @@ def get_flight_status(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code (e.g. LHR)"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    snapshot_sequence: int = Query(
+        None,
+        ge=1,
+        description="Load historical view as-of this snapshot sequence number",
+    ),
 ):
     """
     Get the latest flight status for a flight.
@@ -1347,7 +1428,17 @@ def get_flight_status(
     if date:
         query["departureDate"] = date
 
-    doc = db["flight_status"].find_one(query, sort=[("fetchedAt", -1)])
+    if snapshot_sequence:
+        doc = get_snapshot_data_as_of(
+            db,
+            flight_number=flight_number,
+            snapshot_type="flight_status",
+            snapshot_sequence=snapshot_sequence,
+            origin=origin,
+            departure_date=date,
+        )
+    else:
+        doc = db["flight_status"].find_one(query, sort=[("fetchedAt", -1)])
     if not doc:
         raise HTTPException(status_code=404, detail="Flight status not found")
     return _strip_id(doc)

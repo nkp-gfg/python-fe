@@ -35,6 +35,7 @@ interface ReservationViewProps {
   flightNumber: string;
   origin: string;
   date: string;
+  snapshotSequence?: number | null;
 }
 
 function formatDate(d: string): string {
@@ -301,14 +302,14 @@ function ReservationCard({
   );
 }
 
-export function ReservationView({ flightNumber, origin, date }: ReservationViewProps) {
+export function ReservationView({ flightNumber, origin, date, snapshotSequence }: ReservationViewProps) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [expandedPnr, setExpandedPnr] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["reservations", flightNumber, origin, date],
-    queryFn: () => fetchReservations(flightNumber, origin, date),
+    queryKey: ["reservations", flightNumber, origin, date, snapshotSequence],
+    queryFn: () => fetchReservations(flightNumber, origin, date, snapshotSequence),
   });
 
   const reservations = useMemo(() => data?.reservations ?? [], [data]);

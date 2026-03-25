@@ -5,15 +5,25 @@ import type {
   PassengerListResponse, StandbyListResponse,
   PassengerDetailResponse, ChangeRecord, ChangeSummaryResponse,
   SnapshotMeta, FlightStatusRecord, ReservationsResponse,
+  SnapshotCompareResponse, SnapshotRestoreResponse,
   FlightSchedule, ScheduleLookupRequest,
   MultiFlightAvailability, AvailabilityLookupRequest,
+  MultiFlightAdminConfig, PassengerTimelineResponse,
+  FlightTimelineResponse, ActivityFeedResponse,
+  BoardingProgressResponse, PassengerHistoryBadges,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 const REQUEST_TIMEOUT_MS = 30_000;
+const INGEST_POLL_INTERVAL_MS = 3_000;
+const INGEST_JOB_TIMEOUT_MS = 10 * 60_000;
 
 function withTimeout(ms: number): AbortSignal {
   return AbortSignal.timeout(ms);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function get<T>(path: string): Promise<T> {
@@ -70,10 +80,12 @@ export function fetchDashboard(
   flightNumber: string,
   origin?: string,
   date?: string,
+  snapshotSequence?: number | null,
 ): Promise<FlightDashboard> {
   const params = new URLSearchParams();
   if (origin) params.set("origin", origin);
   if (date) params.set("date", date);
+  if (snapshotSequence) params.set("snapshot_sequence", String(snapshotSequence));
   const qs = params.toString() ? `?${params}` : "";
   return get<FlightDashboard>(`/flights/${flightNumber}/dashboard${qs}`);
 }
@@ -82,16 +94,43 @@ export function fetchFlightTree(
   flightNumber: string,
   origin?: string,
   date?: string,
+  snapshotSequence?: number | null,
 ): Promise<FlightTree> {
   const params = new URLSearchParams();
   if (origin) params.set("origin", origin);
   if (date) params.set("date", date);
+  if (snapshotSequence) params.set("snapshot_sequence", String(snapshotSequence));
   const qs = params.toString() ? `?${params}` : "";
   return get<FlightTree>(`/flights/${flightNumber}/tree${qs}`);
 }
 
-export function ingestFlight(payload: SabreIngestRequest): Promise<SabreIngestResponse> {
-  return post<SabreIngestResponse>("/flights/ingest", payload);
+export async function ingestFlight(payload: SabreIngestRequest): Promise<SabreIngestResponse> {
+  const accepted = await ingestBatch({ flights: [payload] });
+  const deadline = Date.now() + INGEST_JOB_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const job = await fetchJobStatus(accepted.jobId);
+
+    if (job.status === "completed") {
+      const result = job.results?.[0];
+      if (!result) {
+        throw new Error("Ingestion completed without a flight result");
+      }
+      return {
+        message: "Sabre ingestion completed",
+        processedFlights: job.flightsProcessed,
+        result,
+      };
+    }
+
+    if (job.status === "failed") {
+      throw new Error(job.error ?? "Ingestion job failed");
+    }
+
+    await sleep(INGEST_POLL_INTERVAL_MS);
+  }
+
+  throw new Error("Ingestion job timed out");
 }
 
 export function ingestBatch(payload: SabreBatchRequest): Promise<SabreBatchAccepted> {
@@ -102,16 +141,26 @@ export function fetchJobStatus(jobId: string): Promise<SabreJobStatus> {
   return get<SabreJobStatus>(`/flights/ingest/jobs/${jobId}`);
 }
 
+export function fetchMultiFlightConfig(): Promise<MultiFlightAdminConfig> {
+  return get<MultiFlightAdminConfig>("/admin/multiflight-config");
+}
+
+export function updateMultiFlightConfig(payload: MultiFlightAdminConfig): Promise<MultiFlightAdminConfig> {
+  return post<MultiFlightAdminConfig>("/admin/multiflight-config", payload);
+}
+
 // --- Passengers ---
 
 export function fetchPassengers(
   flightNumber: string,
   origin?: string,
   date?: string,
+  snapshotSequence?: number | null,
 ): Promise<PassengerListResponse> {
   const params = new URLSearchParams();
   if (origin) params.set("origin", origin);
   if (date) params.set("date", date);
+  if (snapshotSequence) params.set("snapshot_sequence", String(snapshotSequence));
   const qs = params.toString() ? `?${params}` : "";
   return get<PassengerListResponse>(`/flights/${flightNumber}/passengers${qs}`);
 }
@@ -120,10 +169,12 @@ export function fetchStandbyList(
   flightNumber: string,
   origin?: string,
   date?: string,
+  snapshotSequence?: number | null,
 ): Promise<StandbyListResponse> {
   const params = new URLSearchParams();
   if (origin) params.set("origin", origin);
   if (date) params.set("date", date);
+  if (snapshotSequence) params.set("snapshot_sequence", String(snapshotSequence));
   const qs = params.toString() ? `?${params}` : "";
   return get<StandbyListResponse>(`/flights/${flightNumber}/passengers/standby-list${qs}`);
 }
@@ -179,6 +230,69 @@ export function fetchPassengerChanges(
   return get<ChangeRecord[]>(`/flights/${flightNumber}/changes/passenger/${pnr}${qs}`);
 }
 
+export function fetchPassengerTimeline(
+  flightNumber: string,
+  pnr: string,
+  origin?: string,
+  date?: string,
+): Promise<PassengerTimelineResponse> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  const qs = params.toString() ? `?${params}` : "";
+  return get<PassengerTimelineResponse>(`/flights/${flightNumber}/passengers/${pnr}/timeline${qs}`);
+}
+
+// --- Flight Timeline & Activity ---
+
+export function fetchFlightTimeline(
+  flightNumber: string,
+  origin?: string,
+  date?: string,
+): Promise<FlightTimelineResponse> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  const qs = params.toString() ? `?${params}` : "";
+  return get<FlightTimelineResponse>(`/flights/${flightNumber}/timeline${qs}`);
+}
+
+export function fetchActivityFeed(
+  date?: string,
+  limit = 50,
+  categories?: string,
+): Promise<ActivityFeedResponse> {
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+  params.set("limit", String(limit));
+  if (categories) params.set("categories", categories);
+  return get<ActivityFeedResponse>(`/activity/feed?${params}`);
+}
+
+export function fetchBoardingProgress(
+  flightNumber: string,
+  origin?: string,
+  date?: string,
+): Promise<BoardingProgressResponse> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  const qs = params.toString() ? `?${params}` : "";
+  return get<BoardingProgressResponse>(`/flights/${flightNumber}/boarding-progress${qs}`);
+}
+
+export function fetchPassengerHistoryBadges(
+  flightNumber: string,
+  origin?: string,
+  date?: string,
+): Promise<PassengerHistoryBadges> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  const qs = params.toString() ? `?${params}` : "";
+  return get<PassengerHistoryBadges>(`/flights/${flightNumber}/passengers/history-badges${qs}`);
+}
+
 // --- Status History & Snapshots ---
 
 export function fetchStatusHistory(
@@ -207,16 +321,44 @@ export function fetchSnapshots(
   return get<SnapshotMeta[]>(`/flights/${flightNumber}/snapshots${qs}`);
 }
 
+export function compareSnapshot(
+  flightNumber: string,
+  snapshotSequence: number,
+  origin?: string,
+  date?: string,
+): Promise<SnapshotCompareResponse> {
+  const params = new URLSearchParams();
+  params.set("snapshot_sequence", String(snapshotSequence));
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  return get<SnapshotCompareResponse>(`/flights/${flightNumber}/snapshots/compare?${params}`);
+}
+
+export function restoreSnapshotVersion(
+  flightNumber: string,
+  snapshotSequence: number,
+  origin?: string,
+  date?: string,
+): Promise<SnapshotRestoreResponse> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  const qs = params.toString() ? `?${params}` : "";
+  return post<SnapshotRestoreResponse>(`/flights/${flightNumber}/snapshots/${snapshotSequence}/restore${qs}`);
+}
+
 // --- Reservations ---
 
 export function fetchReservations(
   flightNumber: string,
   origin?: string,
   date?: string,
+  snapshotSequence?: number | null,
 ): Promise<ReservationsResponse> {
   const params = new URLSearchParams();
   if (origin) params.set("origin", origin);
   if (date) params.set("date", date);
+  if (snapshotSequence) params.set("snapshot_sequence", String(snapshotSequence));
   const qs = params.toString() ? `?${params}` : "";
   return get<ReservationsResponse>(`/flights/${flightNumber}/reservations${qs}`);
 }

@@ -1,0 +1,275 @@
+GF2003
+Check-In Open (inferred)
+Verified
+DMM
+LHR
+•
+2026-03-25
+•
+Gate TBD
+
+<PassengerInfo>
+                    <Name_Details>
+                        <LastName>ATAIRI</LastName>
+                        <FirstName>TAREK A</FirstName>
+                    </Name_Details>
+                    <PNRLocator nameAssociationID="1">UCSZSH</PNRLocator>
+                    <PassengerID>E31FECED0001</PassengerID>
+                    <ThruIndicator>false</ThruIndicator>
+                    <LineNumber>27</LineNumber>
+                    <PriorityCode>UPG</PriorityCode>
+                    <UpgradeCode>LMU</UpgradeCode>
+                    <CorpID>T</CorpID>
+                    <BookingClass>Q</BookingClass>
+                    <DesiredBookingClass>J</DesiredBookingClass>
+                    <Cabin>Y</Cabin>
+                    <Seat>2A</Seat>
+                    <Destination>LHR</Destination>
+                    <BoardingPassFlag>true</BoardingPassFlag>
+                    <PassengerType>F</PassengerType>
+                    <BagCount>2</BagCount>
+                    <Indicators>
+                        <Indicator>CheckedIn</Indicator>
+                        <Indicator>NotBoarded</Indicator>
+                        <Indicator>Revenue</Indicator>
+                    </Indicators>
+                    <CheckIn_Info>
+                        <CheckInNumber>65</CheckInNumber>
+                        <CheckInDate>2026-03-25</CheckInDate>
+                        <CheckInTime>00:04</CheckInTime>
+                        <CheckInStatus>true</CheckInStatus>
+                    </CheckIn_Info>
+                    <Boarding_Info>
+                        <BoardStatus>false</BoardStatus>
+                    </Boarding_Info>
+                    <VCR_Info>
+                        <VCR_Data inUse="true" type="adult">
+                            <AirlineNumber>072</AirlineNumber>
+                            <CouponNumber>1</CouponNumber>
+                            <SerialNumber>7427445639</SerialNumber>
+                        </VCR_Data>
+                    </VCR_Info>
+                    <BaggageRouteList>
+                        <ns2:BaggageRoute>
+                            <ns2:SegmentID>1</ns2:SegmentID>
+                            <ns2:Airline>GF</ns2:Airline>
+                            <ns2:Flight>2003</ns2:Flight>
+                            <ns2:BookingClass>Q</ns2:BookingClass>
+                            <ns2:Origin>DMM</ns2:Origin>
+                            <ns2:Destination>LHR</ns2:Destination>
+                            <ns2:DepartureDate>2026-03-25</ns2:DepartureDate>
+                            <ns2:DepartureTime>10:25</ns2:DepartureTime>
+                            <ns2:ArrivalDate>2026-03-25</ns2:ArrivalDate>
+                            <ns2:ArrivalTime>14:45</ns2:ArrivalTime>
+                            <ns2:SegmentStatus>HK</ns2:SegmentStatus>
+                            <ns2:PassengerID>E31FECED0001</ns2:PassengerID>
+                        </ns2:BaggageRoute>
+                        <ns2:BaggageRoute>
+                            <ns2:SegmentID>2</ns2:SegmentID>
+                            <ns2:Airline>GF</ns2:Airline>
+                            <ns2:Flight>4102</ns2:Flight>
+                            <ns2:BookingClass>Q</ns2:BookingClass>
+                            <ns2:Origin>LHR</ns2:Origin>
+                            <ns2:Destination>JFK</ns2:Destination>
+                            <ns2:DepartureDate>2026-03-25</ns2:DepartureDate>
+                            <ns2:DepartureTime>17:0</ns2:DepartureTime>
+                            <ns2:ArrivalDate>2026-03-25</ns2:ArrivalDate>
+                            <ns2:ArrivalTime>21:0</ns2:ArrivalTime>
+                            <ns2:SegmentStatus>HK</ns2:SegmentStatus>
+                            <ns2:PassengerID>E31FECED0101</ns2:PassengerID>
+                        </ns2:BaggageRoute>
+                    </BaggageRouteList>
+                    <EditCodeList>
+                        <ns2:EditCode>M</ns2:EditCode>
+                        <ns2:EditCode>YS</ns2:EditCode>
+                        <ns2:EditCode>OB</ns2:EditCode>
+                        <ns2:EditCode>EOB</ns2:EditCode>
+                        <ns2:EditCode>ET</ns2:EditCode>
+                        <ns2:EditCode>DOCV</ns2:EditCode>
+                        <ns2:EditCode>DOCS</ns2:EditCode>
+                        <ns2:EditCode>ETI</ns2:EditCode>
+                        <ns2:EditCode>AE</ns2:EditCode>
+                        <ns2:EditCode>APP</ns2:EditCode>
+                        <ns2:EditCode>LC</ns2:EditCode>
+                    </EditCodeList>
+                </PassengerInfo>
+
+
+-----
+
+<Itinerary>
+                    <Airline>GF</Airline>
+                    <Flight>2143</Flight>
+                    <DepartureDate>2026-03-23</DepartureDate>
+                    <Origin>DMM</Origin>
+                    <Destination>JED</Destination>
+                    <AircraftType>789</AircraftType>
+                </Itinerary>
+ 
+<LegInfoList>
+                <LegInfo>
+                    <LegCity>DMM</LegCity>
+                    <LegStatus>PDC</LegStatus>
+                    <LegDate>2026-03-23</LegDate>
+                    <LegDepartureTime>07:10AM</LegDepartureTime>
+                    <LegApp>N</LegApp>
+                </LegInfo>
+                <LegInfo>
+                    <LegCity>JED</LegCity>
+                    <LegStatus>PDC</LegStatus>
+                    <LegDate>2026-03-23</LegDate>
+                    <LegArrivalTime>09:20AM</LegArrivalTime>
+                    <LegDepartureTime>10:25AM</LegDepartureTime>
+                    <LegApp>N</LegApp>
+                </LegInfo>
+                <LegInfo>
+                    <LegCity>CMN</LegCity>
+                    <LegArrivalTime>05:30PM</LegArrivalTime>
+                    <LegApp>N</LegApp>
+                </LegInfo>
+            </LegInfoList>
+
+----
+{
+        "type": "single",
+        "FlightSequenceNumber": 3177938365,
+        "FlightNumber": "2143",
+        "FlightDate": "2026-03-24",
+        "ScheduledOrigin": "DMM",
+        "ScheduledOriginAirportDetails": [
+            {
+                "countryCode": "SA",
+                "regionName": "Ash Sharqiyah",
+                "iata": "DMM",
+                "icao": "OEDF",
+                "airport": "King Fahd International Airport",
+                "latitude": 26.4712,
+                "longitude": 49.7979
+            }
+        ],
+        "DebugMessage": "UniqKeys:43; Matches:129; SOrg:'DMM'->'DMM'->Found",
+        "ScheduledDestination": "CMN",
+        "ScheduledDestinationAirportDetails": [
+            {
+                "countryCode": "MA",
+                "regionName": "Casablanca-Settat",
+                "iata": "CMN",
+                "icao": "GMMN",
+                "airport": "Mohammed V International Airport",
+                "latitude": 33.3675,
+                "longitude": -7.58997
+            }
+        ],
+        "ScheduledDepartureDate": "2026-03-24T07:05:00",
+        "ScheduledArrivalDate": "2026-03-24T07:25:00",
+        "EstimatedDepartureDate": "2026-03-24T07:05:00",
+        "EstimatedArrivalDate": "2026-03-24T11:29:00",
+        "ActualDepartureDate": "2026-03-24T08:51:00",
+        "ActualArrivalDate": "2026-03-24T11:28:00",
+        "FlightStatus": "Arrived",
+        "TailNumber": "A9CFH",
+        "Icao24": null,
+        "AircraftType": "78O",
+        "DeparturePerformance": "Delayed",
+        "ArrivalPerformance": "Delayed",
+        "IsCancelled": 0,
+        "Sector": "DMM-CMN",
+        "ActualOrigin": "DMM",
+        "ActualOriginAirportDetails": [
+            {
+                "countryCode": "SA",
+                "regionName": "Ash Sharqiyah",
+                "iata": "DMM",
+                "icao": "OEDF",
+                "airport": "King Fahd International Airport",
+                "latitude": 26.4712,
+                "longitude": 49.7979
+            }
+        ],
+        "ActualDestination": "JED",
+        "ActualDestinationAirportDetails": [
+            {
+                "countryCode": "SA",
+                "regionName": "Makkah al Mukarramah",
+                "iata": "JED",
+                "icao": "OEJN",
+                "airport": "King Abdulaziz International Airport",
+                "latitude": 21.6796,
+                "longitude": 39.1565
+            }
+        ],
+        "DepartureRegion": "Ash Sharqiyah",
+        "ArrivalRegion": "Casablanca-Settat",
+        "CapacityFirstClass": null,
+        "CapacityBusinessClass": null,
+        "CapacityEconomyClass": null,
+        "TotalCapacity": null,
+        "Rpks": null,
+        "Asks": null,
+        "PaxLoadFactor": null,
+        "SeatLoadFactor": null,
+        "BlockTimeInMin": 157,
+        "AircraftManufacturer": null,
+        "AircraftDescription": null,
+        "FlightType": null,
+        "ServiceTypeCode": "J",
+        "ServiceTypeCategory": "Scheduled",
+        "IsFerry": false,
+        "IsDiverted": true,
+        "LocalFlightDate": "2026-03-24",
+        "LocalFlightDatetime": "2026-03-24T08:51:00",
+        "ActualOffBlock": "2026-03-24T08:51:00",
+        "DepartureDelayInMin": 106,
+        "ActualOnBlock": "2026-03-24T11:28:00",
+        "ArrivalDelayInMin": 243,
+        "ActualAirborneDate": "2026-03-24T09:05:00",
+        "ActualLandingDate": "2026-03-24T11:21:00",
+        "UpcomingFlightSequenceNumber": null,
+        "UtcEstimatedArrivalDate": "2026-03-24T08:29:00Z",
+        "UtcActualAirborneDate": "2026-03-24T06:05:00Z",
+        "UtcActualLandingDate": "2026-03-24T08:21:00Z",
+        "UtcActualOnBlock": "2026-03-24T08:28:00Z",
+        "FlightDuration": 100,
+        "AirTime": 136,
+        "UtcEstimatedDepartureDate": "2026-03-24T04:05:00Z",
+        "UtcActualOffBlock": "2026-03-24T05:51:00Z",
+        "Source": "email_xml_v2",
+        "UpdatedAt": "2026-03-24T10:34:10.316722Z",
+        "LastEmailReceivedAt": "2026-03-24T10:34:05Z",
+        "Remarks": [
+            "OW/157 CHANGE DEP/ARR TIME AND ADD JED STOP-OVER AS PER CS RQST\nOW/150 DMM NEW FLIGHTS PUBLISHED AS PER COMMERCIAL REQ",
+            "eta"
+        ],
+        "BoardingStatusJson": {
+            "id": 1881,
+            "flight_status": "PDC",
+            "created_at_utc": "2026-03-23T22:16:22.100156+00:00",
+            "status_meaning": "Post-Departure Check-Out",
+            "updated_at_utc": "2026-03-24T20:56:30.015048+00:00",
+            "standby_restriction": "B10",
+            "boarding_pass_issued": 43,
+            "jumpseat_cabin_count": 2,
+            "jumpseat_cabin_in_use": false,
+            "flight_sequence_number": 3177938365,
+            "jumpseat_cockpit_count": 2,
+            "jumpseat_cockpit_in_use": false
+        },
+        "DepartureGate": null,
+        "ArrivalGate": null,
+        "DepartureTerminal": null,
+        "ArrivalTerminal": "2",
+        "BaggageClaim": null,
+        "CheckInCounter": null,
+        "OagStatusUpdatedAt": "2026-03-24T15:50:48.651+00:00",
+        "RoutePlan": null
+    },
+
+
+----
+
+
+2143
+
+24 Mar 2025
+
+DMM

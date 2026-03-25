@@ -31,8 +31,33 @@ def _pax_key(passenger):
     return f"LINE:{line}|{last}|{first}"
 
 
+def _classify_upgrade_type(passenger):
+    """
+    Classify upgrade type from raw Sabre passenger data.
+    Returns one of: LMU, PAID, COMPLIMENTARY, OPERATIONAL, UNKNOWN, or None.
+    """
+    upgrade_code = passenger.get("upgradeCode", "")
+    priority_code = passenger.get("priorityCode", "")
+
+    if upgrade_code == "LMU":
+        return "LMU"  # Last Minute Upgrade (at gate/boarding)
+    elif upgrade_code in ("PU", "PAU", "PUP"):
+        return "PAID"  # Paid upgrade
+    elif upgrade_code in ("CU", "CMP", "COMP"):
+        return "COMPLIMENTARY"  # Complimentary upgrade
+    elif upgrade_code in ("OP", "OPS", "OPER"):
+        return "OPERATIONAL"  # Operational upgrade
+    elif priority_code == "UPG" and upgrade_code:
+        return "LMU"  # UPG priority with upgrade code indicates gate upgrade
+    elif upgrade_code:
+        return upgrade_code  # Return raw code if known pattern not matched
+
+    return None
+
+
 def _make_change(flight_info, change_type, before_snap_id, after_snap_id,
-                 passenger=None, field=None, old_value=None, new_value=None):
+                 passenger=None, field=None, old_value=None, new_value=None,
+                 metadata=None):
     """Create a change document."""
     doc = {
         "flightNumber": flight_info["flightNumber"],
@@ -55,6 +80,8 @@ def _make_change(flight_info, change_type, before_snap_id, after_snap_id,
         doc["oldValue"] = str(old_value)
     if new_value is not None:
         doc["newValue"] = str(new_value)
+    if metadata:
+        doc["metadata"] = metadata
     return doc
 
 
@@ -87,6 +114,44 @@ def diff_flight_status(before_snap, after_snap, flight_info):
             field="gate",
             old_value=before.get("gate"),
             new_value=after.get("gate"),
+        ))
+
+    # Terminal change
+    if before.get("terminal") != after.get("terminal"):
+        changes.append(_make_change(
+            flight_info, "TERMINAL_CHANGE", before_id, after_id,
+            field="terminal",
+            old_value=before.get("terminal"),
+            new_value=after.get("terminal"),
+        ))
+
+    # Boarding time change
+    before_boarding = before.get("boarding", {})
+    after_boarding = after.get("boarding", {})
+    if before_boarding.get("time") != after_boarding.get("time"):
+        changes.append(_make_change(
+            flight_info, "BOARDING_TIME_CHANGE", before_id, after_id,
+            field="boarding.time",
+            old_value=before_boarding.get("time"),
+            new_value=after_boarding.get("time"),
+        ))
+
+    # Jump seat changes
+    before_js = before.get("jumpSeat", {})
+    after_js = after.get("jumpSeat", {})
+    if before_js.get("cockpitInUse") != after_js.get("cockpitInUse"):
+        changes.append(_make_change(
+            flight_info, "JUMPSEAT_CHANGE", before_id, after_id,
+            field="jumpSeat.cockpitInUse",
+            old_value=before_js.get("cockpitInUse"),
+            new_value=after_js.get("cockpitInUse"),
+        ))
+    if before_js.get("cabinInUse") != after_js.get("cabinInUse"):
+        changes.append(_make_change(
+            flight_info, "JUMPSEAT_CHANGE", before_id, after_id,
+            field="jumpSeat.cabinInUse",
+            old_value=before_js.get("cabinInUse"),
+            new_value=after_js.get("cabinInUse"),
         ))
 
     # Passenger count changes
@@ -131,11 +196,23 @@ def diff_passenger_list(before_snap, after_snap, flight_info):
     # New passengers
     for key in after_keys - before_keys:
         p = after_pax[key]
+        # Store original booking info when passenger first appears
+        metadata = {
+            "originalCabin": p.get("cabin"),
+            "originalClass": p.get("bookingClass"),
+            "upgradeCode": p.get("upgradeCode"),
+            "desiredCabin": p.get("desiredBookingClass"),
+        }
+        upgrade_type = _classify_upgrade_type(p)
+        if upgrade_type:
+            metadata["upgradeType"] = upgrade_type
+
         changes.append(_make_change(
             flight_info, "PASSENGER_ADDED", before_id, after_id,
             passenger=p,
             field="passenger",
             new_value=f"cabin={p.get('cabin')} class={p.get('bookingClass')}",
+            metadata=metadata,
         ))
 
     # Removed passengers
@@ -173,22 +250,46 @@ def diff_passenger_list(before_snap, after_snap, flight_info):
 
         # Cabin change (upgrade/downgrade)
         if b.get("cabin") != a.get("cabin"):
+            # Classify the upgrade type
+            upgrade_type = _classify_upgrade_type(a)
+            is_upgrade = (
+                (b.get("cabin") == "Y" and a.get("cabin") in ("J", "F")) or
+                (b.get("cabin") == "J" and a.get("cabin") == "F")
+            )
+            metadata = {
+                "direction": "UPGRADE" if is_upgrade else "DOWNGRADE",
+                "upgradeCode": a.get("upgradeCode"),
+            }
+            if upgrade_type:
+                metadata["upgradeType"] = upgrade_type
+
             changes.append(_make_change(
                 flight_info, "CABIN_CHANGE", before_id, after_id,
                 passenger=a,
                 field="cabin",
                 old_value=b.get("cabin"),
                 new_value=a.get("cabin"),
+                metadata=metadata,
             ))
 
         # Booking class change
         if b.get("bookingClass") != a.get("bookingClass"):
+            metadata = {
+                "previousCabin": b.get("cabin"),
+                "newCabin": a.get("cabin"),
+                "upgradeCode": a.get("upgradeCode"),
+            }
+            upgrade_type = _classify_upgrade_type(a)
+            if upgrade_type:
+                metadata["upgradeType"] = upgrade_type
+
             changes.append(_make_change(
                 flight_info, "CLASS_CHANGE", before_id, after_id,
                 passenger=a,
                 field="bookingClass",
                 old_value=b.get("bookingClass"),
                 new_value=a.get("bookingClass"),
+                metadata=metadata,
             ))
 
         # Seat change
@@ -220,6 +321,65 @@ def diff_passenger_list(before_snap, after_snap, flight_info):
                 old_value=b.get("passengerType"),
                 new_value=a.get("passengerType"),
             ))
+
+        # Priority code change (upgrade/standby queue changes)
+        if b.get("priorityCode") != a.get("priorityCode"):
+            metadata = {
+                "previousCode": b.get("priorityCode"),
+                "newCode": a.get("priorityCode"),
+            }
+            # Detect standby clearance
+            if b.get("priorityCode") and not a.get("priorityCode"):
+                metadata["event"] = "STANDBY_CLEARED"
+            elif not b.get("priorityCode") and a.get("priorityCode"):
+                metadata["event"] = "ADDED_TO_QUEUE"
+            changes.append(_make_change(
+                flight_info, "PRIORITY_CHANGE", before_id, after_id,
+                passenger=a,
+                field="priorityCode",
+                old_value=b.get("priorityCode"),
+                new_value=a.get("priorityCode"),
+                metadata=metadata,
+            ))
+
+        # Desired booking class achieved (upgrade confirmed)
+        if b.get("desiredBookingClass") and not a.get("desiredBookingClass"):
+            if a.get("bookingClass") == b.get("desiredBookingClass"):
+                changes.append(_make_change(
+                    flight_info, "UPGRADE_CONFIRMED", before_id, after_id,
+                    passenger=a,
+                    field="desiredBookingClass",
+                    old_value=b.get("desiredBookingClass"),
+                    new_value=a.get("bookingClass"),
+                    metadata={"upgradeType": _classify_upgrade_type(a)},
+                ))
+
+        # Edit code changes (loyalty status, document status, etc.)
+        before_codes = set(b.get("editCodes", []))
+        after_codes = set(a.get("editCodes", []))
+        new_codes = after_codes - before_codes
+        removed_codes = before_codes - after_codes
+
+        # Track important edit code changes
+        loyalty_codes = {"FF", "GLD", "SLV", "BLU", "PLT", "DIA"}
+        doc_codes = {"DOCS", "DOCA", "DOCV", "DCVI"}
+
+        for code in new_codes:
+            if code in loyalty_codes:
+                changes.append(_make_change(
+                    flight_info, "LOYALTY_STATUS_ADDED", before_id, after_id,
+                    passenger=a,
+                    field="editCodes",
+                    new_value=code,
+                    metadata={"loyaltyTier": code},
+                ))
+            elif code in doc_codes:
+                changes.append(_make_change(
+                    flight_info, "DOCUMENT_ADDED", before_id, after_id,
+                    passenger=a,
+                    field="editCodes",
+                    new_value=code,
+                ))
 
     logger.info("Passenger list diff: %d changes detected", len(changes))
 

@@ -2,12 +2,11 @@ import type { FlightDashboard } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface Props {
-  overview: FlightDashboard["overview"];
   passengerSummary: FlightDashboard["passengerSummary"];
   analysis: FlightDashboard["analysis"];
 }
 
-export function StatCards({ passengerSummary: ps, overview, analysis }: Props) {
+export function StatCards({ passengerSummary: ps, analysis }: Props) {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       <StatCard

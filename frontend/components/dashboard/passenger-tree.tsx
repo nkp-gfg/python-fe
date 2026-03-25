@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Network, Table2 } from "lucide-react";
+import { Network, Search, X } from "lucide-react";
 import type { FlightTree } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   tree: FlightTree;
+  mode?: "combined" | "tree" | "matrix";
 }
 
 interface TreeNode {
@@ -18,8 +19,8 @@ interface TreeNode {
   h: number;
 }
 
-export function PassengerTree({ tree }: Props) {
-  const [view, setView] = useState<"tree" | "matrix">("tree");
+export function PassengerTree({ tree, mode = "combined" }: Props) {
+  const [fullTreeOpen, setFullTreeOpen] = useState(false);
 
   const nodes = Object.fromEntries(
     tree.nodes.map((node) => [
@@ -152,6 +153,36 @@ export function PassengerTree({ tree }: Props) {
     );
   }
 
+  function renderTreeSvg(extraClassName?: string) {
+    return (
+      <svg
+        viewBox={`0 0 ${tree.width} ${tree.height}`}
+        className={cn("h-auto font-sans", extraClassName)}
+        preserveAspectRatio="xMidYMin meet"
+        role="img"
+        aria-label="Passenger breakdown tree diagram"
+      >
+        {tree.edges.map((edge) => {
+          const from = nodes[edge.from];
+          const to = nodes[edge.to];
+          if (!from || !to) return null;
+          return conn(from, to);
+        })}
+        {tree.nodes.map((node) =>
+          nodeBox(
+            nodes[node.id],
+            node.borderColor,
+            node.textColor,
+            node.label,
+            node.value,
+            node.subLabel,
+            node.badges,
+          ),
+        )}
+      </svg>
+    );
+  }
+
   // ── Helper: extract node value by id ──
   function nv(id: string): number | string {
     const n = tree.nodes.find((n) => n.id === id);
@@ -161,58 +192,69 @@ export function PassengerTree({ tree }: Props) {
   return (
     <Card className="shadow-none border-transparent bg-transparent">
       <CardContent className="p-0">
-        {/* View Toggle */}
-        <div className="flex items-center justify-center gap-1 mb-3">
-          <Button
-            variant={view === "tree" ? "default" : "outline"}
-            size="sm"
-            className="h-7 gap-1.5 text-xs"
-            onClick={() => setView("tree")}
-          >
-            <Network className="h-3.5 w-3.5" />
-            Tree
-          </Button>
-          <Button
-            variant={view === "matrix" ? "default" : "outline"}
-            size="sm"
-            className="h-7 gap-1.5 text-xs"
-            onClick={() => setView("matrix")}
-          >
-            <Table2 className="h-3.5 w-3.5" />
-            Matrix
-          </Button>
-        </div>
-
-        {view === "tree" ? (
-          <div className="overflow-auto flex justify-center pb-4">
-            <svg
-              viewBox={`0 0 ${tree.width} ${tree.height}`}
-              className="w-full h-auto font-sans"
-              preserveAspectRatio="xMidYMin meet"
-              role="img"
-              aria-label="Passenger breakdown tree diagram"
-            >
-              {tree.edges.map((edge) => {
-                const from = nodes[edge.from];
-                const to = nodes[edge.to];
-                if (!from || !to) return null;
-                return conn(from, to);
-              })}
-              {tree.nodes.map((node) =>
-                nodeBox(
-                  nodes[node.id],
-                  node.borderColor,
-                  node.textColor,
-                  node.label,
-                  node.value,
-                  node.subLabel,
-                  node.badges,
-                ),
-              )}
-            </svg>
+        {mode === "combined" && (
+          <div className="mb-2 flex items-center justify-center gap-1">
+            <span className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1 text-xs font-medium">
+              <Network className="h-3.5 w-3.5" />
+              Tree
+            </span>
           </div>
-        ) : (
-          <MatrixView tree={tree} nv={nv} />
+        )}
+
+        {(mode === "combined" || mode === "matrix") && (
+          <div className={cn("rounded-lg border bg-card p-2", mode === "combined" ? "mb-4" : "") }>
+            <MatrixView tree={tree} nv={nv} />
+          </div>
+        )}
+
+        {(mode === "combined" || mode === "tree") && (
+          <div className="rounded-lg border bg-card p-2">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">Tree</p>
+              {mode === "combined" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={() => setFullTreeOpen(true)}
+                  title="Open large tree view"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Magnify
+                </Button>
+              )}
+            </div>
+            <div className="overflow-auto flex justify-center pb-2">
+              {renderTreeSvg("w-full")}
+            </div>
+          </div>
+        )}
+
+        {mode === "combined" && fullTreeOpen && (
+          <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Passenger Tree - Magnified</h3>
+                  <p className="text-xs text-muted-foreground">Scroll to inspect all nodes in detail.</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={() => setFullTreeOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                  Close
+                </Button>
+              </div>
+              <div className="flex-1 overflow-auto p-4">
+                <div className="mx-auto min-w-[1400px] max-w-[2200px]">
+                  {renderTreeSvg("w-full")}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

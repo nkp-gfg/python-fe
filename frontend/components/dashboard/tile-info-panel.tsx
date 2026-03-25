@@ -17,7 +17,17 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-export type TileInfoKey = "booked" | "checkedIn" | "boarded" | "others";
+export type TileInfoKey =
+  | "booked"
+  | "checkedIn"
+  | "boarded"
+  | "others"
+  | "cabin"
+  | "status"
+  | "type"
+  | "paxMix"
+  | "loyalty"
+  | "nationalities";
 
 interface TileInfoPanelProps {
   activeTab: TileInfoKey;
@@ -724,6 +734,182 @@ for this flight (offloadedAvailable / noShowAvailable = false).`}</CodeBlock>
 }
 
 /* ────────────────────────────────────────────────────────── */
+/*  TOP STRIP TILE INFO                                      */
+/* ────────────────────────────────────────────────────────── */
+function CabinStatsInfo() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Users className="h-5 w-5 text-emerald-500" />
+        <h3 className="text-lg font-semibold">Cabin Tile</h3>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Shows cabin split from passenger manifest classification.
+      </p>
+
+      <Section title="Backend Implementation" icon={<Code className="h-4 w-4 text-purple-500" />}>
+        <KV label="Endpoint"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">GET /flights/&#123;flight_number&#125;/dashboard</code></KV>
+        <KV label="Source"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">backend/api/routes/flights.py::_analyze_passengers()</code></KV>
+        <CodeBlock>{`cabin_key = "business" if passenger.cabin == "J" else "economy"
+result[cabin_key].total += 1`}</CodeBlock>
+      </Section>
+
+      <Section title="Calculation" icon={<Calculator className="h-4 w-4 text-emerald-500" />}>
+        <CodeBlock>{`Economy = analysis.economy.total
+Business = analysis.business.total`}</CodeBlock>
+      </Section>
+    </div>
+  );
+}
+
+function StatusStatsInfo() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <UserCheck className="h-5 w-5 text-blue-500" />
+        <h3 className="text-lg font-semibold">Status Tile</h3>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Tracks current manifest movement by boarding lifecycle state.
+      </p>
+
+      <Section title="Backend Implementation" icon={<Server className="h-4 w-4 text-blue-500" />}>
+        <KV label="Source"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">backend/api/routes/flights.py::_analyze_passengers()</code></KV>
+        <CodeBlock>{`if isCheckedIn: checkedIn += 1
+if isBoarded: boarded += 1
+if not isCheckedIn: notCheckedIn += 1`}</CodeBlock>
+      </Section>
+
+      <Section title="Calculation" icon={<Calculator className="h-4 w-4 text-emerald-500" />}>
+        <CodeBlock>{`Boarded = analysis.boarded
+Checked-In (not boarded) = analysis.checkedIn - analysis.boarded
+Booked (not checked in) = analysis.notCheckedIn`}</CodeBlock>
+      </Section>
+    </div>
+  );
+}
+
+function TypeStatsInfo() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Database className="h-5 w-5 text-cyan-500" />
+        <h3 className="text-lg font-semibold">Type Tile</h3>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Splits passengers into revenue, non-revenue, children, and passengers with lap infants.
+      </p>
+
+      <Section title="Backend Implementation" icon={<Code className="h-4 w-4 text-purple-500" />}>
+        <KV label="Source"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">backend/api/routes/flights.py::_analyze_passengers()</code></KV>
+        <CodeBlock>{`if isRevenue: revenue += 1 else: nonRevenue += 1
+if isChild: totalChildren += 1
+if hasInfant: totalInfants += 1`}</CodeBlock>
+      </Section>
+
+      <Section title="Calculation" icon={<Calculator className="h-4 w-4 text-emerald-500" />}>
+        <CodeBlock>{`Revenue = analysis.revenue
+Non-Rev = analysis.nonRevenue
+Children = analysis.totalChildren
+w/ Infant = analysis.totalInfants`}</CodeBlock>
+      </Section>
+    </div>
+  );
+}
+
+function PaxMixStatsInfo() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Users className="h-5 w-5 text-sky-500" />
+        <h3 className="text-lg font-semibold">Pax Mix Tile</h3>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Shows male/female/child/infant mix with explicit unknown-gender transparency.
+      </p>
+
+      <Section title="Backend Implementation" icon={<Code className="h-4 w-4 text-purple-500" />}>
+        <KV label="Gender source"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">reservations.passengers[].gender (DOCSEntry)</code></KV>
+        <KV label="Lookup"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">_build_gender_lookup() by (PNR,lastName)</code></KV>
+        <KV label="Counter"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">_analyze_passengers()</code></KV>
+        <CodeBlock>{`if isChild: totalChildren += 1
+elif gender == "M": totalMale += 1
+elif gender in ("F", "FI"): totalFemale += 1
+if hasInfant: totalInfants += 1`}</CodeBlock>
+      </Section>
+
+      <Section title="Calculation" icon={<Calculator className="h-4 w-4 text-emerald-500" />}>
+        <CodeBlock>{`Male = analysis.totalMale
+Female = analysis.totalFemale
+Child = analysis.totalChildren
+Infant = analysis.totalInfants
+Unknown gender = max(0, totalPassengers - totalChildren - totalMale - totalFemale)`}</CodeBlock>
+      </Section>
+    </div>
+  );
+}
+
+function LoyaltyStatsInfo() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <PlaneTakeoff className="h-5 w-5 text-amber-500" />
+        <h3 className="text-lg font-semibold">Loyalty Tile</h3>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Counts loyalty tiers from Sabre passenger edit codes.
+      </p>
+
+      <Section title="Backend Implementation" icon={<Database className="h-4 w-4 text-amber-500" />}>
+        <KV label="Source"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">passenger_list.passengers[].editCodes</code></KV>
+        <KV label="Counter"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">_analyze_passengers()</code></KV>
+        <CodeBlock>{`for tier in ("FF", "BLU", "SLV", "GLD", "BLK"):
+  if tier in editCodes:
+    loyaltyCounts[tier] += 1`}</CodeBlock>
+      </Section>
+
+      <Section title="Calculation" icon={<Calculator className="h-4 w-4 text-emerald-500" />}>
+        <CodeBlock>{`FF = analysis.loyaltyCounts.FF
+Blu = analysis.loyaltyCounts.BLU
+Slv = analysis.loyaltyCounts.SLV
+Gld = analysis.loyaltyCounts.GLD
+Blk = analysis.loyaltyCounts.BLK`}</CodeBlock>
+      </Section>
+    </div>
+  );
+}
+
+function NationalityStatsInfo() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Info className="h-5 w-5 text-indigo-500" />
+        <h3 className="text-lg font-semibold">Top Nationalities Tile</h3>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Aggregates nationality distribution from reservations data cross-referenced to the flight.
+      </p>
+
+      <Section title="Backend Implementation" icon={<Code className="h-4 w-4 text-purple-500" />}>
+        <KV label="Source"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">reservations.reservations[].passengers[].nationality</code></KV>
+        <KV label="Builder"><code className="text-xs bg-muted px-1.5 py-0.5 rounded">_build_dashboard_payload()</code></KV>
+        <CodeBlock>{`nat_counts = {}
+for reservation in reservations:
+  for passenger in reservation.passengers:
+    if passenger.nationality:
+      nat_counts[nationality] += 1
+analysis.nationalityCounts = nat_counts`}</CodeBlock>
+      </Section>
+
+      <Section title="Calculation" icon={<Calculator className="h-4 w-4 text-emerald-500" />}>
+        <CodeBlock>{`Top Nationalities tile = sort desc by count from analysis.nationalityCounts
+Displayed values are raw counts by nationality code (e.g., IN, GB, BH).`}</CodeBlock>
+      </Section>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── */
 /*  DATA FLOW OVERVIEW                                       */
 /* ────────────────────────────────────────────────────────── */
 function DataFlowSection() {
@@ -785,6 +971,12 @@ const INFO_MAP: Record<TileInfoKey, { component: React.FC; label: string }> = {
   checkedIn: { component: CheckedInInfo, label: "Checked-In" },
   boarded: { component: BoardedInfo, label: "Boarded" },
   others: { component: OthersInfo, label: "Other Passengers" },
+  cabin: { component: CabinStatsInfo, label: "Cabin" },
+  status: { component: StatusStatsInfo, label: "Status" },
+  type: { component: TypeStatsInfo, label: "Type" },
+  paxMix: { component: PaxMixStatsInfo, label: "Pax Mix" },
+  loyalty: { component: LoyaltyStatsInfo, label: "Loyalty" },
+  nationalities: { component: NationalityStatsInfo, label: "Top Nationalities" },
 };
 
 export function TileInfoPanel({ activeTab }: TileInfoPanelProps) {

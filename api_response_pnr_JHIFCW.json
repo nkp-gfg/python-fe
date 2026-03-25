@@ -1,0 +1,44 @@
+{
+  "flightNumber": "2016",
+  "origin": "FRA",
+  "departureDate": "2026-03-23",
+  "passengers": [
+    {
+      "lastName": "MILIVOJEVIC",
+      "firstName": "MILICA MS",
+      "pnr": "JHIFCW",
+      "passengerId": "F520DB5A0001",
+      "lineNumber": 4,
+      "priorityCode": "B13",
+      "bookingClass": "Z",
+      "desiredBookingClass": "",
+      "cabin": "Y",
+      "seat": "20K",
+      "destination": "DMM",
+      "passengerType": "E",
+      "isStandby": false,
+      "corpId": "T",
+      "seniorityDate": "2018-09-21",
+      "bagCount": 1,
+      "isCheckedIn": true,
+      "isBoarded": true,
+      "boardingPassIssued": true,
+      "checkInSequence": 4,
+      "isRevenue": false,
+      "isThru": false,
+      "isChild": false,
+      "hasInfant": false,
+      "vcrType": "adult",
+      "ticketNumber": "2136406609",
+      "editCodes": [
+        "F",
+        "ET",
+        "PSTC",
+        "DOCV",
+        "DOCS",
+        "ETI",
+        "APP"
+      ]
+    }
+  ]
+}

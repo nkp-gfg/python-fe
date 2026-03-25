@@ -15,6 +15,160 @@ headers {
   SOAPAction: "Trip_SearchRQ"
 }
 
+body:xml {
+  <?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
+    <soapenv:Header>
+      <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
+        <eb:From><eb:PartyId/></eb:From>
+        <eb:To><eb:PartyId/></eb:To>
+        <eb:CPAId>{{cpaid}}</eb:CPAId>
+        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
+        <eb:Service>Trip_SearchRQ</eb:Service>
+        <eb:Action>Trip_SearchRQ</eb:Action>
+        <eb:MessageData>
+          <eb:MessageId>{{messageId}}</eb:MessageId>
+          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
+        </eb:MessageData>
+      </eb:MessageHeader>
+      <wsse:Security soapenv:mustUnderstand="0">
+        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
+      </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+      <Trip_SearchRQ Version="4.5.0"
+                     xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07"
+                     xmlns="http://webservices.sabre.com/triprecord">
+        <ReadRequests>
+          <ReservationReadRequest>
+  
+            <!-- Search by Flight — primary search mode -->
+            <FlightCriteria>
+              <Flight>
+                <!-- flight number e.g. 2057 -->
+                <FlightNumber>{{flightNumber}}</FlightNumber>
+                <!-- 3-char airport code -->
+                <DepartureAirport>{{departureAirport}}</DepartureAirport>
+                <!-- exact date match -->
+                <DepartureDateTime Is="{{departureDateTime}}"/>
+                <!-- ALTERNATIVE date matching (use one at a time): -->
+                <!-- all flights after this date -->
+                <!-- <DepartureDateTime After="2026-03-19T00:00:00"/> -->
+                <!-- all flights before this date -->
+                <!-- <DepartureDateTime Before="2026-03-21T00:00:00"/> -->
+                <!-- 2-char IATA airline code -->
+                <AirlineCode>{{airlineCode}}</AirlineCode>
+              </Flight>
+            </FlightCriteria>
+  
+            <!-- ALTERNATIVE: Search by PNR locator (use INSTEAD of FlightCriteria) -->
+            <!-- <LocatorCriteria> -->
+            <!--   <Locator>ABC123</Locator> -->
+            <!-- </LocatorCriteria> -->
+  
+            <!-- point-of-sale airline filter -->
+            <PosCriteria AirlineCode="{{airlineCode}}"/>
+  
+            <!-- TripSearchBlob = full PNR blob (most data), STL = structured format -->
+            <!-- SearchType: ACTIVE = current bookings, INACTIVE = cancelled, BOTH = all -->
+            <ReturnOptions ViewName="TripSearchBlob"
+                           ResponseFormat="STL"
+                           SearchType="ACTIVE"
+                           MaxItemsReturned="800">
+              <!-- Request ALL subject areas for maximum data -->
+              <SubjectAreas>
+                <!-- PNR locator, create date, status -->
+                <SubjectArea>HEADER</SubjectArea>
+                <!-- passenger names -->
+                <SubjectArea>NAME</SubjectArea>
+                <!-- pax type, gender, DOB, nationality -->
+                <SubjectArea>PASSENGERDETAILS</SubjectArea>
+                <!-- pre-reserved seat assignments -->
+                <SubjectArea>PRERESERVEDSEAT</SubjectArea>
+                <!-- ticket numbers, status, coupons -->
+                <SubjectArea>TICKETS</SubjectArea>
+                <!-- flight segments, routing -->
+                <SubjectArea>ITINERARY</SubjectArea>
+                <!-- loyalty program info -->
+                <SubjectArea>LOYALTY</SubjectArea>
+                <!-- frequent traveler data -->
+                <SubjectArea>FQTV</SubjectArea>
+                <!-- extended frequent traveler -->
+                <SubjectArea>EXT_FQTV</SubjectArea>
+                <!-- special service requests (WCHR, MEAL, etc.) -->
+                <SubjectArea>SSR</SubjectArea>
+                <!-- other service information -->
+                <SubjectArea>OSI</SubjectArea>
+                <!-- PNR remarks / annotations -->
+                <SubjectArea>REMARKS</SubjectArea>
+                <!-- billing / mailing address -->
+                <SubjectArea>ADDRESS</SubjectArea>
+                <!-- email addresses -->
+                <SubjectArea>EMAIL</SubjectArea>
+                <!-- phone / contact numbers -->
+                <SubjectArea>PHONE</SubjectArea>
+                <!-- group booking info -->
+                <SubjectArea>GROUP</SubjectArea>
+                <!-- agency / agent who made booking -->
+                <SubjectArea>RECEIVED_FROM</SubjectArea>
+                <!-- accounting / payment data -->
+                <SubjectArea>ACCOUNTING</SubjectArea>
+                <!-- general facts -->
+                <SubjectArea>GENERAL_FACTS</SubjectArea>
+                <!-- PNR change history -->
+                <SubjectArea>HISTORY</SubjectArea>
+                <!-- profile references -->
+                <SubjectArea>PROFILE_INDEX</SubjectArea>
+                <!-- option / queue details -->
+                <SubjectArea>OPTION_QUEUE</SubjectArea>
+                <!-- queue placement info -->
+                <SubjectArea>QUEUE_PLACE</SubjectArea>
+                <!-- service info -->
+                <SubjectArea>SERVICE_INFORMATION</SubjectArea>
+                <!-- divide-in-party (split PNR) details -->
+                <SubjectArea>DIVIDE</SubjectArea>
+                <!-- associated content references -->
+                <SubjectArea>ASSOCIATED_CONTENT</SubjectArea>
+                <!-- ancillary bookings: bags, meals, seats -->
+                <SubjectArea>ANCILLARY_SERVICES</SubjectArea>
+                <!-- ticket delivery address -->
+                <SubjectArea>DELIVERY_ADDRESS</SubjectArea>
+              </SubjectAreas>
+            </ReturnOptions>
+          </ReservationReadRequest>
+        </ReadRequests>
+      </Trip_SearchRQ>
+    </soapenv:Body>
+  </soapenv:Envelope>
+}
+
+vars:pre-request {
+  flightNumber: 2016
+  departureAirport: FRA
+  departureDateTime: 2026-03-23T00:00:00
+  airlineCode: GF
+}
+
+script:pre-request {
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  
+  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
+  bru.setVar("timestamp", new Date().toISOString());
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
 docs {
   # Trip_SearchRQ v4.5.0 — Full Field Version
   
@@ -121,158 +275,4 @@ docs {
   | ASSOCIATED_CONTENT | Associated content references                    |
   | ANCILLARY_SERVICES | Ancillary service bookings (bags, meals, etc.)   |
   | ALL                | All subject areas                                |
-}
-
-body:xml {
-  <?xml version="1.0" encoding="UTF-8"?>
-  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
-                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
-    <soapenv:Header>
-      <eb:MessageHeader soapenv:mustUnderstand="0" eb:version="2.0.0">
-        <eb:From><eb:PartyId/></eb:From>
-        <eb:To><eb:PartyId/></eb:To>
-        <eb:CPAId>{{cpaid}}</eb:CPAId>
-        <eb:ConversationId>{{conversationId}}</eb:ConversationId>
-        <eb:Service>Trip_SearchRQ</eb:Service>
-        <eb:Action>Trip_SearchRQ</eb:Action>
-        <eb:MessageData>
-          <eb:MessageId>{{messageId}}</eb:MessageId>
-          <eb:Timestamp>{{timestamp}}</eb:Timestamp>
-        </eb:MessageData>
-      </eb:MessageHeader>
-      <wsse:Security soapenv:mustUnderstand="0">
-        <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>
-      </wsse:Security>
-    </soapenv:Header>
-    <soapenv:Body>
-      <Trip_SearchRQ Version="4.5.0"
-                     xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07"
-                     xmlns="http://webservices.sabre.com/triprecord">
-        <ReadRequests>
-          <ReservationReadRequest>
-
-            <!-- Search by Flight — primary search mode -->
-            <FlightCriteria>
-              <Flight>
-                <!-- flight number e.g. 2057 -->
-                <FlightNumber>{{flightNumber}}</FlightNumber>
-                <!-- 3-char airport code -->
-                <DepartureAirport>{{departureAirport}}</DepartureAirport>
-                <!-- exact date match -->
-                <DepartureDateTime Is="{{departureDateTime}}"/>
-                <!-- ALTERNATIVE date matching (use one at a time): -->
-                <!-- all flights after this date -->
-                <!-- <DepartureDateTime After="2026-03-19T00:00:00"/> -->
-                <!-- all flights before this date -->
-                <!-- <DepartureDateTime Before="2026-03-21T00:00:00"/> -->
-                <!-- 2-char IATA airline code -->
-                <AirlineCode>{{airlineCode}}</AirlineCode>
-              </Flight>
-            </FlightCriteria>
-
-            <!-- ALTERNATIVE: Search by PNR locator (use INSTEAD of FlightCriteria) -->
-            <!-- <LocatorCriteria> -->
-            <!--   <Locator>ABC123</Locator> -->
-            <!-- </LocatorCriteria> -->
-
-            <!-- point-of-sale airline filter -->
-            <PosCriteria AirlineCode="{{airlineCode}}"/>
-
-            <!-- TripSearchBlob = full PNR blob (most data), STL = structured format -->
-            <!-- SearchType: ACTIVE = current bookings, INACTIVE = cancelled, BOTH = all -->
-            <ReturnOptions ViewName="TripSearchBlob"
-                           ResponseFormat="STL"
-                           SearchType="ACTIVE"
-                           MaxItemsReturned="800">
-              <!-- Request ALL subject areas for maximum data -->
-              <SubjectAreas>
-                <!-- PNR locator, create date, status -->
-                <SubjectArea>HEADER</SubjectArea>
-                <!-- passenger names -->
-                <SubjectArea>NAME</SubjectArea>
-                <!-- pax type, gender, DOB, nationality -->
-                <SubjectArea>PASSENGERDETAILS</SubjectArea>
-                <!-- pre-reserved seat assignments -->
-                <SubjectArea>PRERESERVEDSEAT</SubjectArea>
-                <!-- ticket numbers, status, coupons -->
-                <SubjectArea>TICKETS</SubjectArea>
-                <!-- flight segments, routing -->
-                <SubjectArea>ITINERARY</SubjectArea>
-                <!-- loyalty program info -->
-                <SubjectArea>LOYALTY</SubjectArea>
-                <!-- frequent traveler data -->
-                <SubjectArea>FQTV</SubjectArea>
-                <!-- extended frequent traveler -->
-                <SubjectArea>EXT_FQTV</SubjectArea>
-                <!-- special service requests (WCHR, MEAL, etc.) -->
-                <SubjectArea>SSR</SubjectArea>
-                <!-- other service information -->
-                <SubjectArea>OSI</SubjectArea>
-                <!-- PNR remarks / annotations -->
-                <SubjectArea>REMARKS</SubjectArea>
-                <!-- billing / mailing address -->
-                <SubjectArea>ADDRESS</SubjectArea>
-                <!-- email addresses -->
-                <SubjectArea>EMAIL</SubjectArea>
-                <!-- phone / contact numbers -->
-                <SubjectArea>PHONE</SubjectArea>
-                <!-- group booking info -->
-                <SubjectArea>GROUP</SubjectArea>
-                <!-- agency / agent who made booking -->
-                <SubjectArea>RECEIVED_FROM</SubjectArea>
-                <!-- accounting / payment data -->
-                <SubjectArea>ACCOUNTING</SubjectArea>
-                <!-- general facts -->
-                <SubjectArea>GENERAL_FACTS</SubjectArea>
-                <!-- PNR change history -->
-                <SubjectArea>HISTORY</SubjectArea>
-                <!-- profile references -->
-                <SubjectArea>PROFILE_INDEX</SubjectArea>
-                <!-- option / queue details -->
-                <SubjectArea>OPTION_QUEUE</SubjectArea>
-                <!-- queue placement info -->
-                <SubjectArea>QUEUE_PLACE</SubjectArea>
-                <!-- service info -->
-                <SubjectArea>SERVICE_INFORMATION</SubjectArea>
-                <!-- divide-in-party (split PNR) details -->
-                <SubjectArea>DIVIDE</SubjectArea>
-                <!-- associated content references -->
-                <SubjectArea>ASSOCIATED_CONTENT</SubjectArea>
-                <!-- ancillary bookings: bags, meals, seats -->
-                <SubjectArea>ANCILLARY_SERVICES</SubjectArea>
-                <!-- ticket delivery address -->
-                <SubjectArea>DELIVERY_ADDRESS</SubjectArea>
-              </SubjectAreas>
-            </ReturnOptions>
-          </ReservationReadRequest>
-        </ReadRequests>
-      </Trip_SearchRQ>
-    </soapenv:Body>
-  </soapenv:Envelope>
-}
-
-vars:pre-request {
-  flightNumber: 2068
-  departureAirport: DMM
-  departureDateTime: 2026-03-20T00:00:00
-  airlineCode: GF
-}
-
-script:pre-request {
-  function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-  
-  bru.setVar("messageId", `mid:${generateUUID()}@clientofsabre.com`);
-  bru.setVar("timestamp", new Date().toISOString());
-}
-
-settings {
-  encodeUrl: true
-  timeout: 0
 }

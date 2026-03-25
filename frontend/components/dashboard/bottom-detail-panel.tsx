@@ -43,6 +43,7 @@ interface BottomDetailPanelProps {
   flightNumber: string;
   origin: string;
   date: string;
+  snapshotSequence?: number | null;
   dashboard: FlightDashboard;
   onClose: () => void;
   onSelectPassenger?: (pnr: string) => void;
@@ -161,6 +162,7 @@ export function BottomDetailPanel({
   flightNumber,
   origin,
   date,
+  snapshotSequence,
   dashboard,
   onClose,
   onSelectPassenger,
@@ -168,8 +170,8 @@ export function BottomDetailPanel({
   const config = VIEW_CONFIG[view];
 
   const { data, isLoading } = useQuery({
-    queryKey: ["passengers", flightNumber, origin, date],
-    queryFn: () => fetchPassengers(flightNumber, origin, date),
+    queryKey: ["passengers", flightNumber, origin, date, snapshotSequence],
+    queryFn: () => fetchPassengers(flightNumber, origin, date, snapshotSequence),
   });
 
   const [sortKey, setSortKey] = useState<SortKey>("lastName");

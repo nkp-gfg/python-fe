@@ -3,6 +3,7 @@
 import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
+from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
 from backend.sabre.models import ReservationsResponse
 
@@ -22,6 +23,11 @@ def get_reservations(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    snapshot_sequence: int = Query(
+        None,
+        ge=1,
+        description="Load historical view as-of this snapshot sequence number",
+    ),
 ):
     """Get the latest reservations document for a flight."""
     validate_date(date)
@@ -33,7 +39,17 @@ def get_reservations(
     if date:
         query["departureDate"] = date
 
-    doc = db["reservations"].find_one(query, sort=[("fetchedAt", -1)])
+    if snapshot_sequence:
+        doc = get_snapshot_data_as_of(
+            db,
+            flight_number=flight_number,
+            snapshot_type="reservations",
+            snapshot_sequence=snapshot_sequence,
+            origin=origin,
+            departure_date=date,
+        )
+    else:
+        doc = db["reservations"].find_one(query, sort=[("fetchedAt", -1)])
     if not doc:
         raise HTTPException(status_code=404, detail="Reservations not found")
     return _strip_id(doc)

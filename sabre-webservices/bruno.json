@@ -1,11 +1,8 @@
 {
   "version": "1",
-  "name": "Grafana - Sabre Py FE Zeep Grafana Docker",
+  "name": "PyReact - Sabre Web Services Collection",
   "type": "collection",
-  "ignore": [
-    "node_modules",
-    ".git"
-  ],
+  "ignore": ["node_modules", ".git"],
   "scripts": {
     "moduleWhitelist": [],
     "filesystemAccess": {
