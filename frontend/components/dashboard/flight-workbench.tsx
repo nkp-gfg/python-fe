@@ -1901,7 +1901,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       >
         <SheetContent
           side="bottom"
-          className="h-dvh max-h-dvh w-screen max-w-none rounded-none border-none p-0"
+          className="w-screen max-w-none rounded-none border-none p-0 data-[side=bottom]:!h-dvh data-[side=bottom]:!max-h-dvh"
           showCloseButton={false}
         >
           <SheetTitle className="sr-only">Passenger Tree Dialog</SheetTitle>
@@ -1946,7 +1946,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       >
         <SheetContent
           side="bottom"
-          className="h-dvh max-h-dvh w-screen max-w-none rounded-none border-none p-0"
+          className="w-screen max-w-none rounded-none border-none p-0 data-[side=bottom]:!h-dvh data-[side=bottom]:!max-h-dvh"
           showCloseButton={false}
         >
           <SheetTitle className="sr-only">Passenger Matrix Dialog</SheetTitle>
