@@ -1,6 +1,6 @@
 "use client";
 
-import type { FlightDashboard, FlightPhaseCode } from "@/lib/types";
+import type { FlightDashboard, FlightPhaseCode, CabinDetail, StateBucket } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, UserCheck, PlaneTakeoff, Info, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -96,6 +96,18 @@ function checkedInExtraRow(
   }
 }
 
+/* ── Compute footer totals from per-cabin detail ─────────── */
+function detailFooter(bucket: StateBucket) {
+  const ed = bucket.economyDetail ?? { adults: 0, children: 0, infants: 0, staff: 0 };
+  const bd = bucket.businessDetail ?? { adults: 0, children: 0, infants: 0, staff: 0 };
+  return {
+    adults: ed.adults + bd.adults,
+    children: ed.children + bd.children,
+    infants: ed.infants + bd.infants,
+    staff: ed.staff + bd.staff,
+  };
+}
+
 export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCardClick, activeCard }: Props) {
   const { booked, checkedIn, boarded, others } = stateSummary;
   const totalPax = booked.totalPassengers + checkedIn.totalPassengers + boarded.totalPassengers;
@@ -113,14 +125,14 @@ export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCar
               ? <AlertTriangle className={cn("h-4 w-4", bookedIconColor(phase))} />
               : <Users className={cn("h-4 w-4", bookedIconColor(phase))} />
           }
-          count={booked.totalPassengers}
+          count={booked.totalSouls}
           countClass={bookedCountColor(phase, booked.totalPassengers)}
-          rows={[
-            { label: `Total ${bookedTitle(phase)}`, value: booked.totalPassengers },
-            { label: "Business", value: booked.business },
-            { label: "Economy", value: booked.economy },
-          ]}
-          footer={{ adults: booked.adults, children: booked.children, infants: booked.infants }}
+          rows={[]}
+          cabinDetail={{
+            economy: { detail: booked.economyDetail },
+            business: { detail: booked.businessDetail },
+          }}
+          footer={detailFooter(booked)}
           onInfoClick={() => onInfoClick("booked")}
           onClick={() => onCardClick?.("booked")}
           active={activeCard === "booked"}
@@ -132,19 +144,20 @@ export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCar
         <PanelCard
           title="Checked-In"
           icon={<UserCheck className="h-4 w-4 text-amber-500" />}
-          count={checkedIn.totalPassengers}
+          count={checkedIn.totalSouls}
           rows={[
-            { label: "Total Checked-in", value: checkedIn.totalPassengers },
             {
               label: extra.label,
               value: extra.value,
               labelClass: extra.labelClass,
               valueClass: extra.valueClass,
             },
-            { label: "Business", value: checkedIn.business },
-            { label: "Economy", value: checkedIn.economy },
           ]}
-          footer={{ adults: checkedIn.adults, children: checkedIn.children, infants: checkedIn.infants }}
+          cabinDetail={{
+            economy: { detail: checkedIn.economyDetail },
+            business: { detail: checkedIn.businessDetail },
+          }}
+          footer={detailFooter(checkedIn)}
           onInfoClick={() => onInfoClick("checkedIn")}
           onClick={() => onCardClick?.("checkedIn")}
           active={activeCard === "checkedIn"}
@@ -156,21 +169,13 @@ export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCar
         <PanelCard
           title="Boarded"
           icon={<PlaneTakeoff className="h-4 w-4 text-emerald-500" />}
-          count={boarded.totalPassengers}
-          rows={[
-            {
-              label: "Total Boarded",
-              value: boarded.totalPassengers,
-              valueClass: "text-emerald-600 dark:text-emerald-400 font-semibold",
-            },
-            { label: "Business", value: boarded.business },
-            { label: "Economy", value: boarded.economy },
-          ]}
-          footer={{
-            adults: boarded.adults,
-            children: boarded.children,
-            infants: boarded.infants,
+          count={boarded.totalSouls}
+          rows={[]}
+          cabinDetail={{
+            economy: { detail: boarded.economyDetail },
+            business: { detail: boarded.businessDetail },
           }}
+          footer={detailFooter(boarded)}
           onInfoClick={() => onInfoClick("boarded")}
           onClick={() => onCardClick?.("boarded")}
           active={activeCard === "boarded"}
@@ -249,6 +254,7 @@ function PanelCard({
   count,
   countClass,
   rows,
+  cabinDetail,
   footer,
   onInfoClick,
   onClick,
@@ -261,7 +267,11 @@ function PanelCard({
   count: number;
   countClass?: string;
   rows: { label: string; value: number | string | null; labelClass?: string; valueClass?: string; unavailable?: boolean }[];
-  footer: { adults: number; children: number; infants: number };
+  cabinDetail?: {
+    economy: { detail?: CabinDetail };
+    business: { detail?: CabinDetail };
+  };
+  footer: { adults: number; children: number; infants: number; staff?: number };
   onInfoClick: () => void;
   onClick?: () => void;
   active?: boolean;
@@ -294,7 +304,14 @@ function PanelCard({
             <Row key={r.label} {...r} />
           ))}
         </div>
-        <div className="mt-auto grid grid-cols-3 gap-2 border-t pt-2 text-[10px]">
+        {/* Cabin breakdown with per-cabin detail */}
+        {cabinDetail && (
+          <div className="space-y-1.5 mb-2">
+            <CabinRow label="Economy" detail={cabinDetail.economy.detail} />
+            <CabinRow label="Business" detail={cabinDetail.business.detail} />
+          </div>
+        )}
+        <div className="mt-auto grid grid-cols-4 gap-1.5 border-t pt-2 text-[10px]">
           <div className="flex flex-col">
             <span className="text-muted-foreground">Adults</span>
             <span className="font-medium text-foreground">{footer.adults}</span>
@@ -307,9 +324,29 @@ function PanelCard({
             <span className="text-muted-foreground">Infants</span>
             <span className="font-medium text-emerald-600 dark:text-emerald-500">{footer.infants}</span>
           </div>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Staff</span>
+            <span className="font-medium text-purple-600 dark:text-purple-400">{footer.staff ?? 0}</span>
+          </div>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function CabinRow({ label, detail }: { label: string; detail?: CabinDetail }) {
+  const d = detail ?? { adults: 0, children: 0, infants: 0, staff: 0 };
+  const total = d.adults + d.children + d.infants + d.staff;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground font-medium">{label}</span>
+        <span className="font-semibold text-foreground">{total}</span>
+      </div>
+      <div className="text-[10px] text-muted-foreground pl-2 mt-0.5">
+        {d.adults} Adults · {d.children} Child · {d.infants} Infant · {d.staff} Staff
+      </div>
+    </div>
   );
 }
 

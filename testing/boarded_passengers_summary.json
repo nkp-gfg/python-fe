@@ -1,0 +1,366 @@
+{
+  "flight": {
+    "flightNumber": "GF0205",
+    "sector": "BAH-NJF",
+    "flightSequenceNumber": 3150637239,
+    "operator": "GF"
+  },
+  "boardedPassengers": {
+    "totalBoarded": 260,
+    "cabins": [
+      {
+        "class": "Economy",
+        "total": 257,
+        "breakdown": {
+          "adults": 253,
+          "children": 2,
+          "infants": 1,
+          "staff": 1
+        },
+        "byStatus": {
+          "checkedIn": 246,
+          "booked": 11
+        }
+      },
+      {
+        "class": "Business",
+        "total": 3,
+        "breakdown": {
+          "adults": 2,
+          "children": 0,
+          "infants": 0,
+          "staff": 1
+        },
+        "byStatus": {
+          "checkedIn": 3,
+          "booked": 0
+        }
+      }
+    ]
+  },
+  "discrepancies": {
+    "total": 29,
+    "summary": "29 passengers in the boarded count whose status does not match expectations — 11 still showing Booked (never checked in) and 18 showing Checked-in (not yet boarded).",
+    "byStatus": {
+      "booked": {
+        "count": 11,
+        "description": "Passengers counted as boarded but still showing Booked status in source (CDD). These were never checked in.",
+        "breakdown": {
+          "adults": 11,
+          "children": 0,
+          "infants": 0
+        },
+        "passengers": [
+          {
+            "passengerId": "07221362777741",
+            "passengerName": "ALSUHAYYIH OSMAH MRS",
+            "pnr": "GBGDZK",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07221363167411",
+            "passengerName": "SHEHAB NADIYAH MS",
+            "pnr": "HGBBDX",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07221362831931",
+            "passengerName": "ALKHAMIS AHLAM MRS",
+            "pnr": "IRJWXH",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07221362988571",
+            "passengerName": "ALSHAYEB MASOUMAH MRS",
+            "pnr": "UWWBPU",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07221362777731",
+            "passengerName": "ALSUHAYYIH MOHAMMED MR",
+            "pnr": "GBGDZK",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07221363105211",
+            "passengerName": "MODHAFAR ALIYAH MRS",
+            "pnr": "UYIWAW",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07221363032521",
+            "passengerName": "ALMURAYHIL LAILA MISS",
+            "pnr": "CPAXMI",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07294611790931",
+            "passengerName": "ALHAJI MARYAM ALI MRS",
+            "pnr": "ALKSED",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07294611790911",
+            "passengerName": "ALHAJJI BATOOL HASHIM MRS",
+            "pnr": "ALKSED",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07294611790921",
+            "passengerName": "ALHAJJI HASHIM MOHAMMED MR",
+            "pnr": "ALKSED",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "source": "CDD"
+          },
+          {
+            "passengerId": "07294611790941",
+            "passengerName": "ALHAJJI ABDULWAHAB ALI MR",
+            "pnr": "ALKSED",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "source": "CDD"
+          }
+        ]
+      },
+      "checkedIn": {
+        "count": 18,
+        "description": "Passengers with Checked-in status — confirmed via check-in system but not yet marked as Boarded.",
+        "breakdown": {
+          "adults": 16,
+          "children": 1,
+          "infants": 1
+        },
+        "passengers": [
+          {
+            "passengerId": "726332737883-3150637239",
+            "passengerName": "HASAN MOHAMMED ALI MAJID H",
+            "pnr": "YLUDFP",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "seat": "10F",
+            "nationality": "British",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "726323281496-3150637239",
+            "passengerName": "KARIMULLAHNASIR NIYAMATHULLAH",
+            "pnr": "MLRCGN",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "seat": "27A",
+            "nationality": "Indian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "726323281490-3150637239",
+            "passengerName": "RUKSANA MRS",
+            "pnr": "MLRCGN",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "seat": "27B",
+            "nationality": "Indian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "726323281495-3150637239",
+            "passengerName": "SHAIKH SHOAIB AHMED",
+            "pnr": "MLRCGN",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "seat": "27C",
+            "nationality": "Indian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "726323281492-3150637239",
+            "passengerName": "SHAIKH AHAMED HUSSAIN",
+            "pnr": "MLRCGN",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "seat": "27D",
+            "nationality": "Indian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "726323281491-3150637239",
+            "passengerName": "SHAIKH ZARA",
+            "pnr": "MLRCGN",
+            "passengerType": "Infant",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "seat": "27E",
+            "nationality": "Indian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "726323281494-3150637239",
+            "passengerName": "SHAIKH NADIYA SHOAIB A",
+            "pnr": "MLRCGN",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "seat": "27E",
+            "nationality": "Indian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "726323281493-3150637239",
+            "passengerName": "SHAIKH KHURSHIDA BEGUM A H",
+            "pnr": "MLRCGN",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "seat": "27F",
+            "nationality": "Indian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "725801231512-3150637239",
+            "passengerName": "BHOJANI ALIHYDER",
+            "pnr": "IWANBW",
+            "passengerType": "Child",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "seat": "28D",
+            "nationality": "Indian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "725801231511-3150637239",
+            "passengerName": "VIRANI ZEHRAALIRAZA",
+            "pnr": "IWANBW",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "S",
+            "seat": "28E",
+            "nationality": "Indian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "722136316734-3150637239",
+            "passengerName": "AL HAMMAD ALI",
+            "pnr": "UHOLCI",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "seat": "36E",
+            "nationality": "Saudi",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "722136316736-3150637239",
+            "passengerName": "ALABDRABALREDHA MARIAM",
+            "pnr": "UHOLCI",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "seat": "36F",
+            "nationality": "Saudi",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "722136316728-3150637239",
+            "passengerName": "AL ABDULLAH FATEMAH",
+            "pnr": "JDPUBV",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "seat": "38A",
+            "nationality": "Saudi",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "722136316726-3150637239",
+            "passengerName": "AL SHAQAQ ABDULLAH",
+            "pnr": "JDPUBV",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "seat": "38B",
+            "nationality": "Saudi",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "722136316732-3150637239",
+            "passengerName": "AL MARHOON HANA",
+            "pnr": "JDPUBV",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "seat": "38C",
+            "nationality": "Saudi",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "722136316730-3150637239",
+            "passengerName": "AL SHAQAQ BALQIS",
+            "pnr": "JDPUBV",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "seat": "38D",
+            "nationality": "Saudi",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "726394540752-3150637239",
+            "passengerName": "HOSSEINI MILANI ZEINAB",
+            "pnr": "JNMNXR",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "W",
+            "seat": "8A",
+            "nationality": "Iranian",
+            "source": "Checked-in"
+          },
+          {
+            "passengerId": "722136272839-3150637239",
+            "passengerName": "MOHAMED TAHERA",
+            "pnr": "NCWXJW",
+            "passengerType": "Adult",
+            "cabinClass": "Economy",
+            "cabinSubClass": "Z",
+            "seat": "8F",
+            "nationality": "Bahraini",
+            "source": "Checked-in"
+          }
+        ]
+      }
+    }
+  }
+}

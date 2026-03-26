@@ -144,18 +144,17 @@ def get_changes_summary(
     if date:
         match["departureDate"] = date
 
-    pipeline = [
-        {"$match": match},
-        {"$group": {"_id": "$changeType", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-    ]
-    results = list(db["changes"].aggregate(pipeline))
-    if not results:
+    counts = {}
+    for doc in db["changes"].find(match, {"changeType": 1}):
+        ct = doc.get("changeType")
+        if ct:
+            counts[ct] = counts.get(ct, 0) + 1
+    if not counts:
         raise HTTPException(status_code=404, detail="No changes found")
     return {
         "flightNumber": flight_number,
-        "changeTypes": {r["_id"]: r["count"] for r in results},
-        "totalChanges": sum(r["count"] for r in results),
+        "changeTypes": counts,
+        "totalChanges": sum(counts.values()),
     }
 
 
@@ -889,35 +888,19 @@ def get_passengers_history_badges(
     if date:
         query["departureDate"] = date
 
-    pipeline = [
-        {"$match": query},
-        {"$group": {
-            "_id": "$passenger.pnr",
-            "changeCount": {"$sum": 1},
-            "hasUpgrade": {
-                "$max": {
-                    "$cond": [
-                        {"$in": ["$changeType", ["CABIN_CHANGE",
-                                                 "CLASS_CHANGE", "UPGRADE_CONFIRMED"]]},
-                        1,
-                        0
-                    ]
-                }
-            },
-            "lastChange": {"$max": "$detectedAt"},
-        }},
-    ]
-
-    results = list(db["changes"].aggregate(pipeline))
-
+    UPGRADE_TYPES = {"CABIN_CHANGE", "CLASS_CHANGE", "UPGRADE_CONFIRMED"}
     badges = {}
-    for r in results:
-        pnr = r["_id"]
-        if pnr:
-            badges[pnr] = {
-                "changeCount": r["changeCount"],
-                "hasUpgrade": r["hasUpgrade"] == 1,
-                "lastChange": r["lastChange"],
-            }
+    for doc in db["changes"].find(query, {"passenger.pnr": 1, "changeType": 1, "detectedAt": 1}):
+        pnr = (doc.get("passenger") or {}).get("pnr")
+        if not pnr:
+            continue
+        if pnr not in badges:
+            badges[pnr] = {"changeCount": 0, "hasUpgrade": False, "lastChange": None}
+        badges[pnr]["changeCount"] += 1
+        if doc.get("changeType") in UPGRADE_TYPES:
+            badges[pnr]["hasUpgrade"] = True
+        detected = doc.get("detectedAt")
+        if detected and (badges[pnr]["lastChange"] is None or detected > badges[pnr]["lastChange"]):
+            badges[pnr]["lastChange"] = detected
 
     return badges

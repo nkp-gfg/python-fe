@@ -7,8 +7,7 @@ import type {
   SnapshotMeta, FlightStatusRecord, ReservationsResponse,
   SnapshotCompareResponse, SnapshotRestoreResponse,
   FlightSchedule, ScheduleLookupRequest,
-  MultiFlightAvailability, AvailabilityLookupRequest,
-  MultiFlightAdminConfig, PassengerTimelineResponse,
+  PassengerTimelineResponse,
   FlightTimelineResponse, ActivityFeedResponse,
   BoardingProgressResponse, PassengerHistoryBadges,
 } from "./types";
@@ -139,14 +138,6 @@ export function ingestBatch(payload: SabreBatchRequest): Promise<SabreBatchAccep
 
 export function fetchJobStatus(jobId: string): Promise<SabreJobStatus> {
   return get<SabreJobStatus>(`/flights/ingest/jobs/${jobId}`);
-}
-
-export function fetchMultiFlightConfig(): Promise<MultiFlightAdminConfig> {
-  return get<MultiFlightAdminConfig>("/admin/multiflight-config");
-}
-
-export function updateMultiFlightConfig(payload: MultiFlightAdminConfig): Promise<MultiFlightAdminConfig> {
-  return post<MultiFlightAdminConfig>("/admin/multiflight-config", payload);
 }
 
 // --- Passengers ---
@@ -379,25 +370,4 @@ export function lookupSchedule(
   payload: ScheduleLookupRequest,
 ): Promise<FlightSchedule> {
   return post<FlightSchedule>("/flights/schedule/lookup", payload);
-}
-
-// --- MultiFlight Availability ---
-
-export function fetchAvailability(
-  flightNumber: string,
-  origin?: string,
-  date?: string,
-): Promise<MultiFlightAvailability> {
-  const params = new URLSearchParams();
-  if (origin) params.set("origin", origin);
-  if (date) params.set("date", date);
-  const qs = params.toString() ? `?${params}` : "";
-  return get<MultiFlightAvailability>(`/flights/${flightNumber}/availability${qs}`);
-}
-
-export function lookupAvailability(
-  flightNumber: string,
-  payload: AvailabilityLookupRequest,
-): Promise<MultiFlightAvailability> {
-  return post<MultiFlightAvailability>(`/flights/${flightNumber}/availability/lookup`, payload);
 }

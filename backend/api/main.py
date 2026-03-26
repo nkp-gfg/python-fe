@@ -5,9 +5,8 @@ Run with:
     uvicorn backend.api.main:app --reload
 """
 
-from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, availability, admin
+from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule
 from backend.api.database import get_db, close_db
-from backend.api.runtime_config import load_runtime_config
 from backend.feeder import storage as feeder_storage
 import logging
 import os
@@ -33,7 +32,6 @@ async def lifespan(app: FastAPI):
         db = get_db()
         # Quick ping to verify the connection is actually live
         db.command("ping")
-        load_runtime_config(db)
         # Share the API's DB connection with the feeder storage layer
         # so ingestion doesn't create a second MongoClient (avoids DNS timeouts)
         feeder_storage.init_db(db)
@@ -84,8 +82,6 @@ app.include_router(reservations.router)
 app.include_router(changes.router)
 app.include_router(changes.activity_router)  # Global activity feed
 app.include_router(schedule.router)
-app.include_router(availability.router)
-app.include_router(admin.router)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────

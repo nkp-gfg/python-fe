@@ -72,7 +72,7 @@ export function ExecutiveValueFramework() {
             ))}
           </ul>
           <div className="mt-2 rounded border border-dashed bg-muted/40 p-2 text-[10px] text-muted-foreground">
-            Source: knowledge_base/multiflight_value_framework.md
+            Source: knowledge_base
           </div>
         </section>
       </CardContent>

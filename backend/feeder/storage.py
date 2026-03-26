@@ -74,8 +74,19 @@ def _drop_index_if_exists(collection, index_name: str):
 
 
 def ensure_indexes():
-    """Create indexes for all collections."""
+    """Create indexes for all collections (skipped if already present)."""
     db = get_db()
+
+    # Quick check: if main indexes already exist, skip the entire operation
+    # to avoid slow dropIndex/createIndex on every startup.
+    try:
+        existing = set(db["flight_status"].index_information().keys())
+        if "flight_lookup" in existing:
+            logger.info(
+                "MongoDB indexes already present — skipping ensure_indexes.")
+            return
+    except Exception:
+        pass  # Collection may not exist yet; proceed with creation
 
     # Drop stale indexes whose key-spec or name changed (safe if already gone)
     _drop_index_if_exists(db["changes"], "chg_flight_lookup")
@@ -88,7 +99,6 @@ def ensure_indexes():
     _drop_index_if_exists(db["reservations"], "res_pnr")          # old name
     _drop_index_if_exists(db["reservations"], "res_pnr_lookup")   # new name
     _drop_index_if_exists(db["trip_reports"], "trip_report_lookup")
-    _drop_index_if_exists(db["multi_flight_availability"], "multi_av_lookup")
 
     # sabre_requests
     db["sabre_requests"].create_index(
@@ -160,13 +170,6 @@ def ensure_indexes():
          ("departureDate", 1),
          ("fetchedAt", -1)],
         name="schedule_lookup")
-
-    # multi_flight_availability
-    db["multi_flight_availability"].create_index(
-        [("airline", 1), ("flightNumber", 1),
-         ("origin", 1), ("departureDate", 1),
-         ("fetchedAt", -1)],
-        name="multi_av_lookup")
 
     logger.info("MongoDB indexes ensured.")
 
@@ -372,12 +375,6 @@ def store_trip_reports(doc):
 def store_flight_schedule(doc):
     """Insert a flight_schedules document. Returns the inserted _id."""
     result = get_db()["flight_schedules"].insert_one(doc)
-    return result.inserted_id
-
-
-def store_multi_flight_availability(doc):
-    """Insert a multi_flight_availability document. Returns the inserted _id."""
-    result = get_db()["multi_flight_availability"].insert_one(doc)
     return result.inserted_id
 
 

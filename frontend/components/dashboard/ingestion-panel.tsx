@@ -14,10 +14,9 @@ import {
   Plus,
   RefreshCw,
   ServerCog,
-  Settings2,
 } from "lucide-react";
 
-import { ingestFlight, ingestBatch, fetchJobStatus, fetchMultiFlightConfig, updateMultiFlightConfig } from "@/lib/api";
+import { ingestFlight, ingestBatch, fetchJobStatus } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +24,6 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import type {
-  MultiFlightAdminConfig,
   SabreIngestRequest,
   SabreFlightIngestResult,
   SabreApiResult,
@@ -56,27 +54,16 @@ export function IngestionPanel() {
   const [batchQueue, setBatchQueue] = useState<SabreIngestRequest[]>([]);
   const [singleResult, setSingleResult] = useState<SabreFlightIngestResult | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  const [configDraftOverride, setConfigDraftOverride] = useState<MultiFlightAdminConfig | null>(null);
-  const defaultConfigDraft: MultiFlightAdminConfig = {
-    timeoutSeconds: 10,
-    maxAttempts: 6,
-    includeCpaidEndpoint: false,
-  };
 
   const singleMutation = useMutation({
     mutationKey: ["ingest"],
     mutationFn: ingestFlight,
     onSuccess: (data, variables) => {
       setSingleResult(data.result);
-      const hasMultiFlightWarning = data.result.apis.multiFlightAvailability?.status === "error";
       pushToast({
-        variant: hasMultiFlightWarning ? "warning" : "success",
-        title: hasMultiFlightWarning
-          ? `Ingest completed with warnings for ${variables.airline ?? "GF"}${variables.flightNumber}`
-          : `Ingest completed for ${variables.airline ?? "GF"}${variables.flightNumber}`,
-        description: hasMultiFlightWarning
-          ? "Core Sabre sync completed. Optional MultiFlight availability was unavailable."
-          : "Background ingestion job completed successfully.",
+        variant: "success",
+        title: `Ingest completed for ${variables.airline ?? "GF"}${variables.flightNumber}`,
+        description: "Background ingestion job completed successfully.",
       });
     },
     onError: (error) => {
@@ -100,27 +87,6 @@ export function IngestionPanel() {
     },
   });
 
-  const configQuery = useQuery({
-    queryKey: ["multiflight-config"],
-    queryFn: fetchMultiFlightConfig,
-  });
-
-  const configMutation = useMutation({
-    mutationKey: ["multiflight-config-update"],
-    mutationFn: updateMultiFlightConfig,
-    onSuccess: (data) => {
-      setConfigDraftOverride(data);
-      pushToast({
-        variant: "success",
-        title: "MultiFlight settings saved",
-        description: "New values apply to subsequent Sabre sessions.",
-      });
-    },
-    onError: (error) => {
-      pushToast({ variant: "error", title: "Failed to save MultiFlight settings", description: error.message });
-    },
-  });
-
   const { data: jobStatus, refetch: refetchJob, isFetching: jobFetching } = useQuery({
     queryKey: ["batch-job", activeJobId],
     queryFn: () => fetchJobStatus(activeJobId!),
@@ -131,8 +97,6 @@ export function IngestionPanel() {
       return 3000;
     },
   });
-
-  const configDraft = configDraftOverride ?? configQuery.data ?? defaultConfigDraft;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -209,10 +173,6 @@ export function IngestionPanel() {
   const handleRunBatch = () => {
     if (batchQueue.length === 0) return;
     batchMutation.mutate({ flights: batchQueue });
-  };
-
-  const saveMultiFlightSettings = () => {
-    configMutation.mutate(configDraft);
   };
 
   const isBatchRunning = Boolean(activeJobId && (!jobStatus || jobStatus.status === "accepted" || jobStatus.status === "running"));
@@ -468,82 +428,6 @@ export function IngestionPanel() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-sm border-border/40 bg-card/60 flex-shrink-0">
-        <CardContent className="p-4 md:p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 flex-shrink-0">
-              <Settings2 className="h-4 w-4 text-amber-500" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">MultiFlight Runtime Settings</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Admin config for optional availability retries.</p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <LabelInput label="Timeout Per Attempt (seconds)">
-              <input
-                type="number"
-                min={1}
-                max={60}
-                value={configDraft.timeoutSeconds}
-                onChange={(e) => setConfigDraftOverride({ ...configDraft, timeoutSeconds: Number(e.target.value) || 1 })}
-                className={inputStyles}
-              />
-            </LabelInput>
-            <LabelInput label="Maximum Attempts">
-              <input
-                type="number"
-                min={1}
-                max={24}
-                value={configDraft.maxAttempts}
-                onChange={(e) => setConfigDraftOverride({ ...configDraft, maxAttempts: Number(e.target.value) || 1 })}
-                className={inputStyles}
-              />
-            </LabelInput>
-          </div>
-
-          <label className="mt-4 flex items-center gap-3 rounded-lg border border-input bg-background/40 px-3 py-2.5 text-sm cursor-pointer hover:border-ring/50 transition-colors">
-            <input
-              type="checkbox"
-              aria-label="Include CPAID-suffixed endpoint"
-              checked={configDraft.includeCpaidEndpoint}
-              onChange={(e) => setConfigDraftOverride({ ...configDraft, includeCpaidEndpoint: e.target.checked })}
-              className="h-4 w-4 rounded border-input flex-shrink-0"
-            />
-            <div className="flex-1">
-              <div className="font-medium text-sm">Include CPAID-suffixed endpoint</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Enable only if your Sabre tenant requires the `/GF` endpoint variant.</div>
-            </div>
-          </label>
-
-          {configQuery.isLoading && (
-            <div className="mt-3 text-sm text-muted-foreground text-center">Loading current settings…</div>
-          )}
-
-          <div className="mt-5 flex gap-2 justify-end">
-            <Button 
-              variant="outline"
-              onClick={() => setConfigDraftOverride(null)}
-              disabled={configMutation.isPending || !configDraftOverride}
-            >
-              Reset
-            </Button>
-            <Button 
-              onClick={saveMultiFlightSettings} 
-              disabled={configMutation.isPending || configQuery.isLoading}
-              className="gap-2"
-            >
-              {configMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Settings2 className="h-4 w-4" />
-              )}
-              {configMutation.isPending ? "Saving..." : "Save Settings"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

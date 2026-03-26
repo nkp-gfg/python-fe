@@ -345,35 +345,3 @@ VERIFY_FLIGHT_DETAILS = """<?xml version="1.0" encoding="UTF-8"?>
         </v2:VerifyFlightDetailsRQ>
     </soapenv:Body>
 </soapenv:Envelope>"""
-
-MULTI_FLIGHT = """<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-                  xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
-                  xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
-                  xmlns:mf="http://www.atse.sabre.com/Availability/ws/Multiflight">
-    <soapenv:Header>
-        <eb:MessageHeader soapenv:mustUnderstand="{must_understand}" eb:version="{ebxml_version}">
-            <eb:From><eb:PartyId/></eb:From>
-            <eb:To><eb:PartyId/></eb:To>
-            <eb:CPAId>{cpaid}</eb:CPAId>
-            <eb:ConversationId>{conversation_id}</eb:ConversationId>
-            <eb:Service>ASAAOperation</eb:Service>
-            <eb:Action>ASAAOperation</eb:Action>
-            <eb:MessageData>
-                <eb:MessageId>{message_id}</eb:MessageId>
-                <eb:Timestamp>{timestamp}</eb:Timestamp>
-            </eb:MessageData>
-        </eb:MessageHeader>
-        <wsse:Security soapenv:mustUnderstand="0">
-            <wsse:BinarySecurityToken>{token}</wsse:BinarySecurityToken>
-        </wsse:Security>
-    </soapenv:Header>
-    <soapenv:Body>
-        <mf:MultiFlightRQ version="{version}">
-            {origin_destinations_xml}
-            {agent_info_xml}
-            {point_of_commencement_xml}
-            {associate_item_xml}
-        </mf:MultiFlightRQ>
-    </soapenv:Body>
-</soapenv:Envelope>"""

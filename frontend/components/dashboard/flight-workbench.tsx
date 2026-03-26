@@ -66,7 +66,6 @@ import { PassengerDetailSheet } from "@/components/dashboard/passenger-detail-sh
 import { ChangeTimeline } from "@/components/dashboard/change-timeline";
 import { StatusHistory } from "@/components/dashboard/status-history";
 import { ReservationView } from "@/components/dashboard/reservation-view";
-import { AvailabilityPanel } from "@/components/dashboard/availability-panel";
 import { ExecutiveValueFramework } from "@/components/dashboard/executive-value-framework";
 import { FlightTimeline } from "@/components/dashboard/flight-timeline";
 import { BoardingProgress } from "@/components/dashboard/boarding-progress";
@@ -100,7 +99,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [detailPnr, setDetailPnr] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [bottomView, setBottomView] = useState<DetailView | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "availability" | "passengers" | "standby" | "changes" | "history" | "reservations" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "passengers" | "standby" | "changes" | "history" | "reservations" | "activity">("overview");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [snapshotSequence, setSnapshotSequence] = useState<number | null>(null);
   const [filterCabin, setFilterCabin] = useState<FilterCabin>("all");
@@ -113,21 +112,34 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const { data: flights, isLoading: flightsLoading, error: flightsError, refetch: refetchFlights, isFetching: flightsFetching } = useQuery({
     queryKey: ["flights"],
     queryFn: () => fetchFlights(),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
+  // Only consider a flight "selected" if the user (or caller) explicitly chose one.
+  // Do NOT auto-select the first flight on load — that triggers expensive dashboard
+  // + tree queries before the user has even seen the flight list.
   const effectiveSelected =
     selected ??
     initialSelection ??
-    (flights && flights.length > 0
-      ? {
-          flightNumber: flights[0].flightNumber,
-          origin: flights[0].origin,
-          date: flights[0].departureDate,
-        }
-      : null);
+    null;
 
   const deferredSelected = useDeferredValue(effectiveSelected);
+
+  // Auto-select the first flight once the list arrives, but only if the user
+  // hasn't selected anything yet.  This runs as a one-shot effect so that
+  // dashboard/tree queries don't fire until flights are loaded.
+  const autoSelectedRef = useRef(false);
+  if (!autoSelectedRef.current && !selected && !initialSelection && flights && flights.length > 0) {
+    autoSelectedRef.current = true;
+    // Use startTransition so this doesn't block the flight list render
+    startTransition(() => {
+      setSelected({
+        flightNumber: flights[0].flightNumber,
+        origin: flights[0].origin,
+        date: flights[0].departureDate,
+      });
+    });
+  }
 
   const { data: dashboard, isLoading: dashboardLoading, error: dashboardError, refetch: refetchDashboard, isFetching: dashboardFetching } = useQuery({
     queryKey: [
@@ -145,7 +157,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         snapshotSequence,
       ),
     enabled: Boolean(deferredSelected),
-    refetchInterval: snapshotSequence ? false : 30_000,
+    refetchInterval: snapshotSequence ? false : 60_000,
   });
 
   const { data: tree, isLoading: treeLoading, refetch: refetchTree, isFetching: treeFetching } = useQuery({
@@ -164,7 +176,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         snapshotSequence,
       ),
     enabled: Boolean(deferredSelected),
-    refetchInterval: snapshotSequence ? false : 30_000,
+    refetchInterval: snapshotSequence ? false : 60_000,
   });
 
   const [ingestingFlight, setIngestingFlight] = useState<string | null>(null);
@@ -176,15 +188,10 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       queryClient.invalidateQueries({ queryKey: ["flights"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["tree"] });
-      const hasMultiFlightWarning = data.result.apis.multiFlightAvailability?.status === "error";
       pushToast({
-        variant: hasMultiFlightWarning ? "warning" : "success",
-        title: hasMultiFlightWarning
-          ? `${variables.airline ?? "GF"}${variables.flightNumber} ingest completed with warnings`
-          : `${variables.airline ?? "GF"}${variables.flightNumber} ingest complete`,
-        description: hasMultiFlightWarning
-          ? "Core Sabre sync completed. Optional MultiFlight availability was unavailable."
-          : "Background ingestion job completed successfully.",
+        variant: "success",
+        title: `${variables.airline ?? "GF"}${variables.flightNumber} ingest complete`,
+        description: "Background ingestion job completed successfully.",
       });
     },
     onError: (error) => {
@@ -236,9 +243,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         flight.departureDate === effectiveSelected?.date,
     ) ?? null;
 
-  const tabLabels: Record<"overview" | "availability" | "passengers" | "standby" | "changes" | "history" | "reservations" | "activity", string> = {
+  const tabLabels: Record<"overview" | "passengers" | "standby" | "changes" | "history" | "reservations" | "activity", string> = {
     overview: "Overview",
-    availability: "Availability",
     passengers: "Passengers",
     standby: "Standby",
     changes: "Changes",
@@ -391,12 +397,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground font-sans antialiased text-sm">
       {/* Top Navigation Bar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-4 lg:px-6">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-4 md:px-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="md:hidden"
             onClick={() => setMobileRailOpen(true)}
           >
             <Menu className="h-5 w-5" />
@@ -672,20 +678,6 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           <span className="mx-1">&bull;</span>
                           <span>{flight.departureDate}</span>
                         </div>
-                        {flight.availabilitySummary && (
-                          <div className={cn("flex items-center gap-1.5 text-[10px]", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                            <span
-                              className="inline-flex items-center rounded border px-1.5 py-0.5 font-medium"
-                              title={getAvailabilityBadgeTooltip(flight.availabilitySummary)}
-                            >
-                              AV {flight.availabilitySummary.success ? "OK" : `RC${flight.availabilitySummary.returnCode}`}
-                            </span>
-                            <span>Seg {flight.availabilitySummary.segments}</span>
-                            {flight.availabilitySummary.errorSegments > 0 && (
-                              <span className="text-amber-500">Err {flight.availabilitySummary.errorSegments}</span>
-                            )}
-                          </div>
-                        )}
                       </button>
                       </div>
                     );
@@ -700,7 +692,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       {/* Main Content Area */}
       <PanelGroup orientation="horizontal" className="flex flex-1 overflow-hidden">
         {/* Sidebar Flights List */}
-        <Panel defaultSize="14" minSize="10" maxSize="22" collapsible collapsedSize="0%" panelRef={sidebarPanelRef} className="hidden lg:flex flex-col h-full border-r bg-muted/30">
+        <Panel defaultSize="14" minSize="10" maxSize="22" collapsible collapsedSize="0%" panelRef={sidebarPanelRef} className="hidden md:flex flex-col h-full border-r bg-muted/30">
           <div className="p-4 border-b space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Flights</span>
@@ -951,20 +943,6 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         <span className="mx-1">•</span>
                         <span>{flight.departureDate}</span>
                       </div>
-                      {flight.availabilitySummary && (
-                        <div className={cn("flex items-center gap-1.5 text-[10px]", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                          <span
-                            className="inline-flex items-center rounded border px-1.5 py-0.5 font-medium"
-                            title={getAvailabilityBadgeTooltip(flight.availabilitySummary)}
-                          >
-                            AV {flight.availabilitySummary.success ? "OK" : `RC${flight.availabilitySummary.returnCode}`}
-                          </span>
-                          <span>Seg {flight.availabilitySummary.segments}</span>
-                          {flight.availabilitySummary.errorSegments > 0 && (
-                            <span className="text-amber-500">Err {flight.availabilitySummary.errorSegments}</span>
-                          )}
-                        </div>
-                      )}
                     </button>
                     </div>
                   );
@@ -974,7 +952,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           </div>
         </Panel>
 
-        <PanelResizeHandle className="relative w-1.5 border-r bg-border/50 hover:bg-primary/50 cursor-col-resize transition-all group/handle hidden lg:block">
+        <PanelResizeHandle className="relative w-1.5 border-r bg-border/50 hover:bg-primary/50 cursor-col-resize transition-all group/handle hidden md:block">
           <button
             onClick={() => sidebarPanelRef.current?.isCollapsed() ? sidebarPanelRef.current?.expand() : sidebarPanelRef.current?.collapse()}
             className="absolute top-1/2 -translate-y-1/2 -left-1.5 z-10 flex h-6 w-3 items-center justify-center rounded-sm bg-border hover:bg-primary text-muted-foreground hover:text-primary-foreground opacity-0 group-hover/handle:opacity-100 transition-opacity"
@@ -986,12 +964,11 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
 
         {/* Vertical Navigation Rail */}
         <div className={cn(
-          "hidden lg:flex flex-col border-r bg-muted/20 py-3 gap-0.5 shrink-0 transition-all duration-200",
+          "hidden md:flex flex-col border-r bg-muted/20 py-3 gap-0.5 shrink-0 transition-all duration-200",
           navCollapsed ? "w-12 items-center" : "w-36"
         )}>
           {([
             { key: "overview", icon: LayoutDashboard, label: "Overview" },
-            { key: "availability", icon: Radar, label: "Availability" },
             { key: "passengers", icon: Users, label: "Passengers" },
             { key: "standby", icon: Timer, label: "Standby" },
             { key: "changes", icon: Activity, label: "Changes" },
@@ -1054,7 +1031,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
 
         {/* Console Workspace */}
         <Panel minSize="40">
-          <main className="h-full w-full overflow-y-auto bg-muted/10 py-3 px-2 lg:py-4 lg:px-3">
+          <main className="h-full w-full overflow-y-auto bg-muted/10 py-3 px-2 md:py-4 md:px-3">
             <div className="space-y-3">
               {dashboardLoading && (
                 <div className="flex min-h-[400px] items-center justify-center text-muted-foreground">
@@ -1181,8 +1158,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         {/* Last-fetched timestamp */}
                         {dashboard.fetchedAt && (
                           <>
-                            <Separator orientation="vertical" className="h-5 hidden lg:block" />
-                            <span className="hidden lg:flex items-center gap-1 text-[10px] text-muted-foreground" title={`Data fetched at ${dashboard.fetchedAt}`}>
+                            <Separator orientation="vertical" className="h-5 hidden md:block" />
+                            <span className="hidden md:flex items-center gap-1 text-[10px] text-muted-foreground" title={`Data fetched at ${dashboard.fetchedAt}`}>
                               <Clock className="h-3 w-3" />
                               {new Date(dashboard.fetchedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
@@ -1195,7 +1172,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           onClick={openTreeDialog}
                         >
                           <Network className="h-3.5 w-3.5" />
-                          <span className="hidden lg:inline">Pax Tree</span>
+                          <span className="hidden md:inline">Pax Tree</span>
                         </Button>
                         <Button
                           variant="ghost"
@@ -1204,7 +1181,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           onClick={openMatrixDialog}
                         >
                           <Table2 className="h-3.5 w-3.5" />
-                          <span className="hidden lg:inline">Matrix</span>
+                          <span className="hidden md:inline">Matrix</span>
                         </Button>
                       </div>
                     </div>
@@ -1714,17 +1691,6 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                     )}
 
                     {/* Passengers Tab */}
-                    {activeTab === "availability" && (
-                      <div className="mt-1">
-                      <AvailabilityPanel
-                        flightNumber={effectiveSelected.flightNumber}
-                        origin={effectiveSelected.origin}
-                        date={effectiveSelected.date}
-                      />
-                      </div>
-                    )}
-
-                    {/* Passengers Tab */}
                     {activeTab === "passengers" && (
                       <div className="mt-1">
                       <PassengerTable
@@ -2009,10 +1975,9 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       </AlertDialog>
 
       {/* Mobile Tab Bar — visible below lg breakpoint */}
-      <nav className="lg:hidden flex shrink-0 border-t bg-card overflow-x-auto scrollbar-none">
+      <nav className="md:hidden flex shrink-0 border-t bg-card overflow-x-auto scrollbar-none">
         {([
           { key: "overview" as const, icon: LayoutDashboard, label: "Overview" },
-          { key: "availability" as const, icon: Radar, label: "Avail" },
           { key: "passengers" as const, icon: Users, label: "Pax" },
           { key: "standby" as const, icon: Timer, label: "Standby" },
           { key: "changes" as const, icon: Activity, label: "Changes" },
@@ -2056,29 +2021,6 @@ function getStatusColor(status: string) {
     default:
       return "bg-secondary text-secondary-foreground";
   }
-}
-
-function getAvailabilityBadgeTooltip(summary: NonNullable<FlightListItem["availabilitySummary"]>): string {
-  const base = [
-    `Return code: ${summary.returnCode}`,
-    `Segments: ${summary.segments}`,
-    `Error segments: ${summary.errorSegments}`,
-  ];
-
-  if (!summary.requestProfile) {
-    return base.join("\n");
-  }
-
-  const profile = summary.requestProfile;
-  return [
-    ...base,
-    "",
-    "Request profile:",
-    `Attempt: ${profile.attempt}`,
-    `Action: ${profile.action}`,
-    `ebXML: ${profile.ebxmlVersion}`,
-    `mustUnderstand: ${profile.mustUnderstand}`,
-  ].join("\n");
 }
 
 function ScheduleDelay({ schedule }: { schedule?: { scheduledDeparture?: string; estimatedDeparture?: string; scheduledArrival?: string; estimatedArrival?: string } }) {

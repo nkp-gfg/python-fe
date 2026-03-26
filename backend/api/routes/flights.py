@@ -48,6 +48,10 @@ def _strip_id(doc):
     return doc
 
 
+def _empty_cabin_detail():
+    return {"adults": 0, "children": 0, "infants": 0, "staff": 0}
+
+
 def _empty_state_bucket():
     return {
         "totalPassengers": 0,
@@ -59,6 +63,8 @@ def _empty_state_bucket():
         "adults": 0,
         "children": 0,
         "infants": 0,
+        "economyDetail": _empty_cabin_detail(),
+        "businessDetail": _empty_cabin_detail(),
     }
 
 
@@ -203,6 +209,16 @@ def _analyze_passengers(passengers, gender_lookup=None):
             bucket["adults"] += 1
         if has_infant:
             bucket["infants"] += 1
+        # Per-cabin detail: adults, children, infants, staff
+        detail = bucket[cabin_key + "Detail"]
+        if is_staff:
+            detail["staff"] += 1
+        elif is_child:
+            detail["children"] += 1
+        else:
+            detail["adults"] += 1
+        if has_infant:
+            detail["infants"] += 1
 
         # Loyalty tier counts
         for tier in ("FF", "BLU", "SLV", "GLD", "BLK"):
@@ -401,7 +417,7 @@ def _build_tree_payload(analysis, passenger_summary, flight_status=None,
         {
             "id": "root", **positions["root"],
             "borderColor": "hsl(var(--muted-foreground))",
-            "textColor": "hsl(var(--foreground))",
+            "textColor": "#ffffff",
             "label": "Persons on Board",
             "value": persons_on_board,
             "subLabel": "Manifest + JumpSeat",
@@ -848,7 +864,7 @@ def _derive_flight_phase(fs, analysis):
     }
 
 
-def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_doc=None, trip_report_doc=None, schedule_doc=None, availability_doc=None):
+def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_doc=None, trip_report_doc=None, schedule_doc=None):
     if pl:
         passengers = pl.get("passengers", [])
         passenger_summary = {
@@ -987,7 +1003,159 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
         },
         "tree": tree,
         "schedule": _strip_id(schedule_doc) if schedule_doc else None,
-        "availability": _strip_id(availability_doc) if availability_doc else None,
+    }
+
+
+def _latest_by_key(cursor, key_fn):
+    """Given a cursor sorted by fetchedAt descending, keep only the first doc per key."""
+    seen = {}
+    for doc in cursor:
+        k = key_fn(doc)
+        if k not in seen:
+            seen[k] = doc
+    return seen
+
+
+def _flight_key(doc):
+    return (doc.get("airline", "GF"), doc.get("flightNumber"), doc.get("origin", ""), doc.get("departureDate", ""))
+
+
+# ── Aggregation pipelines for fast list_flights ─────────────────────────
+
+def _latest_per_flight_agg(match: dict, extra_project: dict | None = None):
+    """Build a MongoDB aggregation pipeline that returns the latest doc per
+    (airline, flightNumber, origin, departureDate), excluding _raw."""
+    pipeline = []
+    if match:
+        pipeline.append({"$match": match})
+    pipeline.append({"$sort": {"fetchedAt": -1}})
+    pipeline.append({
+        "$group": {
+            "_id": {
+                "airline": {"$ifNull": ["$airline", "GF"]},
+                "flightNumber": "$flightNumber",
+                "origin": {"$ifNull": ["$origin", ""]},
+                "departureDate": {"$ifNull": ["$departureDate", ""]},
+            },
+            "doc": {"$first": "$$ROOT"},
+        }
+    })
+    project = {"doc._raw": 0,
+               "doc.passengers": 0} if extra_project is None else extra_project
+    pipeline.append({"$project": project})
+    return pipeline
+
+
+def _latest_schedule_agg(match: dict):
+    """Aggregation for schedules keyed by (airline, flightNumber, departureDate)."""
+    pipeline = []
+    if match:
+        pipeline.append({"$match": match})
+    pipeline.append({"$sort": {"fetchedAt": -1}})
+    pipeline.append({
+        "$group": {
+            "_id": {
+                "airline": {"$ifNull": ["$airline", "GF"]},
+                "flightNumber": "$flightNumber",
+                "departureDate": {"$ifNull": ["$departureDate", ""]},
+            },
+            "doc": {"$first": "$$ROOT"},
+        }
+    })
+    pipeline.append({"$project": {"doc._raw": 0}})
+    return pipeline
+
+
+def _quick_operational_counts(passenger_doc):
+    """Extract checkedIn/boarded/notCheckedIn from pre-computed aggregation fields
+    (set by _agg_passenger_list), falling back to a single-pass count if missing."""
+    if not passenger_doc:
+        return {"checkedIn": 0, "boarded": 0, "notCheckedIn": 0,
+                "soulsOnBoard": 0, "economySouls": 0, "businessSouls": 0}
+    # Prefer pre-computed fields from the aggregation pipeline
+    if "_checkedIn" in passenger_doc:
+        return {
+            "checkedIn": passenger_doc.get("_checkedIn", 0),
+            "boarded": passenger_doc.get("_boarded", 0),
+            "notCheckedIn": passenger_doc.get("_notCheckedIn", 0),
+            "soulsOnBoard": passenger_doc.get("_boardedSouls", 0),
+            "economySouls": passenger_doc.get("_econSouls", 0),
+            "businessSouls": passenger_doc.get("_bizSouls", 0),
+        }
+    # Fallback: compute from passengers array (e.g. when called outside list)
+    # Note: checkedIn includes boarded (same as _analyze_passengers)
+    checked_in = 0
+    boarded = 0
+    not_checked_in = 0
+    econ_souls = 0
+    biz_souls = 0
+    boarded_souls = 0
+    for p in passenger_doc.get("passengers", []):
+        has_infant = 1 if p.get("hasInfant") else 0
+        cabin_key = "J" if p.get("cabin") == "J" else "Y"
+        if p.get("isCheckedIn"):
+            checked_in += 1
+        if p.get("isBoarded"):
+            boarded += 1
+            boarded_souls += 1 + has_infant
+        if not p.get("isCheckedIn"):
+            not_checked_in += 1
+        if cabin_key == "J":
+            biz_souls += 1 + has_infant
+        else:
+            econ_souls += 1 + has_infant
+    return {
+        "checkedIn": checked_in,
+        "boarded": boarded,
+        "notCheckedIn": not_checked_in,
+        "soulsOnBoard": boarded_souls,
+        "economySouls": econ_souls,
+        "businessSouls": biz_souls,
+    }
+
+
+def _summarize_flight_for_list_fast(flight_status_doc, passenger_doc):
+    """Lightweight summary for the flight list — avoids full _analyze_passengers."""
+    destination = _extract_destination(flight_status_doc, passenger_doc)
+    passenger_summary = {
+        "totalPassengers": passenger_doc.get("totalPassengers", 0) if passenger_doc else 0,
+        "adultCount": passenger_doc.get("adultCount", 0) if passenger_doc else 0,
+        "childCount": passenger_doc.get("childCount", 0) if passenger_doc else 0,
+        "infantCount": passenger_doc.get("infantCount", 0) if passenger_doc else 0,
+        "totalSouls": passenger_doc.get("totalSouls", 0) if passenger_doc else 0,
+    }
+    ops = _quick_operational_counts(passenger_doc)
+    # Build a minimal analysis-like dict for _derive_flight_phase.
+    # Top-level checkedIn/boarded match _analyze_passengers (checkedIn INCLUDES boarded).
+    # stateBreakdown is mutually exclusive: booked → checkedIn-only → boarded.
+    ci_only = ops["checkedIn"] - ops["boarded"]  # checked-in but NOT boarded
+    mini_analysis = {
+        "checkedIn": ops["checkedIn"],
+        "boarded": ops["boarded"],
+        "notCheckedIn": ops["notCheckedIn"],
+        "stateBreakdown": {
+            "booked": {"totalPassengers": ops["notCheckedIn"]},
+            "checkedIn": {"totalPassengers": ci_only},
+            "boarded": {"totalPassengers": ops["boarded"], "totalSouls": ops["soulsOnBoard"]},
+        },
+        "cabinTotals": {
+            "economy": {"souls": ops["economySouls"]},
+            "business": {"souls": ops["businessSouls"]},
+        },
+    }
+    phase = _derive_flight_phase(flight_status_doc, mini_analysis)
+    return {
+        "destination": destination,
+        "passengerSummary": passenger_summary,
+        "operationalSummary": {
+            "checkedIn": ops["checkedIn"],
+            "boarded": ops["boarded"],
+            "notCheckedIn": ops["notCheckedIn"],
+            "soulsOnBoard": ops["soulsOnBoard"],
+            "economySouls": ops["economySouls"],
+            "businessSouls": ops["businessSouls"],
+        },
+        "flightPhase": phase,
     }
 
 
@@ -998,151 +1166,136 @@ def list_flights(
     """List all distinct flights in the database with their latest status."""
     validate_date(date)
     db = get_db()
-    match = {}
-    if date:
-        match["departureDate"] = date
+    match = {"departureDate": date} if date else {}
 
-    pipeline = [
-        {"$match": match} if match else {"$match": {}},
-        {"$sort": {"fetchedAt": -1}},
-        {
+    # ── Parallel aggregation: latest doc per flight key from each collection ──
+    def _agg_flight_status():
+        pipeline = _latest_per_flight_agg(match, extra_project={"doc._raw": 0})
+        return {
+            (d["_id"]["airline"], d["_id"]["flightNumber"],
+             d["_id"]["origin"], d["_id"]["departureDate"]): d["doc"]
+            for d in db["flight_status"].aggregate(pipeline, allowDiskUse=True)
+        }
+
+    def _agg_passenger_list():
+        """Return latest passenger_list per flight key with pre-computed status
+        counts.  The aggregation computes checkedIn/boarded/notCheckedIn and
+        soul counts server-side so we don't transfer the full passengers array."""
+        pipeline = []
+        if match:
+            pipeline.append({"$match": match})
+        pipeline.append({"$sort": {"fetchedAt": -1}})
+        pipeline.append({
             "$group": {
                 "_id": {
-                    "airline": "$airline",
+                    "airline": {"$ifNull": ["$airline", "GF"]},
                     "flightNumber": "$flightNumber",
-                    "origin": "$origin",
-                    "departureDate": "$departureDate",
+                    "origin": {"$ifNull": ["$origin", ""]},
+                    "departureDate": {"$ifNull": ["$departureDate", ""]},
                 },
-                "status": {"$first": "$status"},
-                "gate": {"$first": "$gate"},
-                "aircraft": {"$first": "$aircraft"},
-                "schedule": {"$first": "$schedule"},
-                "passengerCounts": {"$first": "$passengerCounts"},
-                "jumpSeat": {"$first": "$jumpSeat"},
-                "fetchedAt": {"$first": "$fetchedAt"},
+                "doc": {"$first": "$$ROOT"},
             }
-        },
-        {"$sort": {"_id.departureDate": 1, "_id.flightNumber": 1}},
-    ]
-    results = list(db["flight_status"].aggregate(pipeline))
+        })
+        # Compute operational counts from the passengers array inside MongoDB
+        # Note: checkedIn includes boarded passengers (same as _analyze_passengers)
+        pipeline.append({"$addFields": {
+            "doc._checkedIn": {
+                "$size": {"$filter": {
+                    "input": {"$ifNull": ["$doc.passengers", []]},
+                    "as": "p",
+                    "cond": {"$eq": [{"$ifNull": ["$$p.isCheckedIn", False]}, True]},
+                }}
+            },
+            "doc._boarded": {
+                "$size": {"$filter": {
+                    "input": {"$ifNull": ["$doc.passengers", []]},
+                    "as": "p",
+                    "cond": {"$eq": [{"$ifNull": ["$$p.isBoarded", False]}, True]},
+                }}
+            },
+            "doc._notCheckedIn": {
+                "$size": {"$filter": {
+                    "input": {"$ifNull": ["$doc.passengers", []]},
+                    "as": "p",
+                    "cond": {"$ne": [{"$ifNull": ["$$p.isCheckedIn", False]}, True]},
+                }}
+            },
+            "doc._boardedSouls": {
+                "$reduce": {
+                    "input": {"$filter": {
+                        "input": {"$ifNull": ["$doc.passengers", []]},
+                        "as": "p",
+                        "cond": {"$eq": [{"$ifNull": ["$$p.isBoarded", False]}, True]},
+                    }},
+                    "initialValue": 0,
+                    "in": {"$add": [
+                        "$$value", 1,
+                        {"$cond": [
+                            {"$ifNull": ["$$this.hasInfant", False]}, 1, 0]},
+                    ]},
+                }
+            },
+            "doc._econSouls": {
+                "$reduce": {
+                    "input": {"$ifNull": ["$doc.passengers", []]},
+                    "initialValue": 0,
+                    "in": {"$add": [
+                        "$$value",
+                        {"$cond": [{"$ne": ["$$this.cabin", "J"]}, {
+                            "$add": [1, {"$cond": [{"$ifNull": ["$$this.hasInfant", False]}, 1, 0]}]}, 0]},
+                    ]},
+                }
+            },
+            "doc._bizSouls": {
+                "$reduce": {
+                    "input": {"$ifNull": ["$doc.passengers", []]},
+                    "initialValue": 0,
+                    "in": {"$add": [
+                        "$$value",
+                        {"$cond": [{"$eq": ["$$this.cabin", "J"]}, {
+                            "$add": [1, {"$cond": [{"$ifNull": ["$$this.hasInfant", False]}, 1, 0]}]}, 0]},
+                    ]},
+                }
+            },
+        }})
+        # Strip the heavy arrays — we only need top-level counts + computed fields
+        pipeline.append({"$project": {"doc.passengers": 0, "doc._raw": 0}})
+        result = {}
+        for d in db["passenger_list"].aggregate(pipeline, allowDiskUse=True):
+            key = (d["_id"]["airline"], d["_id"]["flightNumber"],
+                   d["_id"]["origin"], d["_id"]["departureDate"])
+            result[key] = d["doc"]
+        return result
 
-    passenger_pipeline = [
-        {"$match": match} if match else {"$match": {}},
-        {"$sort": {"fetchedAt": -1}},
-        {
-            "$group": {
-                "_id": {
-                    "airline": "$airline",
-                    "flightNumber": "$flightNumber",
-                    "origin": "$origin",
-                    "departureDate": "$departureDate",
-                },
-                "destination": {"$first": "$destination"},
-                "totalPassengers": {"$first": "$totalPassengers"},
-                "adultCount": {"$first": "$adultCount"},
-                "childCount": {"$first": "$childCount"},
-                "infantCount": {"$first": "$infantCount"},
-                "totalSouls": {"$first": "$totalSouls"},
-                "passengers": {"$first": "$passengers"},
-                "cabinSummary": {"$first": "$cabinSummary"},
-            }
-        },
-    ]
-    passenger_results = list(
-        db["passenger_list"].aggregate(passenger_pipeline))
-    passenger_by_key = {
-        (
-            r["_id"].get("airline"),
-            r["_id"].get("flightNumber"),
-            r["_id"].get("origin"),
-            r["_id"].get("departureDate"),
-        ): r
-        for r in passenger_results
-    }
+    def _agg_schedules():
+        pipeline = _latest_schedule_agg(match)
+        return {
+            (d["_id"]["airline"], d["_id"]["flightNumber"],
+             d["_id"]["departureDate"]): d["doc"]
+            for d in db["flight_schedules"].aggregate(pipeline, allowDiskUse=True)
+        }
 
-    # Schedule data (VerifyFlightDetailsRS)
-    schedule_pipeline = [
-        {"$match": match} if match else {"$match": {}},
-        {"$sort": {"fetchedAt": -1}},
-        {
-            "$group": {
-                "_id": {
-                    "airline": "$airline",
-                    "flightNumber": "$flightNumber",
-                    "departureDate": "$departureDate",
-                },
-                "origin": {"$first": "$origin"},
-                "destination": {"$first": "$destination"},
-                "scheduledDeparture": {"$first": "$scheduledDeparture"},
-                "scheduledArrival": {"$first": "$scheduledArrival"},
-                "aircraftType": {"$first": "$aircraftType"},
-                "elapsedTime": {"$first": "$elapsedTime"},
-                "airMilesFlown": {"$first": "$airMilesFlown"},
-            }
-        },
-    ]
-    schedule_results = list(
-        db["flight_schedules"].aggregate(schedule_pipeline))
-    schedule_by_key = {
-        (
-            r["_id"].get("airline"),
-            r["_id"].get("flightNumber"),
-            r["_id"].get("departureDate"),
-        ): r
-        for r in schedule_results
-    }
+    # Run all 3 aggregations in parallel threads
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        fs_future = executor.submit(_agg_flight_status)
+        pl_future = executor.submit(_agg_passenger_list)
+        sc_future = executor.submit(_agg_schedules)
+        fs_by_key = fs_future.result()
+        passenger_by_key = pl_future.result()
+        schedule_by_key = sc_future.result()
 
-    # MultiFlight availability summary (latest)
-    availability_pipeline = [
-        {"$match": match} if match else {"$match": {}},
-        {"$sort": {"fetchedAt": -1}},
-        {
-            "$group": {
-                "_id": {
-                    "airline": "$airline",
-                    "flightNumber": "$flightNumber",
-                    "origin": "$origin",
-                    "departureDate": "$departureDate",
-                },
-                "success": {"$first": "$success"},
-                "returnCode": {"$first": "$returnCode"},
-                "summary": {"$first": "$summary"},
-                "requestProfile": {"$first": "$requestProfile"},
-                "fetchedAt": {"$first": "$fetchedAt"},
-            }
-        },
-    ]
-    availability_results = list(
-        db["multi_flight_availability"].aggregate(availability_pipeline))
-    availability_by_key = {
-        (
-            r["_id"].get("airline"),
-            r["_id"].get("flightNumber"),
-            r["_id"].get("origin"),
-            r["_id"].get("departureDate"),
-        ): r
-        for r in availability_results
-    }
+    # Sort by (departureDate, flightNumber)
+    sorted_keys = sorted(fs_by_key.keys(), key=lambda k: (k[3], k[1]))
 
     flights = []
-    for r in results:
-        fid = r["_id"]
-        passenger_doc = passenger_by_key.get(
-            (
-                fid.get("airline", "GF"),
-                fid.get("flightNumber"),
-                fid.get("origin", ""),
-                fid.get("departureDate", ""),
-            )
-        )
-        summary = _summarize_flight_for_list(r, passenger_doc)
-        schedule_data = schedule_by_key.get(
-            (
-                fid.get("airline", "GF"),
-                fid.get("flightNumber"),
-                fid.get("departureDate", ""),
-            )
-        )
+    for key in sorted_keys:
+        r = fs_by_key[key]
+        airline, fn, origin_val, dep_date = key
+        passenger_doc = passenger_by_key.get(key)
+        summary = _summarize_flight_for_list_fast(r, passenger_doc)
+
+        sched_key = (airline, fn, dep_date)
+        schedule_data = schedule_by_key.get(sched_key)
         sched_info = None
         if schedule_data:
             sched_info = {
@@ -1154,32 +1307,13 @@ def list_flights(
                 "elapsedTime": schedule_data.get("elapsedTime", ""),
                 "airMilesFlown": schedule_data.get("airMilesFlown", 0),
             }
-        availability_data = availability_by_key.get(
-            (
-                fid.get("airline", "GF"),
-                fid.get("flightNumber"),
-                fid.get("origin", ""),
-                fid.get("departureDate", ""),
-            )
-        )
-        availability_summary = None
-        if availability_data:
-            summary = availability_data.get("summary", {})
-            availability_summary = {
-                "success": bool(availability_data.get("success", False)),
-                "returnCode": availability_data.get("returnCode", -1),
-                "segments": summary.get("segments", 0),
-                "errorSegments": summary.get("errorSegments", 0),
-                "classes": summary.get("availableClasses", []),
-                "requestProfile": availability_data.get("requestProfile"),
-                "fetchedAt": availability_data.get("fetchedAt", ""),
-            }
+
         flights.append({
-            "airline": fid.get("airline", "GF"),
-            "flightNumber": fid.get("flightNumber", ""),
-            "origin": fid.get("origin", ""),
+            "airline": airline,
+            "flightNumber": fn,
+            "origin": origin_val,
             "destination": summary["destination"],
-            "departureDate": fid.get("departureDate", ""),
+            "departureDate": dep_date,
             "status": r.get("status"),
             "gate": r.get("gate"),
             "aircraft": r.get("aircraft"),
@@ -1190,7 +1324,6 @@ def list_flights(
             "operationalSummary": summary["operationalSummary"],
             "flightPhase": summary["flightPhase"],
             "publishedSchedule": sched_info,
-            "availabilitySummary": availability_summary,
             "fetchedAt": str(r.get("fetchedAt", "")),
         })
     return flights
@@ -1219,12 +1352,6 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
     sched_query = {"flightNumber": flight_number}
     if date:
         sched_query["departureDate"] = date
-
-    av_query = {"flightNumber": flight_number}
-    if origin:
-        av_query["origin"] = origin
-    if date:
-        av_query["departureDate"] = date
 
     change_match = {"flightNumber": flight_number}
     if origin:
@@ -1262,28 +1389,22 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
             sched_query, sort=[("fetchedAt", -1)])
         return _strip_id(doc)
 
-    def fetch_availability():
-        doc = db["multi_flight_availability"].find_one(
-            av_query, sort=[("fetchedAt", -1)])
-        return _strip_id(doc)
-
     def fetch_change_summary():
-        pipeline = [
-            {"$match": change_match},
-            {"$group": {"_id": "$changeType", "count": {"$sum": 1}}},
-        ]
-        change_results = list(db["changes"].aggregate(pipeline))
-        return {r["_id"]: r["count"] for r in change_results}
+        counts = {}
+        for doc in db["changes"].find(change_match, {"changeType": 1}):
+            ct = doc.get("changeType")
+            if ct:
+                counts[ct] = counts.get(ct, 0) + 1
+        return counts
 
     # Run all queries in parallel
-    with ThreadPoolExecutor(max_workers=7) as executor:
+    with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {
             executor.submit(fetch_flight_status): "flight_status",
             executor.submit(fetch_passenger_list): "passenger_list",
             executor.submit(fetch_reservations): "reservations",
             executor.submit(fetch_trip_reports): "trip_reports",
             executor.submit(fetch_schedule): "schedule",
-            executor.submit(fetch_availability): "availability",
             executor.submit(fetch_change_summary): "change_summary",
         }
         for future in as_completed(futures):
@@ -1332,14 +1453,13 @@ def get_flight_dashboard(
     reservation_doc = data.get("reservations")
     trip_report_doc = data.get("trip_reports")
     schedule_doc = data.get("schedule")
-    availability_doc = data.get("availability")
     change_summary = data.get("change_summary") or {}
 
     if not fs and not pl:
         raise HTTPException(status_code=404, detail="Flight not found")
 
     result = _build_dashboard_payload(fs, pl, origin, date, change_summary,
-                                      reservation_doc, trip_report_doc, schedule_doc, availability_doc)
+                                      reservation_doc, trip_report_doc, schedule_doc)
 
     # Cache the result (don't cache snapshot views)
     if not snapshot_sequence:

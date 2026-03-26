@@ -1,0 +1,25 @@
+{
+  "cabins": [
+    {
+      "class": "Economy",
+      "total": 257,
+      "breakdown": {
+        "adults": 253,
+        "children": 2,
+        "infants": 1,
+        "staff": 1
+      }
+    },
+    {
+      "class": "Business",
+      "total": 3,
+      "breakdown": {
+        "adults": 2,
+        "children": 0,
+        "infants": 0,
+        "staff": 1
+      }
+    }
+  ],
+  "totalBoarded": 260
+}
