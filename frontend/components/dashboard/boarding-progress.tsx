@@ -227,13 +227,13 @@ export function BoardingProgress({
 
         {/* Progress Chart */}
         <ProgressChart 
-          checkinSeries={data.checkinProgress.data}
-          boardingSeries={data.boardingProgress.data}
+          checkinSeries={data.checkinProgress?.data ?? []}
+          boardingSeries={data.boardingProgress?.data ?? []}
           totalPassengers={data.totalPassengers}
         />
 
         {/* Milestones */}
-        {data.milestones.length > 0 && (
+        {(data.milestones ?? []).length > 0 && (
           <div className="mt-4 pt-4 border-t space-y-2">
             <span className="text-xs font-medium text-muted-foreground uppercase">Milestones</span>
             {data.milestones.map((m) => (

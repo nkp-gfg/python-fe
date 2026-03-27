@@ -14,9 +14,10 @@ import { PaxMatrix } from "@/components/dashboard/pax-matrix";
 interface PassengerTreeProps {
   tree: FlightTree;
   mode?: "combined" | "tree" | "matrix";
+  onClose?: () => void;
 }
 
-export function PassengerTree({ tree, mode = "combined" }: PassengerTreeProps) {
+export function PassengerTree({ tree, mode = "combined", onClose }: PassengerTreeProps) {
   return (
     <Card className="shadow-none border-transparent bg-transparent">
       <CardContent className="p-0">
@@ -37,7 +38,7 @@ export function PassengerTree({ tree, mode = "combined" }: PassengerTreeProps) {
 
         {(mode === "combined" || mode === "tree") && (
           <div className="rounded-lg border bg-card p-2">
-            <PaxTree tree={tree} />
+            <PaxTree tree={tree} onClose={onClose} />
           </div>
         )}
       </CardContent>

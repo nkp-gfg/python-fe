@@ -34,17 +34,21 @@ import {
   Star,
   X,
 } from "lucide-react";
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { useDebounce } from "@/lib/hooks";
 
 import { fetchDashboard, fetchFlightTree, fetchFlights, ingestFlight } from "@/lib/api";
 import type { FlightListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { format, parse } from "date-fns";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
@@ -64,9 +68,9 @@ import { PassengerTable, type FilterCabin, type FilterStatus, type FilterType, t
 import { StandbyPanel } from "@/components/dashboard/standby-panel";
 import { PassengerDetailSheet } from "@/components/dashboard/passenger-detail-sheet";
 import { ChangeTimeline } from "@/components/dashboard/change-timeline";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { StatusHistory } from "@/components/dashboard/status-history";
 import { ReservationView } from "@/components/dashboard/reservation-view";
-import { ExecutiveValueFramework } from "@/components/dashboard/executive-value-framework";
 import { FlightTimeline } from "@/components/dashboard/flight-timeline";
 import { BoardingProgress } from "@/components/dashboard/boarding-progress";
 
@@ -94,6 +98,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [dateFilter, setDateFilter] = useState<string>("all");
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [mobileCalendarOpen, setMobileCalendarOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<FlightSelection | null>(initialSelection ?? null);
   const [detailPnr, setDetailPnr] = useState<string | null>(null);
@@ -107,7 +113,6 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [filterLoyalty, setFilterLoyalty] = useState<FilterLoyalty>("all");
   const [filterNationality, setFilterNationality] = useState<FilterNationality>("all");
-  const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
 
   const { data: flights, isLoading: flightsLoading, error: flightsError, refetch: refetchFlights, isFetching: flightsFetching } = useQuery({
     queryKey: ["flights"],
@@ -258,6 +263,10 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     return dates;
   }, [flights]);
 
+  const availableDateSet = useMemo(() => {
+    return new Set(availableDates);
+  }, [availableDates]);
+
   const availableStatuses = useMemo(() => {
     return [...new Set((flights ?? []).map((f) => f.status).filter(Boolean))].sort();
   }, [flights]);
@@ -285,6 +294,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       tomorrow: toIsoDate(tomorrow),
     };
   }, []);
+
+  const calendarSelectedDate = useMemo(() => {
+    if (dateFilter === "all") return undefined;
+    const resolved = (relativeDateMap as Record<string, string>)[dateFilter] ?? dateFilter;
+    return parse(resolved, "yyyy-MM-dd", new Date());
+  }, [dateFilter, relativeDateMap]);
 
   const quickDateFilterItems = useMemo(() => {
     const presets = [
@@ -397,8 +412,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground font-sans antialiased text-sm">
       {/* Top Navigation Bar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-4 md:px-6">
-        <div className="flex items-center gap-4">
+      <header className="flex h-14 shrink-0 items-center border-b bg-card px-4 md:px-6">
+        <div className="flex items-center gap-4 min-w-0 shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -415,7 +430,33 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Centered Search */}
+        <div className="flex-1 flex justify-center px-4">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && clearSearch()}
+              placeholder="Search flights..."
+              aria-label="Search flights"
+              className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="absolute right-2 top-2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Clear flight search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
           <div className="hidden items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 sm:flex">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -430,6 +471,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
             </div>
           )}
           <Separator orientation="vertical" className="hidden h-5 sm:block" />
+          <ThemeToggle />
           <Button
             variant="ghost"
             size="sm"
@@ -456,61 +498,66 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       <Sheet open={mobileRailOpen} onOpenChange={setMobileRailOpen}>
         <SheetContent side="left" className="w-[300px] p-0">
           <SheetTitle className="sr-only">Flight Sidebar</SheetTitle>
+          <SheetDescription className="sr-only">Select a flight from the sidebar list.</SheetDescription>
           <div className="flex flex-col h-full">
             <div className="p-4 border-b space-y-3">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Flights</span>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === "Escape" && clearSearch()}
-                  placeholder="Search flights..."
-                  aria-label="Search flights"
-                  className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-9 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={clearSearch}
-                    className="absolute right-2 top-2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    aria-label="Clear flight search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <CalendarDays className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                    <select
-                      value={dateFilter}
-                      onChange={(e) => setDateFilter(e.target.value)}
-                      aria-label="Filter by date"
-                      className={cn(
-                        "w-full appearance-none rounded-md border py-1.5 pl-7 pr-6 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                        dateFilter !== "all"
-                          ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
-                          : "border-input bg-background"
-                      )}
-                    >
-                      <option value="all">All dates</option>
-                      {availableDates.map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                    {dateFilter !== "all" && (
+                  <Popover open={mobileCalendarOpen} onOpenChange={setMobileCalendarOpen}>
+                    <PopoverTrigger asChild>
                       <button
-                        onClick={() => setDateFilter("all")}
-                        className="absolute right-1 top-1.5 rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
-                        aria-label="Clear date filter"
+                        className={cn(
+                          "flex-1 flex items-center gap-1.5 rounded-md border py-1.5 px-2 text-xs shadow-sm transition-colors",
+                          dateFilter !== "all"
+                            ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                            : "border-input bg-background text-muted-foreground"
+                        )}
                       >
-                        <X className="h-3 w-3 text-blue-500" />
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{dateFilter === "all" ? "All dates" : dateFilter}</span>
+                        {dateFilter !== "all" && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); setDateFilter("all"); }}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setDateFilter("all"); } }}
+                            className="ml-auto rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
+                            aria-label="Clear date filter"
+                          >
+                            <X className="h-3 w-3" />
+                          </span>
+                        )}
                       </button>
-                    )}
-                  </div>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={calendarSelectedDate}
+                        onSelect={(day) => {
+                          if (day) {
+                            setDateFilter(format(day, "yyyy-MM-dd"));
+                          } else {
+                            setDateFilter("all");
+                          }
+                          setMobileCalendarOpen(false);
+                        }}
+                        disabled={(day) => !availableDateSet.has(format(day, "yyyy-MM-dd"))}
+                        defaultMonth={calendarSelectedDate ?? new Date()}
+                      />
+                      {dateFilter !== "all" && (
+                        <div className="border-t px-3 py-2">
+                          <button
+                            onClick={() => { setDateFilter("all"); setMobileCalendarOpen(false); }}
+                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                            Clear date filter
+                          </button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                   <div className="relative flex-1">
                     <Filter className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
                     <select
@@ -636,7 +683,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         className={cn(
                           "w-full flex flex-col gap-2 rounded-lg p-3 text-left transition-colors",
                           isActive
-                            ? "bg-primary text-primary-foreground shadow-sm"
+                            ? "bg-emerald-600 text-white shadow-md ring-1 ring-emerald-400/50"
                             : "hover:bg-accent hover:text-accent-foreground text-foreground"
                         )}
                       >
@@ -647,7 +694,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                               variant="outline"
                               className={cn(
                                 "text-[10px] px-1.5 font-medium border-transparent",
-                                isActive ? "bg-primary-foreground/20 text-primary-foreground" : getStatusColor(flight.flightPhase?.phase || flight.status)
+                                isActive ? "bg-white/20 text-white" : getStatusColor(flight.flightPhase?.phase || flight.status)
                               )}
                             >
                               {flight.flightPhase?.label || flight.status || "UNKNOWN"}
@@ -658,7 +705,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                               title={ingestingFlight === `${flight.flightNumber}-${flight.origin}-${flight.departureDate}` ? "Background ingest running" : "Re-ingest from Sabre"}
                               onClick={(e) => handleQuickIngest(flight, e)}
                               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleQuickIngest(flight, e as unknown as React.MouseEvent); } }}
-                              className={cn("rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer", isActive && "hover:bg-primary-foreground/20")}
+                              className={cn("rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer", isActive && "hover:bg-white/20")}
                             >
                               {ingestingFlight === `${flight.flightNumber}-${flight.origin}-${flight.departureDate}` ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-medium">
@@ -671,7 +718,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                             </span>
                           </div>
                         </div>
-                        <div className={cn("flex items-center gap-1.5 text-xs", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                        <div className={cn("flex items-center gap-1.5 text-xs", isActive ? "text-white/80" : "text-muted-foreground")}>
                           <span>{flight.origin}</span>
                           <ArrowRight className="h-3 w-3" />
                           <span>{flight.destination || "Pending"}</span>
@@ -690,9 +737,10 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       </Sheet>
 
       {/* Main Content Area */}
-      <PanelGroup orientation="horizontal" className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Flights List */}
-        <Panel defaultSize="14" minSize="10" maxSize="22" collapsible collapsedSize="0%" panelRef={sidebarPanelRef} className="hidden md:flex flex-col h-full border-r bg-muted/30">
+        <ErrorBoundary compact label="Flight list">
+        <div className="hidden md:flex w-[280px] shrink-0 flex-col h-full border-r bg-muted/30">
           <div className="p-4 border-b space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Flights</span>
@@ -705,68 +753,64 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
               >
                 <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", flightsFetching && "animate-spin")} />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => sidebarPanelRef.current?.collapse()}
-                title="Collapse sidebar"
-              >
-                <ChevronsLeft className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === "Escape" && clearSearch()}
-                placeholder="Search flights..."
-                aria-label="Search flights"
-                className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="absolute right-2 top-2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  aria-label="Clear flight search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <CalendarDays className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                  <select
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    aria-label="Filter by date"
-                    className={cn(
-                      "w-full appearance-none rounded-md border py-1.5 pl-7 pr-6 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                      dateFilter !== "all"
-                        ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
-                        : "border-input bg-background"
-                    )}
-                  >
-                    <option value="all">All dates</option>
-                    {availableDates.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                  {dateFilter !== "all" && (
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
                     <button
-                      onClick={() => setDateFilter("all")}
-                      className="absolute right-1 top-1.5 rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
-                      aria-label="Clear date filter"
+                      className={cn(
+                        "flex-1 flex items-center gap-1.5 rounded-md border py-1.5 px-2 text-xs shadow-sm transition-colors",
+                        dateFilter !== "all"
+                          ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                          : "border-input bg-background text-muted-foreground"
+                      )}
                     >
-                      <X className="h-3 w-3 text-blue-500" />
+                      <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{dateFilter === "all" ? "All dates" : dateFilter}</span>
+                      {dateFilter !== "all" && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setDateFilter("all"); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setDateFilter("all"); } }}
+                          className="ml-auto rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
+                          aria-label="Clear date filter"
+                        >
+                          <X className="h-3 w-3" />
+                        </span>
+                      )}
                     </button>
-                  )}
-                </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={calendarSelectedDate}
+                      onSelect={(day) => {
+                        if (day) {
+                          setDateFilter(format(day, "yyyy-MM-dd"));
+                        } else {
+                          setDateFilter("all");
+                        }
+                        setCalendarOpen(false);
+                      }}
+                      disabled={(day) => !availableDateSet.has(format(day, "yyyy-MM-dd"))}
+                      defaultMonth={calendarSelectedDate ?? new Date()}
+                    />
+                    {dateFilter !== "all" && (
+                      <div className="border-t px-3 py-2">
+                        <button
+                          onClick={() => { setDateFilter("all"); setCalendarOpen(false); }}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Clear date filter
+                        </button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
                 <div className="relative flex-1">
                   <Filter className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
                   <select
@@ -897,7 +941,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       className={cn(
                         "w-full flex flex-col gap-2 rounded-lg p-3 text-left transition-colors",
                         isActive
-                          ? "bg-primary text-primary-foreground shadow-sm"
+                          ? "bg-emerald-600 text-white shadow-md ring-1 ring-emerald-400/50"
                           : "hover:bg-accent hover:text-accent-foreground text-foreground"
                       )}
                     >
@@ -911,7 +955,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                             className={cn(
                               "text-[10px] px-1.5 font-medium border-transparent",
                               isActive 
-                                ? "bg-primary-foreground/20 text-primary-foreground" 
+                                ? "bg-white/20 text-white" 
                                 : getStatusColor(flight.flightPhase?.phase || flight.status)
                             )}
                           >
@@ -923,7 +967,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                             title={ingestingFlight === `${flight.flightNumber}-${flight.origin}-${flight.departureDate}` ? "Background ingest running" : "Re-ingest from Sabre"}
                             onClick={(e) => handleQuickIngest(flight, e)}
                             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleQuickIngest(flight, e as unknown as React.MouseEvent); } }}
-                            className={cn("rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer", isActive && "hover:bg-primary-foreground/20")}
+                            className={cn("rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer", isActive && "hover:bg-white/20")}
                           >
                             {ingestingFlight === `${flight.flightNumber}-${flight.origin}-${flight.departureDate}` ? (
                               <span className="inline-flex items-center gap-1 text-[10px] font-medium">
@@ -936,7 +980,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           </span>
                         </div>
                       </div>
-                      <div className={cn("flex items-center gap-1.5 text-xs", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                      <div className={cn("flex items-center gap-1.5 text-xs", isActive ? "text-white/80" : "text-muted-foreground")}>
                         <span>{flight.origin}</span>
                         <ArrowRight className="h-3 w-3" />
                         <span>{flight.destination || "Pending"}</span>
@@ -950,17 +994,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
               </div>
             )}
           </div>
-        </Panel>
-
-        <PanelResizeHandle className="relative w-1.5 border-r bg-border/50 hover:bg-primary/50 cursor-col-resize transition-all group/handle hidden md:block">
-          <button
-            onClick={() => sidebarPanelRef.current?.isCollapsed() ? sidebarPanelRef.current?.expand() : sidebarPanelRef.current?.collapse()}
-            className="absolute top-1/2 -translate-y-1/2 -left-1.5 z-10 flex h-6 w-3 items-center justify-center rounded-sm bg-border hover:bg-primary text-muted-foreground hover:text-primary-foreground opacity-0 group-hover/handle:opacity-100 transition-opacity"
-            title="Toggle sidebar"
-          >
-            <ChevronsLeft className="h-3 w-3" />
-          </button>
-        </PanelResizeHandle>
+        </div>
+        </ErrorBoundary>
 
         {/* Vertical Navigation Rail */}
         <div className={cn(
@@ -1029,8 +1064,10 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           </div>
         </div>
 
+        <PanelGroup orientation="horizontal" className="flex-1 min-w-0">
         {/* Console Workspace */}
         <Panel minSize="40">
+          <ErrorBoundary label="Dashboard" key={effectiveSelected ? `${effectiveSelected.flightNumber}-${effectiveSelected.origin}-${effectiveSelected.date}` : "none"}>
           <main className="h-full w-full overflow-y-auto bg-muted/10 py-3 px-2 md:py-4 md:px-3">
             <div className="space-y-3">
               {dashboardLoading && (
@@ -1405,6 +1442,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
 
                     {/* Overview Tab — compact executive dashboard */}
                     {activeTab === "overview" && (
+                      <ErrorBoundary compact label="Overview">
                       <div className="mt-1 space-y-3">
                       {/* Phase Timeline Stepper */}
                       {dashboard.flightPhase && (
@@ -1669,8 +1707,6 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         </Card>
                       )}
 
-                      <ExecutiveValueFramework />
-
                       {/* Bottom Detail Panel */}
                       {bottomView && effectiveSelected && (
                         <BottomDetailPanel
@@ -1688,10 +1724,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         />
                       )}
                     </div>
+                    </ErrorBoundary>
                     )}
 
                     {/* Passengers Tab */}
                     {activeTab === "passengers" && (
+                      <ErrorBoundary compact label="Passengers">
                       <div className="mt-1">
                       <PassengerTable
                         flightNumber={effectiveSelected.flightNumber}
@@ -1714,10 +1752,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         setFilterNationality={setFilterNationality}
                       />
                       </div>
+                    </ErrorBoundary>
                     )}
 
                     {/* Standby Tab */}
                     {activeTab === "standby" && (
+                      <ErrorBoundary compact label="Standby">
                       <div className="mt-1">
                       <StandbyPanel
                         flightNumber={effectiveSelected.flightNumber}
@@ -1726,10 +1766,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         snapshotSequence={snapshotSequence}
                       />
                       </div>
+                    </ErrorBoundary>
                     )}
 
                     {/* Changes Tab */}
                     {activeTab === "changes" && (
+                      <ErrorBoundary compact label="Changes">
                       <div className="mt-1">
                       <ChangeTimeline
                         flightNumber={effectiveSelected.flightNumber}
@@ -1737,10 +1779,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         date={effectiveSelected.date}
                       />
                       </div>
+                    </ErrorBoundary>
                     )}
 
                     {/* History Tab */}
                     {activeTab === "history" && (
+                      <ErrorBoundary compact label="History">
                       <div className="mt-1">
                       <StatusHistory
                         flightNumber={effectiveSelected.flightNumber}
@@ -1760,10 +1804,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         }}
                       />
                       </div>
+                    </ErrorBoundary>
                     )}
 
                     {/* Reservations Tab */}
                     {activeTab === "reservations" && (
+                      <ErrorBoundary compact label="Reservations">
                       <div className="mt-1">
                       <ReservationView
                         flightNumber={effectiveSelected.flightNumber}
@@ -1772,10 +1818,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         snapshotSequence={snapshotSequence}
                       />
                       </div>
+                    </ErrorBoundary>
                     )}
 
                     {/* Activity Tab */}
                     {activeTab === "activity" && (
+                      <ErrorBoundary compact label="Activity">
                       <div className="mt-1 space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <BoardingProgress
@@ -1792,6 +1840,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           </div>
                         </div>
                       </div>
+                    </ErrorBoundary>
                     )}
                   </div>
 
@@ -1808,6 +1857,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
               )}
             </div>
           </main>
+          </ErrorBoundary>
         </Panel>
 
         {(ingestOpen || infoOpen) && (
@@ -1826,11 +1876,14 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       <Button variant="ghost" size="sm" onClick={() => setIngestOpen(false)}>Close</Button>
                     </div>
                     <div className="flex-1 overflow-y-auto">
+                      <ErrorBoundary compact label="Ingestion">
                       <IngestionPanel />
+                      </ErrorBoundary>
                     </div>
                   </>
                 )}
                 {infoOpen && (
+                  <ErrorBoundary compact label="Tile Info">
                   <>
                     <div className="flex items-center justify-between border-b bg-muted/30 p-5 sticky top-0 z-10">
                       <div className="flex items-center gap-2">
@@ -1848,12 +1901,14 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       <TileInfoPanel activeTab={activeInfo} />
                     </div>
                   </>
+                  </ErrorBoundary>
                 )}
               </aside>
             </Panel>
           </>
         )}
       </PanelGroup>
+      </div>
 
       <Sheet
         open={treeDialogOpen}
@@ -1871,6 +1926,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           showCloseButton={false}
         >
           <SheetTitle className="sr-only">Passenger Tree Dialog</SheetTitle>
+          <SheetDescription className="sr-only">Hierarchical breakdown of flight passengers.</SheetDescription>
           <div className="flex h-full min-h-0 flex-col">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div>
@@ -1884,6 +1940,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                 <Button variant="ghost" size="sm" onClick={() => setTreeDialogOpen(false)}>Close</Button>
               </div>
             </div>
+            <ErrorBoundary label="Passenger Tree">
             <div className="min-h-0 flex-1 overflow-auto bg-muted/10 p-4">
               {treeLoading ? (
                 <div className="flex items-center justify-center p-20 text-muted-foreground">
@@ -1891,11 +1948,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                   Processing topology...
                 </div>
               ) : tree ? (
-                <PassengerTree tree={tree} mode="tree" />
+                <PassengerTree tree={tree} mode="tree" onClose={() => setTreeDialogOpen(false)} />
               ) : (
                 <div className="text-center text-muted-foreground mt-10">No tree data found for this flight.</div>
               )}
             </div>
+            </ErrorBoundary>
           </div>
         </SheetContent>
       </Sheet>
@@ -1916,6 +1974,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           showCloseButton={false}
         >
           <SheetTitle className="sr-only">Passenger Matrix Dialog</SheetTitle>
+          <SheetDescription className="sr-only">Tabular passenger and status breakdown.</SheetDescription>
           <div className="flex h-full min-h-0 flex-col">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div>
@@ -1929,6 +1988,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                 <Button variant="ghost" size="sm" onClick={() => setMatrixDialogOpen(false)}>Close</Button>
               </div>
             </div>
+            <ErrorBoundary label="Passenger Matrix">
             <div className="min-h-0 flex-1 overflow-auto bg-muted/10 p-4">
               {treeLoading ? (
                 <div className="flex items-center justify-center p-20 text-muted-foreground">
@@ -1941,6 +2001,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                 <div className="text-center text-muted-foreground mt-10">No matrix data found for this flight.</div>
               )}
             </div>
+            </ErrorBoundary>
           </div>
         </SheetContent>
       </Sheet>

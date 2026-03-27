@@ -183,6 +183,7 @@ export interface FlightTreeNode {
   y: number;
   w: number;
   h: number;
+  display?: boolean;
   borderColor: string;
   textColor: string;
   label: string;

@@ -33,7 +33,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${roboto.variable} ${robotoMono.variable} dark h-full antialiased`}
+      className={`${roboto.variable} ${robotoMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ErrorBoundary>

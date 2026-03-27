@@ -5,6 +5,10 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /** Render a slim inline bar instead of a centered block */
+  compact?: boolean;
+  /** Section label shown in the error message */
+  label?: string;
 }
 
 interface State {
@@ -23,23 +27,42 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[ErrorBoundary]", error, info.componentStack);
+    console.error(`[ErrorBoundary${this.props.label ? `: ${this.props.label}` : ""}]`, error, info.componentStack);
   }
+
+  private reset = () => this.setState({ hasError: false, error: null });
 
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
+
+      if (this.props.compact) {
+        return (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm">
+            <span className="text-destructive font-medium">
+              {this.props.label ? `${this.props.label} failed` : "Something went wrong"}
+            </span>
+            <button
+              onClick={this.reset}
+              className="ml-auto rounded bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        );
+      }
+
       return (
         <div className="flex flex-col items-center justify-center min-h-[200px] gap-4 p-8 text-center">
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 max-w-md">
             <h2 className="text-lg font-semibold text-destructive mb-2">
-              Something went wrong
+              {this.props.label ? `${this.props.label} — Something went wrong` : "Something went wrong"}
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
               {this.state.error?.message || "An unexpected error occurred."}
             </p>
             <button
-              onClick={() => this.setState({ hasError: false, error: null })}
+              onClick={this.reset}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               Try again

@@ -37,7 +37,7 @@ function getFlightDashboardHref(flight: {
   origin: string;
   departureDate: string;
 }) {
-  return `/dashboard/${encodeURIComponent(flight.flightNumber)}?origin=${encodeURIComponent(flight.origin)}&date=${encodeURIComponent(flight.departureDate)}`;
+  return `/flights/${encodeURIComponent(flight.flightNumber)}?origin=${encodeURIComponent(flight.origin)}&date=${encodeURIComponent(flight.departureDate)}`;
 }
 
 export function IngestionPanel() {
@@ -190,11 +190,11 @@ export function IngestionPanel() {
             <h2 className="text-base font-semibold">Single Flight Sync</h2>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <LabelInput label="Airline Code">
+          <div className="grid gap-x-3 gap-y-4 grid-cols-3">
+            <LabelInput label="Airline">
               <input name="airline" disabled value={formData.airline} className={inputStyles} />
             </LabelInput>
-            <LabelInput label="Flight Number">
+            <LabelInput label="Flight No.">
               <input
                 name="flightNumber"
                 placeholder="e.g. 2006"
@@ -240,7 +240,7 @@ export function IngestionPanel() {
                 </button>
               </div>
             </LabelInput>
-            <LabelInput label="Departure Time (24h)">
+            <LabelInput label="Departure Time">
               <input
                 name="departureTime"
                 placeholder="HH:MM"

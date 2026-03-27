@@ -187,7 +187,7 @@ function ActivityItem({ event }: { event: ActivityFeedEvent }) {
         
         <div className="flex items-center gap-2 flex-wrap">
           <Link 
-            href={`/dashboard/${event.flightNumber}?origin=${event.origin}&date=${event.date}`}
+            href={`/flights/${event.flightNumber}?origin=${event.origin}&date=${event.date}`}
             className="flex items-center gap-1 text-xs text-primary hover:underline"
           >
             <Plane className="h-3 w-3" />

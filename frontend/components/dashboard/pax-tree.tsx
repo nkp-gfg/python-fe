@@ -144,11 +144,19 @@ function Node({ node }: { node: FlightTreeNode }) {
 interface PaxTreeProps {
   tree: FlightTree;
   className?: string;
+  onClose?: () => void;
 }
 
-export function PaxTree({ tree, className }: PaxTreeProps) {
-  const [magnified, setMagnified] = useState(false);
-  const nodeMap = new Map(tree.nodes.map((n) => [n.id, n]));
+export function PaxTree({ tree, className, onClose }: PaxTreeProps) {
+  const [magnified, setMagnified] = useState(true);
+
+  // Only render visible nodes in the SVG (display !== false)
+  const visibleNodes = tree.nodes.filter((n) => n.display !== false);
+  const visibleIds = new Set(visibleNodes.map((n) => n.id));
+  const visibleEdges = tree.edges.filter(
+    (e) => visibleIds.has(e.from) && visibleIds.has(e.to),
+  );
+  const nodeMap = new Map(visibleNodes.map((n) => [n.id, n]));
 
   function renderSvg(extraClass?: string) {
     return (
@@ -159,13 +167,13 @@ export function PaxTree({ tree, className }: PaxTreeProps) {
         role="img"
         aria-label="Passenger breakdown tree diagram"
       >
-        {tree.edges.map((e) => {
+        {visibleEdges.map((e) => {
           const from = nodeMap.get(e.from);
           const to = nodeMap.get(e.to);
           if (!from || !to) return null;
           return <Edge key={`${e.from}-${e.to}`} from={from} to={to} />;
         })}
-        {tree.nodes.map((n) => (
+        {visibleNodes.map((n) => (
           <Node key={n.id} node={n} />
         ))}
       </svg>
@@ -188,7 +196,7 @@ export function PaxTree({ tree, className }: PaxTreeProps) {
         </Button>
       </div>
       <div className="overflow-auto flex justify-center pb-2">
-        {renderSvg("w-full")}
+        {renderSvg("max-w-[860px] w-full")}
       </div>
 
       {magnified && (
@@ -205,14 +213,14 @@ export function PaxTree({ tree, className }: PaxTreeProps) {
                 variant="ghost"
                 size="sm"
                 className="h-8 gap-1.5"
-                onClick={() => setMagnified(false)}
+                onClick={() => { setMagnified(false); onClose?.(); }}
               >
                 <X className="h-4 w-4" />
                 Close
               </Button>
             </div>
             <div className="flex-1 overflow-auto p-4">
-              <div className="mx-auto min-w-[1400px] max-w-[2200px]">
+              <div className="mx-auto min-w-[860px] max-w-[1400px]">
                 {renderSvg("w-full")}
               </div>
             </div>

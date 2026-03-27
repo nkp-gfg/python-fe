@@ -1,7 +1,14 @@
 "use client";
 
 import type { FlightPhaseCode } from "@/lib/types";
-import { CalendarDays, UserCheck, ScanLine, DoorClosed, PlaneTakeoff } from "lucide-react";
+import {
+  CalendarDays,
+  UserCheck,
+  ScanLine,
+  DoorClosed,
+  PlaneTakeoff,
+  Check,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -13,49 +20,61 @@ const PHASES: {
   code: FlightPhaseCode;
   label: string;
   icon: React.ElementType;
-  activeColor: string;
-  dotActive: string;
-  lineActive: string;
+  color: string;        // text color for current label
+  bg: string;           // bg for current dot
+  ring: string;         // glow ring for current dot
+  line: string;         // connector color for completed segment
+  pastBg: string;       // bg for completed dot
 }[] = [
   {
     code: "SCHEDULED",
     label: "Scheduled",
     icon: CalendarDays,
-    activeColor: "text-slate-400",
-    dotActive: "bg-slate-500 ring-slate-500/30",
-    lineActive: "bg-slate-500",
+    color: "text-slate-600 dark:text-slate-300",
+    bg: "bg-slate-600 dark:bg-slate-500",
+    ring: "ring-slate-600/25 dark:ring-slate-400/30",
+    line: "bg-slate-500",
+    pastBg: "bg-slate-500/80 dark:bg-slate-500/60",
   },
   {
     code: "CHECK_IN",
     label: "Check-In",
     icon: UserCheck,
-    activeColor: "text-blue-400",
-    dotActive: "bg-blue-500 ring-blue-500/30",
-    lineActive: "bg-blue-500",
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-600 dark:bg-blue-500",
+    ring: "ring-blue-600/25 dark:ring-blue-400/30",
+    line: "bg-blue-500",
+    pastBg: "bg-blue-500/80 dark:bg-blue-500/60",
   },
   {
     code: "BOARDING",
     label: "Boarding",
     icon: ScanLine,
-    activeColor: "text-amber-400",
-    dotActive: "bg-amber-500 ring-amber-500/30",
-    lineActive: "bg-amber-500",
+    color: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-500 dark:bg-amber-500",
+    ring: "ring-amber-500/25 dark:ring-amber-400/30",
+    line: "bg-amber-500",
+    pastBg: "bg-amber-500/80 dark:bg-amber-500/60",
   },
   {
     code: "CLOSED",
     label: "Closed",
     icon: DoorClosed,
-    activeColor: "text-red-400",
-    dotActive: "bg-red-500 ring-red-500/30",
-    lineActive: "bg-red-500",
+    color: "text-red-600 dark:text-red-400",
+    bg: "bg-red-600 dark:bg-red-500",
+    ring: "ring-red-600/25 dark:ring-red-400/30",
+    line: "bg-red-500",
+    pastBg: "bg-red-500/80 dark:bg-red-500/60",
   },
   {
     code: "DEPARTED",
     label: "Departed",
     icon: PlaneTakeoff,
-    activeColor: "text-gray-400",
-    dotActive: "bg-gray-500 ring-gray-500/30",
-    lineActive: "bg-gray-500",
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-600 dark:bg-emerald-500",
+    ring: "ring-emerald-600/25 dark:ring-emerald-400/30",
+    line: "bg-emerald-500",
+    pastBg: "bg-emerald-500/80 dark:bg-emerald-500/60",
   },
 ];
 
@@ -68,7 +87,7 @@ export function PhaseTimeline({ phase, label }: Props) {
   const currentIdx = phaseIndex(phase);
 
   return (
-    <div className="flex items-center gap-0 w-full px-1">
+    <div className="flex items-center gap-0 w-full px-2 py-1">
       {PHASES.map((p, i) => {
         const isPast = i < currentIdx;
         const isCurrent = i === currentIdx;
@@ -77,31 +96,47 @@ export function PhaseTimeline({ phase, label }: Props) {
 
         return (
           <div key={p.code} className="flex items-center flex-1 last:flex-none">
-            {/* Step dot + label */}
-            <div className="flex flex-col items-center gap-0.5 min-w-[60px]">
+            {/* Step node + label */}
+            <div className={cn(
+              "flex flex-col items-center gap-1 relative",
+              isCurrent ? "min-w-[76px]" : "min-w-[60px]",
+            )}>
+              {/* Dot / icon circle */}
               <div
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-full transition-all",
-                  isCurrent && `${p.dotActive} ring-4 shadow-lg`,
-                  isPast && "bg-muted-foreground/30",
-                  isFuture && "bg-muted/40 border border-muted-foreground/20",
+                  "relative flex items-center justify-center rounded-full transition-all duration-300",
+                  isCurrent && `h-9 w-9 ${p.bg} ring-[5px] ${p.ring} shadow-lg`,
+                  isPast && `h-7 w-7 ${p.pastBg}`,
+                  isFuture && "h-7 w-7 bg-muted dark:bg-muted/50 border-2 border-muted-foreground/20",
                 )}
               >
-                <Icon
-                  className={cn(
-                    "h-3.5 w-3.5",
-                    isCurrent && "text-white",
-                    isPast && "text-muted-foreground/70",
-                    isFuture && "text-muted-foreground/40",
-                  )}
-                />
+                {isPast ? (
+                  <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                ) : (
+                  <Icon
+                    className={cn(
+                      "transition-all",
+                      isCurrent && "h-4.5 w-4.5 text-white",
+                      isFuture && "h-3.5 w-3.5 text-muted-foreground/40",
+                    )}
+                  />
+                )}
+                {/* Pulse ring on current */}
+                {isCurrent && (
+                  <span className={cn(
+                    "absolute inset-0 rounded-full animate-ping opacity-20",
+                    p.bg,
+                  )} />
+                )}
               </div>
+
+              {/* Label */}
               <span
                 className={cn(
-                  "text-[10px] leading-tight text-center",
-                  isCurrent && `font-bold ${p.activeColor}`,
-                  isPast && "text-muted-foreground/60 font-medium",
-                  isFuture && "text-muted-foreground/40",
+                  "leading-tight text-center whitespace-nowrap transition-all",
+                  isCurrent && `text-xs font-bold ${p.color}`,
+                  isPast && "text-[10px] text-muted-foreground font-medium",
+                  isFuture && "text-[10px] text-muted-foreground/40",
                 )}
               >
                 {isCurrent ? label : p.label}
@@ -110,13 +145,18 @@ export function PhaseTimeline({ phase, label }: Props) {
 
             {/* Connector line (not after last) */}
             {i < PHASES.length - 1 && (
-              <div className="flex-1 h-0.5 mx-1 rounded-full">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    i < currentIdx ? PHASES[Math.min(i + 1, currentIdx)].lineActive : "bg-muted-foreground/15",
-                  )}
-                />
+              <div className="flex-1 mx-1.5 relative">
+                {/* Track */}
+                <div className="h-[3px] rounded-full bg-muted-foreground/10 dark:bg-muted-foreground/15" />
+                {/* Fill */}
+                {i < currentIdx && (
+                  <div
+                    className={cn(
+                      "absolute inset-0 h-[3px] rounded-full transition-all duration-500",
+                      PHASES[Math.min(i + 1, currentIdx)].line,
+                    )}
+                  />
+                )}
               </div>
             )}
           </div>

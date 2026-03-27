@@ -93,6 +93,11 @@ def _tree_badges(*items):
     return badges
 
 
+def _tree_badges_all(*items):
+    """Like _tree_badges but always includes all items (even zero values)."""
+    return [{"type": key, "value": value} for key, value in items]
+
+
 def _build_gender_lookup(reservation_doc):
     """Build a PNR+lastName → gender map from reservation DOCSEntry data."""
     lookup = {}
@@ -252,28 +257,6 @@ def _resolve_no_show(no_show, no_show_available, flight_closed, not_checked_in):
     return "—", "Needs FINAL/PDC", False
 
 
-def _offloaded_node(pos, offloaded, offloaded_available, flight_closed, ci_not_boarded, na_border, na_text):
-    val, sub, is_alert = _resolve_offloaded(
-        offloaded, offloaded_available, flight_closed, ci_not_boarded)
-    return {
-        "id": "offloaded", **pos,
-        "borderColor": "#e84545" if is_alert else (na_border if isinstance(val, str) else "#2ec27e"),
-        "textColor": "#e84545" if is_alert else (na_text if isinstance(val, str) else "#2ec27e"),
-        "label": "Offloaded", "value": val, "subLabel": sub, "badges": [],
-    }
-
-
-def _no_show_node(pos, no_show, no_show_available, flight_closed, not_checked_in, na_border, na_text):
-    val, sub, is_alert = _resolve_no_show(
-        no_show, no_show_available, flight_closed, not_checked_in)
-    return {
-        "id": "noShow", **pos,
-        "borderColor": "#e84545" if is_alert else (na_border if isinstance(val, str) else "#2ec27e"),
-        "textColor": "#e84545" if is_alert else (na_text if isinstance(val, str) else "#2ec27e"),
-        "label": "No-Show", "value": val, "subLabel": sub, "badges": [],
-    }
-
-
 def _offloaded_card(offloaded, offloaded_available, flight_closed, ci_not_boarded, na_border, na_text):
     val, sub, is_alert = _resolve_offloaded(
         offloaded, offloaded_available, flight_closed, ci_not_boarded)
@@ -297,128 +280,59 @@ def _no_show_card(no_show, no_show_available, flight_closed, not_checked_in, na_
 def _build_tree_payload(analysis, passenger_summary, flight_status=None,
                         offloaded=None, no_show=None,
                         offloaded_available=False, no_show_available=False):
+    """Build a consolidated passenger tree with 7 visible SVG nodes.
+
+    Demographics are shown as badges inside parent nodes instead of separate
+    leaf boxes.  Crew and status cards are kept as hidden data nodes so that
+    the PaxMatrix table can still look them up by ID.
+    """
     ep = analysis.get("economy", {}).get("passengers", {})
     es = analysis.get("economy", {}).get("staff", {})
     bp = analysis.get("business", {}).get("passengers", {})
     bs = analysis.get("business", {}).get("staff", {})
     total_souls = passenger_summary.get("totalSouls", 0)
 
-    # Jump seat from flight_status (ACS_FlightDetailRS)
     js = (flight_status or {}).get("jumpSeat") or {}
     jump_seat = js.get("cockpit", 0) + js.get("cabin", 0)
-
-    # Persons on board = all souls from manifest + jump seat occupants
     persons_on_board = total_souls + jump_seat
 
-    # Gender availability: Trip_SearchRS DOCSEntry cross-ref via PNR+lastName
-    has_gender = (analysis.get("totalMale", 0) +
-                  analysis.get("totalFemale", 0)) > 0
-    gender_sub = "DOCS gender" if has_gender else "Needs reservations"
-
-    # Adults = total passengers minus children (derived count)
-    ep_adults = ep.get("total", 0) - ep.get("children", 0)
-    bp_adults = bp.get("total", 0) - bp.get("children", 0)
-    es_adults = es.get("total", 0)  # staff has no children
-    bs_adults = bs.get("total", 0)
-
-    # Ungendered = passengers with no gender from Trip_SearchRS lookup
-    ep_ungendered = ep_adults - ep.get("male", 0) - ep.get("female", 0)
-    bp_ungendered = bp_adults - bp.get("male", 0) - bp.get("female", 0)
-    es_ungendered = es_adults - es.get("male", 0) - es.get("female", 0)
-    bs_ungendered = bs_adults - bs.get("male", 0) - bs.get("female", 0)
-
-    # ── Unavailable colour ──────────────────────────
     na_border = "#555555"
     na_text = "#777777"
 
-    # Flight closed? (PDC/FINAL → can infer no-show / offloaded from manifest)
     current_status = ((flight_status or {}).get("status", "")).upper()
     flight_closed = current_status in ("FINAL", "PDC")
     ci_not_boarded = (analysis.get("stateBreakdown", {})
                       .get("checkedIn", {}).get("totalPassengers", 0))
 
-    # ── Layout coordinates ──────────────────────────
-    # Row 3 leaf nodes (y=420) — placed first, parents centered above
-    # Economy passengers: Male, Female, Children, Infants
-    ep_m_x, ep_f_x, ep_c_x, ep_i_x = 58, 136, 214, 292
-    # Economy staff: Male, Female
-    es_m_x, es_f_x = 396, 474
-    # Business passengers: Male, Female, Children, Infants
-    bp_m_x, bp_f_x, bp_c_x, bp_i_x = 578, 656, 734, 812
-    # Business staff: Male, Female
-    bs_m_x, bs_f_x = 916, 994
+    # ── Consolidated 3-row layout ───────────────────
+    # Row 2 (leaf) x-positions
+    ep_x, es_x = 140, 330
+    bp_x, bs_x = 530, 720
+    # Row 1 — centered on children
+    econ_x = (ep_x + es_x) // 2   # 235
+    biz_x = (bp_x + bs_x) // 2    # 625
+    # Root — centered
+    root_x = (econ_x + biz_x) // 2  # 430
 
-    # Row 2 crew leaves (y=300) — under CabinCrew / FlightCrew
-    cc_m_x, cc_f_x = 1062, 1140
-    fc_m_x, fc_f_x = 1218, 1296
+    RW, RH = 180, 80    # root
+    PW, PH = 150, 72    # cabin parent
+    LW, LH = 160, 90    # leaf — taller to hold badge row
 
-    # Row 2 parents (y=300) — centered on their row-3 children
-    econ_pax_x = (ep_m_x + ep_i_x) // 2      # 175
-    econ_staff_x = (es_m_x + es_f_x) // 2     # 435
-    biz_pax_x = (bp_m_x + bp_i_x) // 2        # 695
-    biz_staff_x = (bs_m_x + bs_f_x) // 2      # 955
-
-    # Row 1 parents (y=175) — centered on row-2 children
-    econ_x = (econ_pax_x + econ_staff_x) // 2    # 305
-    biz_x = (biz_pax_x + biz_staff_x) // 2       # 825
-    cabin_crew_x = (cc_m_x + cc_f_x) // 2        # 1101
-    flight_crew_x = (fc_m_x + fc_f_x) // 2       # 1257
-
-    # Root (y=55) — centered on canvas
-    root_x = 690
-
-    LW, LH = 74, 70       # leaf node size
-    MW, MH = 116, 66      # mid-level node size
-    PW, PH = 130, 72      # parent node size (cabins)
-    CW, CH = 124, 72      # crew parent node size
-    RW, RH = 175, 80      # root node size
-    SW, SH = 108, 58      # status card size
-
-    positions = {
-        # Row 0 — Root
-        "root":             {"x": root_x, "y": 55, "w": RW, "h": RH},
-        # Row 1 — Cabin + Crew parents
-        "economy":          {"x": econ_x, "y": 175, "w": PW, "h": PH},
-        "business":         {"x": biz_x, "y": 175, "w": PW, "h": PH},
-        "cabinCrew":        {"x": cabin_crew_x, "y": 175, "w": CW, "h": CH},
-        "flightCrew":       {"x": flight_crew_x, "y": 175, "w": CW, "h": CH},
-        # Row 2 — Pax/Staff categories + crew leaves
-        "econPassengers":   {"x": econ_pax_x, "y": 300, "w": MW, "h": MH},
-        "econStaff":        {"x": econ_staff_x, "y": 300, "w": MW, "h": MH},
-        "bizPassengers":    {"x": biz_pax_x, "y": 300, "w": MW, "h": MH},
-        "bizStaff":         {"x": biz_staff_x, "y": 300, "w": MW, "h": MH},
-        "cabinCrewMale":    {"x": cc_m_x, "y": 300, "w": LW, "h": LH},
-        "cabinCrewFemale":  {"x": cc_f_x, "y": 300, "w": LW, "h": LH},
-        "flightCrewMale":   {"x": fc_m_x, "y": 300, "w": LW, "h": LH},
-        "flightCrewFemale": {"x": fc_f_x, "y": 300, "w": LW, "h": LH},
-        # Row 3 — Demographics (leaves)
-        "econPaxMale":      {"x": ep_m_x, "y": 420, "w": LW, "h": LH},
-        "econPaxFemale":    {"x": ep_f_x, "y": 420, "w": LW, "h": LH},
-        "econPaxChildren":  {"x": ep_c_x, "y": 420, "w": LW, "h": LH},
-        "econPaxInfants":   {"x": ep_i_x, "y": 420, "w": LW, "h": LH},
-        "econStaffMale":    {"x": es_m_x, "y": 420, "w": LW, "h": LH},
-        "econStaffFemale":  {"x": es_f_x, "y": 420, "w": LW, "h": LH},
-        "bizPaxMale":       {"x": bp_m_x, "y": 420, "w": LW, "h": LH},
-        "bizPaxFemale":     {"x": bp_f_x, "y": 420, "w": LW, "h": LH},
-        "bizPaxChildren":   {"x": bp_c_x, "y": 420, "w": LW, "h": LH},
-        "bizPaxInfants":    {"x": bp_i_x, "y": 420, "w": LW, "h": LH},
-        "bizStaffMale":     {"x": bs_m_x, "y": 420, "w": LW, "h": LH},
-        "bizStaffFemale":   {"x": bs_f_x, "y": 420, "w": LW, "h": LH},
-        # Row 4 — Status cards
-        "boarded":          {"x": 470, "y": 555, "w": SW, "h": SH},
-        "notCheckedIn":     {"x": 580, "y": 555, "w": SW, "h": SH},
-        "revenue":          {"x": 690, "y": 555, "w": SW, "h": SH},
-        "offloaded":        {"x": 800, "y": 555, "w": SW, "h": SH},
-        "noShow":           {"x": 910, "y": 555, "w": SW, "h": SH},
-    }
+    def _hidden(nid, label, value, sub="", border=na_border, text=na_text):
+        """Data-only node (not rendered in SVG, available for PaxMatrix lookups)."""
+        return {"id": nid, "x": 0, "y": 0, "w": 0, "h": 0,
+                "display": False,
+                "borderColor": border, "textColor": text,
+                "label": label, "value": value, "subLabel": sub, "badges": []}
 
     nodes = [
-        # ── Root ────────────────────────────────────
+        # ── Visible tree nodes (7) ─────────────────
         {
-            "id": "root", **positions["root"],
+            "id": "root", "x": root_x, "y": 55, "w": RW, "h": RH,
+            "display": True,
             "borderColor": "hsl(var(--muted-foreground))",
             "textColor": "#ffffff",
-            "label": "Persons on Board",
+            "label": "Passengers on Board",
             "value": persons_on_board,
             "subLabel": "Manifest + JumpSeat",
             "badges": _tree_badges(
@@ -428,9 +342,9 @@ def _build_tree_payload(analysis, passenger_summary, flight_status=None,
                 ("I", passenger_summary.get("infantCount", 0)),
             ),
         },
-        # ── Row 1 — Cabins ─────────────────────────
         {
-            "id": "economy", **positions["economy"],
+            "id": "economy", "x": econ_x, "y": 175, "w": PW, "h": PH,
+            "display": True,
             "borderColor": "#2ec27e", "textColor": "#2ec27e",
             "label": "Economy",
             "value": analysis.get("economy", {}).get("total", 0),
@@ -438,211 +352,112 @@ def _build_tree_payload(analysis, passenger_summary, flight_status=None,
             "badges": [],
         },
         {
-            "id": "business", **positions["business"],
+            "id": "business", "x": biz_x, "y": 175, "w": PW, "h": PH,
+            "display": True,
             "borderColor": "#c9a43a", "textColor": "#c9a43a",
             "label": "Business",
             "value": analysis.get("business", {}).get("total", 0),
             "subLabel": f"{analysis.get('business', {}).get('total', 0)} pax",
             "badges": [],
         },
-        # ── Row 1 — Crew (NOT in Sabre) ────────────
         {
-            "id": "cabinCrew", **positions["cabinCrew"],
-            "borderColor": na_border, "textColor": na_text,
-            "label": "Cabin Crew",
-            "value": "—",
-            "subLabel": "No Sabre source",
-            "badges": [],
-        },
-        {
-            "id": "flightCrew", **positions["flightCrew"],
-            "borderColor": na_border, "textColor": na_text,
-            "label": "Flight Crew",
-            "value": "—",
-            "subLabel": "No Sabre source",
-            "badges": [],
-        },
-        # ── Row 2 — Passengers / Staff ─────────────
-        {
-            "id": "econPassengers", **positions["econPassengers"],
+            "id": "econPassengers", "x": ep_x, "y": 295, "w": LW, "h": LH,
+            "display": True,
             "borderColor": "#3b8eed", "textColor": "#3b8eed",
             "label": "Passengers",
             "value": ep.get("total", 0),
             "subLabel": "Revenue",
-            "badges": _tree_badges(
+            "badges": _tree_badges_all(
                 ("M", ep.get("male", 0)), ("F", ep.get("female", 0)),
                 ("C", ep.get("children", 0)), ("I", ep.get("infants", 0)),
             ),
         },
         {
-            "id": "econStaff", **positions["econStaff"],
+            "id": "econStaff", "x": es_x, "y": 295, "w": LW, "h": LH,
+            "display": True,
             "borderColor": "#9b6dff", "textColor": "#9b6dff",
             "label": "Staff",
             "value": es.get("total", 0),
             "subLabel": "Non-Revenue",
-            "badges": _tree_badges(("M", es.get("male", 0)), ("F", es.get("female", 0))),
+            "badges": _tree_badges_all(
+                ("M", es.get("male", 0)), ("F", es.get("female", 0)),
+            ),
         },
         {
-            "id": "bizPassengers", **positions["bizPassengers"],
+            "id": "bizPassengers", "x": bp_x, "y": 295, "w": LW, "h": LH,
+            "display": True,
             "borderColor": "#3b8eed", "textColor": "#3b8eed",
             "label": "Passengers",
             "value": bp.get("total", 0),
             "subLabel": "Revenue",
-            "badges": _tree_badges(
+            "badges": _tree_badges_all(
                 ("M", bp.get("male", 0)), ("F", bp.get("female", 0)),
                 ("C", bp.get("children", 0)), ("I", bp.get("infants", 0)),
             ),
         },
         {
-            "id": "bizStaff", **positions["bizStaff"],
+            "id": "bizStaff", "x": bs_x, "y": 295, "w": LW, "h": LH,
+            "display": True,
             "borderColor": "#9b6dff", "textColor": "#9b6dff",
             "label": "Staff",
             "value": bs.get("total", 0),
             "subLabel": "Non-Revenue",
-            "badges": _tree_badges(("M", bs.get("male", 0)), ("F", bs.get("female", 0))),
+            "badges": _tree_badges_all(
+                ("M", bs.get("male", 0)), ("F", bs.get("female", 0)),
+            ),
         },
-        # ── Row 2 — Crew leaves (NOT in Sabre) ─────
-        {"id": "cabinCrewMale", **positions["cabinCrewMale"],
-            "borderColor": na_border, "textColor": na_text,
-            "label": "Male", "value": "—", "subLabel": "No Sabre source", "badges": []},
-        {"id": "cabinCrewFemale", **positions["cabinCrewFemale"],
-            "borderColor": na_border, "textColor": na_text,
-            "label": "Female", "value": "—", "subLabel": "No Sabre source", "badges": []},
-        {"id": "flightCrewMale", **positions["flightCrewMale"],
-            "borderColor": na_border, "textColor": na_text,
-            "label": "Male", "value": "—", "subLabel": "No Sabre source", "badges": []},
-        {"id": "flightCrewFemale", **positions["flightCrewFemale"],
-            "borderColor": na_border, "textColor": na_text,
-            "label": "Female", "value": "—", "subLabel": "No Sabre source", "badges": []},
-        # ── Row 3 — Economy Passenger demographics ──
-        {"id": "econPaxMale", **positions["econPaxMale"],
-            "borderColor": "#3b82f6", "textColor": "#3b82f6",
-            "label": "Male", "value": ep.get("male", 0),
-            "subLabel": gender_sub,
-            "badges": _tree_badges(("M", ep.get("male", 0)))},
-        {"id": "econPaxFemale", **positions["econPaxFemale"],
-            "borderColor": "#ec4899", "textColor": "#ec4899",
-            "label": "Female", "value": ep.get("female", 0),
-            "subLabel": gender_sub,
-            "badges": _tree_badges(("F", ep.get("female", 0)))},
-        {"id": "econPaxChildren", **positions["econPaxChildren"],
-            "borderColor": "#2ec27e", "textColor": "#2ec27e",
-            "label": "Children", "value": ep.get("children", 0),
-            "subLabel": "CHD edit code",
-            "badges": _tree_badges(("C", ep.get("children", 0)))},
-        {"id": "econPaxInfants", **positions["econPaxInfants"],
-            "borderColor": "#e89a3c", "textColor": "#e89a3c",
-            "label": "Infants", "value": ep.get("infants", 0),
-            "subLabel": "INF (lap baby)",
-            "badges": _tree_badges(("I", ep.get("infants", 0)))},
-        # ── Row 3 — Economy Staff demographics ──────
-        {"id": "econStaffMale", **positions["econStaffMale"],
-            "borderColor": "#3b82f6", "textColor": "#3b82f6",
-            "label": "Male", "value": es.get("male", 0),
-            "subLabel": gender_sub,
-            "badges": _tree_badges(("M", es.get("male", 0)))},
-        {"id": "econStaffFemale", **positions["econStaffFemale"],
-            "borderColor": "#ec4899", "textColor": "#ec4899",
-            "label": "Female", "value": es.get("female", 0),
-            "subLabel": gender_sub,
-            "badges": _tree_badges(("F", es.get("female", 0)))},
-        # ── Row 3 — Business Passenger demographics ─
-        {"id": "bizPaxMale", **positions["bizPaxMale"],
-            "borderColor": "#3b82f6", "textColor": "#3b82f6",
-            "label": "Male", "value": bp.get("male", 0),
-            "subLabel": gender_sub,
-            "badges": _tree_badges(("M", bp.get("male", 0)))},
-        {"id": "bizPaxFemale", **positions["bizPaxFemale"],
-            "borderColor": "#ec4899", "textColor": "#ec4899",
-            "label": "Female", "value": bp.get("female", 0),
-            "subLabel": gender_sub,
-            "badges": _tree_badges(("F", bp.get("female", 0)))},
-        {"id": "bizPaxChildren", **positions["bizPaxChildren"],
-            "borderColor": "#2ec27e", "textColor": "#2ec27e",
-            "label": "Children", "value": bp.get("children", 0),
-            "subLabel": "CHD edit code",
-            "badges": _tree_badges(("C", bp.get("children", 0)))},
-        {"id": "bizPaxInfants", **positions["bizPaxInfants"],
-            "borderColor": "#e89a3c", "textColor": "#e89a3c",
-            "label": "Infants", "value": bp.get("infants", 0),
-            "subLabel": "INF (lap baby)",
-            "badges": _tree_badges(("I", bp.get("infants", 0)))},
-        # ── Row 3 — Business Staff demographics ─────
-        {"id": "bizStaffMale", **positions["bizStaffMale"],
-            "borderColor": "#3b82f6", "textColor": "#3b82f6",
-            "label": "Male", "value": bs.get("male", 0),
-            "subLabel": gender_sub,
-            "badges": _tree_badges(("M", bs.get("male", 0)))},
-        {"id": "bizStaffFemale", **positions["bizStaffFemale"],
-            "borderColor": "#ec4899", "textColor": "#ec4899",
-            "label": "Female", "value": bs.get("female", 0),
-            "subLabel": gender_sub,
-            "badges": _tree_badges(("F", bs.get("female", 0)))},
-        # ── Row 4 — Status cards ────────────────────
-        {
-            "id": "boarded", **positions["boarded"],
-            "borderColor": "#2ec27e", "textColor": "#2ec27e",
-            "label": "Boarded",
-            "value": analysis.get("boarded", 0),
-            "subLabel": f"of {passenger_summary.get('totalPassengers', 0)}",
-            "badges": [],
-        },
-        {
-            "id": "notCheckedIn", **positions["notCheckedIn"],
-            "borderColor": "#e84545" if analysis.get("notCheckedIn", 0) > 0 else "#2ec27e",
-            "textColor": "#e84545" if analysis.get("notCheckedIn", 0) > 0 else "#2ec27e",
-            "label": "Not Checked-In",
-            "value": analysis.get("notCheckedIn", 0),
-            "subLabel": "Not in SOB" if analysis.get("notCheckedIn", 0) > 0 else "",
-            "badges": [],
-        },
-        {
-            "id": "revenue", **positions["revenue"],
-            "borderColor": "#35c0c0", "textColor": "#35c0c0",
-            "label": "Revenue",
-            "value": analysis.get("revenue", 0),
-            "subLabel": f"{analysis.get('nonRevenue', 0)} non-rev",
-            "badges": [],
-        },
-        _offloaded_node(positions["offloaded"], offloaded, offloaded_available,
-                        flight_closed, ci_not_boarded, na_border, na_text),
-        _no_show_node(positions["noShow"], no_show, no_show_available, flight_closed, analysis.get(
-            "notCheckedIn", 0), na_border, na_text),
+        # ── Hidden data nodes (PaxMatrix lookups) ───
+        _hidden("cabinCrew", "Cabin Crew", "—", "No Sabre source"),
+        _hidden("flightCrew", "Flight Crew", "—", "No Sabre source"),
+        _hidden("cabinCrewMale", "Male", "—", "No Sabre source"),
+        _hidden("cabinCrewFemale", "Female", "—", "No Sabre source"),
+        _hidden("flightCrewMale", "Male", "—", "No Sabre source"),
+        _hidden("flightCrewFemale", "Female", "—", "No Sabre source"),
+        _hidden("econPaxMale", "Male", ep.get("male", 0),
+                border="#3b82f6", text="#3b82f6"),
+        _hidden("econPaxFemale", "Female", ep.get("female", 0),
+                border="#ec4899", text="#ec4899"),
+        _hidden("econPaxChildren", "Children", ep.get("children", 0),
+                border="#2ec27e", text="#2ec27e"),
+        _hidden("econPaxInfants", "Infants", ep.get("infants", 0),
+                border="#e89a3c", text="#e89a3c"),
+        _hidden("econStaffMale", "Male", es.get("male", 0),
+                border="#3b82f6", text="#3b82f6"),
+        _hidden("econStaffFemale", "Female", es.get("female", 0),
+                border="#ec4899", text="#ec4899"),
+        _hidden("bizPaxMale", "Male", bp.get("male", 0),
+                border="#3b82f6", text="#3b82f6"),
+        _hidden("bizPaxFemale", "Female", bp.get("female", 0),
+                border="#ec4899", text="#ec4899"),
+        _hidden("bizPaxChildren", "Children", bp.get("children", 0),
+                border="#2ec27e", text="#2ec27e"),
+        _hidden("bizPaxInfants", "Infants", bp.get("infants", 0),
+                border="#e89a3c", text="#e89a3c"),
+        _hidden("bizStaffMale", "Male", bs.get("male", 0),
+                border="#3b82f6", text="#3b82f6"),
+        _hidden("bizStaffFemale", "Female", bs.get("female", 0),
+                border="#ec4899", text="#ec4899"),
     ]
 
     edges = [
-        # Root → Cabins + Crew
-        ["root", "economy"], ["root", "business"],
-        ["root", "cabinCrew"], ["root", "flightCrew"],
-        # Cabins → Pax/Staff
-        ["economy", "econPassengers"], ["economy", "econStaff"],
-        ["business", "bizPassengers"], ["business", "bizStaff"],
-        # Crew → M/F
-        ["cabinCrew", "cabinCrewMale"], ["cabinCrew", "cabinCrewFemale"],
-        ["flightCrew", "flightCrewMale"], ["flightCrew", "flightCrewFemale"],
-        # Economy Passengers → demographics
-        ["econPassengers", "econPaxMale"], ["econPassengers", "econPaxFemale"],
-        ["econPassengers", "econPaxChildren"], [
-            "econPassengers", "econPaxInfants"],
-        # Economy Staff → demographics
-        ["econStaff", "econStaffMale"], ["econStaff", "econStaffFemale"],
-        # Business Passengers → demographics
-        ["bizPassengers", "bizPaxMale"], ["bizPassengers", "bizPaxFemale"],
-        ["bizPassengers", "bizPaxChildren"], [
-            "bizPassengers", "bizPaxInfants"],
-        # Business Staff → demographics
-        ["bizStaff", "bizStaffMale"], ["bizStaff", "bizStaffFemale"],
+        {"from": "root", "to": "economy"},
+        {"from": "root", "to": "business"},
+        {"from": "economy", "to": "econPassengers"},
+        {"from": "economy", "to": "econStaff"},
+        {"from": "business", "to": "bizPassengers"},
+        {"from": "business", "to": "bizStaff"},
     ]
 
     return {
-        "title": "Persons on Board Breakdown",
+        "title": "Passengers on Board Breakdown",
         "badge": "Sabre Live",
-        "width": 1380,
-        "height": 650,
+        "width": 860,
+        "height": 360,
         "nodes": nodes,
-        "edges": [{"from": s, "to": e} for s, e in edges],
+        "edges": edges,
         "statusCards": [
-            {"id": "boarded", "label": "Boarded", "value": analysis.get("boarded", 0),
+            {"id": "boarded", "label": "Boarded",
+             "value": analysis.get("boarded", 0),
              "subLabel": f"of {passenger_summary.get('totalPassengers', 0)}",
              "borderColor": "#2ec27e", "textColor": "#2ec27e"},
             {"id": "notCheckedIn", "label": "Not Checked-In",
@@ -650,7 +465,8 @@ def _build_tree_payload(analysis, passenger_summary, flight_status=None,
              "subLabel": "Not in SOB" if analysis.get("notCheckedIn", 0) > 0 else "",
              "borderColor": "#e84545" if analysis.get("notCheckedIn", 0) > 0 else "#2ec27e",
              "textColor": "#e84545" if analysis.get("notCheckedIn", 0) > 0 else "#2ec27e"},
-            {"id": "revenue", "label": "Revenue", "value": analysis.get("revenue", 0),
+            {"id": "revenue", "label": "Revenue",
+             "value": analysis.get("revenue", 0),
              "subLabel": f"{analysis.get('nonRevenue', 0)} non-rev",
              "borderColor": "#35c0c0", "textColor": "#35c0c0"},
             _offloaded_card(offloaded, offloaded_available,
@@ -1512,7 +1328,7 @@ def get_flight_tree(
         raise HTTPException(status_code=404, detail="Flight not found")
 
     payload = _build_dashboard_payload(fs, pl, origin, date, {},
-                                       reservation_doc, trip_report_doc, None, None)
+                                       reservation_doc, trip_report_doc, None)
     return payload.get("tree") or {
         "title": "Aircraft Humans Breakdown Tree",
         "badge": "Sabre Live",

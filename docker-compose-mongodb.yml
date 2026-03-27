@@ -3,7 +3,7 @@ version: "3.8"
 services:
   mongodb:
     image: mongodb/mongodb-community-server:latest
-    container_name: mongodb
+    container_name: falconeye_mongodb
     ports:
       - "27017:27017"
     environment:
