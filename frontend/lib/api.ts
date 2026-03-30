@@ -11,6 +11,7 @@ import type {
   FlightTimelineResponse, ActivityFeedResponse,
   BoardingProgressResponse, PassengerHistoryBadges,
   GroupBookingsResponse,
+  AuditResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -387,4 +388,18 @@ export function fetchGroupBookings(
   if (snapshotSequence) params.set("snapshot_sequence", String(snapshotSequence));
   const qs = params.toString() ? `?${params}` : "";
   return get<GroupBookingsResponse>(`/flights/${flightNumber}/passengers/groups${qs}`);
+}
+
+// --- Process Audit ---
+
+export function fetchAudit(
+  flightNumber: string,
+  origin?: string,
+  date?: string,
+): Promise<AuditResponse> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  const qs = params.toString() ? `?${params}` : "";
+  return get<AuditResponse>(`/flights/${flightNumber}/audit${qs}`);
 }

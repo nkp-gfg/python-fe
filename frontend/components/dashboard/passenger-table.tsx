@@ -11,8 +11,9 @@ import {
   Filter,
   Luggage,
   X,
+  AlertTriangle,
 } from "lucide-react";
-import { fetchPassengers } from "@/lib/api";
+import { fetchPassengers, fetchAudit } from "@/lib/api";
 import { useDebounce } from "@/lib/hooks";
 import type { PassengerRecord } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +97,12 @@ export function PassengerTable({
   const { data, isLoading, error } = useQuery({
     queryKey: ["passengers", flightNumber, origin, date, snapshotSequence],
     queryFn: () => fetchPassengers(flightNumber, origin, date, snapshotSequence),
+  });
+
+  const { data: auditData } = useQuery({
+    queryKey: ["audit", flightNumber, origin, date],
+    queryFn: () => fetchAudit(flightNumber, origin, date),
+    enabled: Boolean(flightNumber),
   });
 
   function toggleSort(key: SortKey) {
@@ -672,7 +679,17 @@ export function PassengerTable({
                       <Badge variant="outline" className="ml-1.5 text-[9px] px-1 border-violet-300 text-violet-600">GRP</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{p.pnr}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <span className="flex items-center gap-1">
+                      {p.pnr}
+                      {auditData?.passengerAlerts?.[p.pnr] && (
+                        <AlertTriangle
+                          className="h-3 w-3 text-amber-500 shrink-0"
+                          title={`${auditData.passengerAlerts[p.pnr].length} audit alert(s)`}
+                        />
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-xs">{p.nationality || "—"}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn("text-[10px] px-1.5", p.cabin === "J" ? "border-amber-300 text-amber-600" : "border-emerald-300 text-emerald-600")}>

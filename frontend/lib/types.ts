@@ -1323,3 +1323,27 @@ export interface FlightInsights {
   standbyUpgrade: InsightsStandbyUpgrade;
   operationalReadiness: InsightsOperationalReadiness;
 }
+
+// --- Process Audit Types ---
+
+export type AuditSeverity = "critical" | "warning" | "info";
+
+export interface AuditAlert {
+  ruleId: string;
+  severity: AuditSeverity;
+  message: string;
+  pnr?: string;
+  passengerName?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface AuditResponse {
+  flightNumber: string;
+  origin: string;
+  departureDate: string;
+  fetchedAt: string;
+  alerts: AuditAlert[];
+  summary: Record<AuditSeverity, number>;
+  totalAlerts: number;
+  passengerAlerts: Record<string, string[]>;
+}

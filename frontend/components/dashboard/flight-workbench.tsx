@@ -77,6 +77,7 @@ import { ReservationView } from "@/components/dashboard/reservation-view";
 import { FlightTimeline } from "@/components/dashboard/flight-timeline";
 import { BoardingProgress } from "@/components/dashboard/boarding-progress";
 import { FlightInsightsPanel } from "@/components/dashboard/flight-insights";
+import { AuditPanel } from "@/components/dashboard/audit-panel";
 
 type FlightSelection = {
   flightNumber: string;
@@ -111,7 +112,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [detailPnr, setDetailPnr] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [bottomView, setBottomView] = useState<DetailView | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "insights">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "insights" | "audit">("overview");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [snapshotSequence, setSnapshotSequence] = useState<number | null>(null);
   const [selectedGroupCode, setSelectedGroupCode] = useState<string | null>(null);
@@ -265,7 +266,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         flight.departureDate === effectiveSelected?.date,
     ) ?? null;
 
-  const tabLabels: Record<"overview" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "insights", string> = {
+  const tabLabels: Record<"overview" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "insights" | "audit", string> = {
     overview: "Overview",
     passengers: "Passengers",
     groups: "Group Bookings",
@@ -275,6 +276,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     reservations: "Reservations",
     activity: "Activity",
     insights: "Insights",
+    audit: "Audit",
   };
 
   const availableDates = useMemo(() => {
@@ -452,7 +454,19 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="flex items-center gap-2 font-semibold">
+          <div
+            className="flex items-center gap-2 font-semibold cursor-pointer"
+            onClick={() => {
+              setSelected(null);
+              setActiveTab("overview");
+              setBottomView(null);
+              setSnapshotSequence(null);
+              router.push("/");
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { setSelected(null); router.push("/"); } }}
+          >
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-white">
               <Plane className="h-4 w-4" />
             </div>
@@ -1042,6 +1056,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
             { key: "reservations", icon: BookOpen, label: "Reservations" },
             { key: "activity", icon: Clock, label: "Activity" },
             { key: "insights", icon: BarChart3, label: "Insights" },
+            { key: "audit", icon: ShieldAlert, label: "Audit" },
           ] as const).map(({ key, icon: Icon, label }) => (
             <button
               key={key}
@@ -2098,6 +2113,21 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         <p>No insights data available for this flight.</p>
                       </div>
                     )}
+
+                    {/* Audit Tab */}
+                    {activeTab === "audit" && (
+                      <ErrorBoundary compact label="Audit">
+                        <AuditPanel
+                          flightNumber={effectiveSelected.flightNumber}
+                          origin={effectiveSelected.origin}
+                          date={effectiveSelected.date}
+                          onSelectPassenger={(pnr) => {
+                            setDetailPnr(pnr);
+                            setDetailOpen(true);
+                          }}
+                        />
+                      </ErrorBoundary>
+                    )}
                   </div>
 
                   {/* Passenger Detail Sheet */}
@@ -2323,6 +2353,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           { key: "history" as const, icon: History, label: "History" },
           { key: "reservations" as const, icon: BookOpen, label: "Res" },
           { key: "insights" as const, icon: BarChart3, label: "Insights" },
+          { key: "audit" as const, icon: ShieldAlert, label: "Audit" },
         ]).map(({ key, icon: Icon, label }) => (
           <button
             key={key}
