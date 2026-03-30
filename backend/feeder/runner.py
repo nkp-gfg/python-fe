@@ -108,8 +108,32 @@ def _pax_dedup_key(p):
 
 # ── Pipeline helpers ──────────────────────────────────────────────────────
 
+
+def _lookup_flight_sequence_number(flight_number, origin, departure_date):
+    """Fallback: look up flight_sequence_number from PostgreSQL.
+
+    Returns the int sequence number or None if not found / PG unavailable.
+    """
+    try:
+        from backend.api.postgres import query_all
+        rows = query_all(
+            "SELECT flight_sequence_number FROM otp.flight_xml_current "
+            "WHERE flight_number = %s AND scheduled_origin = %s "
+            "AND flight_date = %s LIMIT 1",
+            (flight_number, origin, departure_date),
+        )
+        if rows:
+            return rows[0]["flight_sequence_number"]
+    except Exception as exc:
+        logger.warning("pg_sequence_lookup_failed",
+                       flight_number=flight_number, origin=origin,
+                       departure_date=departure_date, error=str(exc))
+    return None
+
+
 def _process_api_call(api_type, snapshot_type, flight_info,
-                      raw_data, raw_xml, meta, converter_fn, converter_args):
+                      raw_data, raw_xml, meta, converter_fn, converter_args,
+                      flight_sequence_number=None):
     """
     Execute the 3-layer storage pipeline for one API call:
     1. Store raw request/response
@@ -187,7 +211,8 @@ def _process_api_call(api_type, snapshot_type, flight_info,
         }
 
     storage.update_flight_state(airline, fn, origin, dep_date,
-                                snapshot_id, snapshot_type, summary)
+                                snapshot_id, snapshot_type, summary,
+                                flight_sequence_number=flight_sequence_number)
 
     logger.info("pipeline_complete",
                 api_type=api_type, flight=f"{airline}{fn}",
@@ -207,9 +232,13 @@ def _process_api_call(api_type, snapshot_type, flight_info,
     }
 
 
-def run_feeder(flights):
+def run_feeder(flights, progress_callback=None):
     """
     Fetch data from Sabre for a list of flights and store with full preservation.
+
+    Args:
+        flights: List of flight dicts with airline, flightNumber, origin, etc.
+        progress_callback: Optional callable(index, flight_key) called after each flight.
     """
     results = []
 
@@ -220,6 +249,7 @@ def run_feeder(flights):
             origin = flight["origin"]
             dep_date = flight["departureDate"]
             dep_dt = flight["departureDateTime"]
+            flight_seq = flight.get("flightSequenceNumber")
 
             flight_info = {
                 "airline": airline,
@@ -234,6 +264,7 @@ def run_feeder(flights):
                     "origin": origin,
                     "departureDate": dep_date,
                     "departureDateTime": dep_dt,
+                    "flightSequenceNumber": flight_seq,
                 },
                 "success": True,
                 "apis": {},
@@ -244,6 +275,15 @@ def run_feeder(flights):
                         flight=f"{airline}{fn}", origin=origin,
                         departure_date=dep_date)
 
+            # Resolve flight_sequence_number: use provided value or fallback to PG lookup
+            if flight_seq is None:
+                flight_seq = _lookup_flight_sequence_number(
+                    fn, origin, dep_date)
+                if flight_seq is not None:
+                    logger.info("resolved_flight_seq_from_pg",
+                                flight=f"{airline}{fn}", seq=flight_seq)
+                    flight_result["flight"]["flightSequenceNumber"] = flight_seq
+
             # 1. Flight Status
             try:
                 raw, xml, meta = client.get_flight_status(
@@ -253,6 +293,7 @@ def run_feeder(flights):
                     raw, xml, meta,
                     convert_flight_status, (raw, airline,
                                             fn, origin, dep_date),
+                    flight_sequence_number=flight_seq,
                 )
                 flight_result["apis"]["flightStatus"] = {
                     "status": "success",
@@ -326,6 +367,7 @@ def run_feeder(flights):
                         merged_raw, merged_xml_parts[0], merged_meta,
                         convert_passenger_list, (merged_raw, airline,
                                                  fn, dep_date, origin),
+                        flight_sequence_number=flight_seq,
                     )
                     flight_result["apis"]["passengerList"] = {
                         "status": "success",
@@ -359,6 +401,7 @@ def run_feeder(flights):
                     "Reservations", "reservations", flight_info,
                     raw, xml, meta,
                     convert_reservations, (raw, airline, fn, origin, dep_date),
+                    flight_sequence_number=flight_seq,
                 )
                 flight_result["apis"]["reservations"] = {
                     "status": "success",
@@ -485,6 +528,13 @@ def run_feeder(flights):
                 }
 
             results.append(flight_result)
+
+            # Report progress to caller (Celery task / SSE)
+            if progress_callback is not None:
+                try:
+                    progress_callback(i, f"{airline}{fn}")
+                except Exception:
+                    pass  # Never let progress reporting break the pipeline
 
     logger.info("feeder_run_complete", processed_flights=len(flights))
     return {

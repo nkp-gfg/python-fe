@@ -5,9 +5,10 @@ Run with:
     uvicorn backend.api.main:app --reload
 """
 
-from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, audit, otp
+from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, audit, otp, comparison, events
 from backend.api.database import get_db, close_db
 from backend.api.postgres import close_pool as close_pg_pool
+from backend.api.redis_client import get_redis, close_redis
 from backend.feeder import storage as feeder_storage
 import logging
 import os
@@ -41,10 +42,20 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error("MongoDB connection failed during startup: %s", exc)
         # Allow the app to start so health endpoints can report the issue
+
+    # Verify Redis connection
+    try:
+        r = get_redis()
+        r.ping()
+        logger.info("Redis connected successfully")
+    except Exception as exc:
+        logger.warning("Redis connection failed during startup: %s", exc)
+
     yield
     # Shutdown: close connections
     close_db()
     close_pg_pool()
+    close_redis()
 
 
 app = FastAPI(
@@ -86,6 +97,8 @@ app.include_router(changes.activity_router)  # Global activity feed
 app.include_router(schedule.router)
 app.include_router(audit.router)
 app.include_router(otp.router)
+app.include_router(comparison.router)
+app.include_router(events.router)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────

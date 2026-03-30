@@ -319,6 +319,7 @@ export interface SabreIngestRequest {
   origin: string;
   departureDate: string;
   departureDateTime: string;
+  flightSequenceNumber?: number;
 }
 
 export interface SabreApiResult {

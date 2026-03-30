@@ -2,11 +2,10 @@
 
 Provides three modes of ingestion:
   POST /flights/ingest          — synchronous, single flight
-  POST /flights/ingest/batch    — background, multiple flights
-  GET  /flights/ingest/jobs/{id} — poll a background job
+  POST /flights/ingest/batch    — background, multiple flights (Celery)
+  GET  /flights/ingest/jobs/{id} — poll a background job (Redis-backed)
 """
 
-import asyncio
 import structlog
 import uuid
 from datetime import date, datetime, timezone
@@ -17,15 +16,10 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from backend.feeder.runner import run_feeder
+from backend.api.redis_client import create_job, get_job
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["ingestion"])
-
-# ── In-process job store ──────────────────────────────────────────────────
-# Lightweight dict-based store; sufficient for single-process deployments.
-# For multi-worker production, swap this for a shared store (Redis / Mongo).
-
-_jobs: dict[str, dict] = {}
 
 
 def _new_job_id() -> str:
@@ -60,6 +54,10 @@ class SabreIngestRequest(BaseModel):
     departureDateTime: datetime = Field(
         ..., description="Departure timestamp YYYY-MM-DDTHH:MM:SS"
     )
+    flightSequenceNumber: int | None = Field(
+        default=None,
+        description="PostgreSQL flight_sequence_number from otp.flight_xml_current",
+    )
 
 
 class SabreApiResult(BaseModel):
@@ -86,6 +84,7 @@ class SabreFlightPayload(BaseModel):
     origin: str
     departureDate: str
     departureDateTime: str
+    flightSequenceNumber: int | None = None
 
 
 class SabreFlightIngestResult(BaseModel):
@@ -137,23 +136,9 @@ class SabreJobStatus(BaseModel):
     error: str | None = None
 
 
-# ── Background runner ─────────────────────────────────────────────────────
-
-async def _run_batch_job(job_id: str, payloads: list[dict]) -> None:
-    """Execute the feeder in a threadpool and update the job store."""
-    _jobs[job_id]["status"] = "running"
-    _jobs[job_id]["startedAt"] = _utc_now()
-    try:
-        result = await run_in_threadpool(run_feeder, payloads)
-        _jobs[job_id]["status"] = "completed"
-        _jobs[job_id]["flightsProcessed"] = result["processedFlights"]
-        _jobs[job_id]["results"] = result["results"]
-    except Exception as exc:
-        logger.exception("Batch job %s failed", job_id)
-        _jobs[job_id]["status"] = "failed"
-        _jobs[job_id]["error"] = str(exc)
-    finally:
-        _jobs[job_id]["completedAt"] = _utc_now()
+# ── Background runner (Celery) ────────────────────────────────────────────
+# Batch jobs are now dispatched to Celery workers via Redis broker.
+# The in-process _run_batch_job is no longer used.
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────
@@ -193,25 +178,18 @@ async def ingest_batch(payload: SabreBatchRequest):
     """Accept a batch of flights for background ingestion.
 
     Returns immediately with a job ID.  Poll GET /flights/ingest/jobs/{jobId}
-    for progress and results.
+    for progress and results.  Dispatched to a Celery worker via Redis.
     """
+    from backend.tasks.ingestion import run_batch_ingestion
+
     job_id = _new_job_id()
     payloads = [f.model_dump(mode="json") for f in payload.flights]
 
-    _jobs[job_id] = {
-        "jobId": job_id,
-        "status": "accepted",
-        "flightsQueued": len(payloads),
-        "flightsProcessed": 0,
-        "submittedAt": _utc_now(),
-        "startedAt": None,
-        "completedAt": None,
-        "results": None,
-        "error": None,
-    }
+    # Create job record in Redis
+    create_job(job_id, len(payloads), job_type="ingestion")
 
-    # Fire-and-forget on the running event loop
-    asyncio.ensure_future(_run_batch_job(job_id, payloads))
+    # Dispatch to Celery worker
+    run_batch_ingestion.delay(job_id, payloads)
 
     return {
         "jobId": job_id,
@@ -224,8 +202,8 @@ async def ingest_batch(payload: SabreBatchRequest):
 
 @router.get("/ingest/jobs/{job_id}", response_model=SabreJobStatus)
 async def get_job_status(job_id: str):
-    """Poll the status of a background ingestion job."""
-    job = _jobs.get(job_id)
+    """Poll the status of a background ingestion job (from Redis)."""
+    job = get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return job

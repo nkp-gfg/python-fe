@@ -95,15 +95,23 @@ function AlertRow({ alert, onSelectPassenger }: { alert: AuditAlert; onSelectPas
               {RULE_LABELS[alert.ruleId] || alert.ruleId}
             </span>
             {alert.pnr && (
-              <button
-                className="text-xs font-mono text-primary hover:underline"
+              <span
+                role="link"
+                tabIndex={0}
+                className="text-xs font-mono text-primary hover:underline cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectPassenger?.(alert.pnr!);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.stopPropagation();
+                    onSelectPassenger?.(alert.pnr!);
+                  }
+                }}
               >
                 {alert.pnr}
-              </button>
+              </span>
             )}
             {alert.passengerName && (
               <span className="text-xs text-muted-foreground truncate">{alert.passengerName}</span>

@@ -43,12 +43,18 @@ function getFlightDashboardHref(flight: {
 export function IngestionPanel() {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const { pushToast } = useToast();
-  const [formData, setFormData] = useState({
-    airline: "GF",
-    flightNumber: "",
-    origin: "",
-    departureDate: "",
-    departureTime: "08:00",
+  const [formData, setFormData] = useState(() => {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, "0");
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const yyyy = now.getFullYear();
+    return {
+      airline: "GF",
+      flightNumber: "",
+      origin: "",
+      departureDate: `${dd}/${mm}/${yyyy}`,
+      departureTime: "08:00",
+    };
   });
 
   const [batchQueue, setBatchQueue] = useState<SabreIngestRequest[]>([]);

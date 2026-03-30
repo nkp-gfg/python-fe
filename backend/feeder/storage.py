@@ -309,7 +309,8 @@ def store_changes(changes):
 # ── Layer 4: Current State ────────────────────────────────────────────────
 
 def update_flight_state(airline, flight_number, origin, departure_date,
-                        snapshot_id, snapshot_type, summary=None):
+                        snapshot_id, snapshot_type, summary=None,
+                        flight_sequence_number=None):
     """
     Update the flights collection with the latest state.
     Uses upsert to create or update.
@@ -321,6 +322,18 @@ def update_flight_state(airline, flight_number, origin, departure_date,
     }
     if summary:
         update_fields["summary"] = summary
+    if flight_sequence_number is not None:
+        update_fields["flightSequenceNumber"] = flight_sequence_number
+
+    set_on_insert = {
+        "airline": airline,
+        "flightNumber": flight_number,
+        "origin": origin,
+        "departureDate": departure_date,
+        "createdAt": _now_iso(),
+    }
+    if flight_sequence_number is not None:
+        set_on_insert["flightSequenceNumber"] = flight_sequence_number
 
     db["flights"].update_one(
         {
@@ -332,18 +345,13 @@ def update_flight_state(airline, flight_number, origin, departure_date,
         {
             "$set": update_fields,
             "$inc": {"snapshotCount": 1},
-            "$setOnInsert": {
-                "airline": airline,
-                "flightNumber": flight_number,
-                "origin": origin,
-                "departureDate": departure_date,
-                "createdAt": _now_iso(),
-            },
+            "$setOnInsert": set_on_insert,
         },
         upsert=True,
     )
-    logger.info("Updated flight state for %s%s %s %s",
-                airline, flight_number, origin, departure_date)
+    logger.info("Updated flight state for %s%s %s %s (seq=%s)",
+                airline, flight_number, origin, departure_date,
+                flight_sequence_number)
 
 
 # ── Legacy Storage (backward compat) ─────────────────────────────────────

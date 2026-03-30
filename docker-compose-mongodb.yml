@@ -14,6 +14,34 @@ services:
       - mongodb_config:/data/configdb
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: falconeye_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  flower:
+    image: mher/flower:2.0
+    container_name: falconeye_flower
+    ports:
+      - "5555:5555"
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   mongodb_data:
   mongodb_config:
+  redis_data:

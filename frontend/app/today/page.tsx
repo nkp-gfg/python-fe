@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { format, addDays, subDays } from "date-fns";
@@ -16,10 +16,13 @@ import {
   ArrowLeft,
   X,
   AlertCircle,
+  Download,
+  Check,
+  AlertTriangle,
 } from "lucide-react";
 
-import { fetchOtpFlights } from "@/lib/api";
-import type { OtpFlight } from "@/lib/types";
+import { fetchOtpFlights, ingestFlight, ingestBatch, fetchJobStatus } from "@/lib/api";
+import type { OtpFlight, SabreIngestRequest } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
@@ -66,6 +69,24 @@ function fmtTime(iso?: string | null): string {
   return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+/* ─────────── helpers ─────────── */
+
+const INGEST_POLL_MS = 3_000;
+const INGEST_TIMEOUT_MS = 10 * 60_000;
+
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+
+function buildIngestPayload(f: OtpFlight): SabreIngestRequest {
+  return {
+    airline: "GF",
+    flightNumber: f.flightNumber,
+    origin: f.origin,
+    departureDate: f.flightDate,
+    departureDateTime: f.scheduledDepartureUtc ?? `${f.flightDate}T00:00:00`,
+    flightSequenceNumber: f.flightSequenceNumber,
+  };
+}
+
 /* ─────────── TODAY'S FLIGHTS PAGE ─────────── */
 
 export default function TodayPage() {
@@ -74,6 +95,18 @@ export default function TodayPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const dateStr = format(selectedDate, "yyyy-MM-dd");
   const isToday = dateStr === format(new Date(), "yyyy-MM-dd");
+
+  /* ── selection state ── */
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  /* ── per-row ingest state: seq → "idle" | "loading" | "done" | "error" */
+  const [rowIngestState, setRowIngestState] = useState<Record<number, "idle" | "loading" | "done" | "error">>({});
+  /* ── batch ingest state ── */
+  const [batchState, setBatchState] = useState<"idle" | "loading" | "polling" | "done" | "error">("idle");
+  const [batchJobId, setBatchJobId] = useState<string | null>(null);
+  const [batchProgress, setBatchProgress] = useState({ queued: 0, processed: 0 });
+  const [batchError, setBatchError] = useState<string | null>(null);
+  /* ── cancelled warning modal ── */
+  const [showCancelledWarning, setShowCancelledWarning] = useState(false);
 
   const {
     data: flights,
@@ -115,8 +148,137 @@ export default function TodayPage() {
     return { total, active, cancelled, totalPax };
   }, [flights]);
 
+  /* ── selection helpers ── */
+  const toggleSelect = useCallback(
+    (seq: number) => setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(seq)) next.delete(seq); else next.add(seq);
+      return next;
+    }),
+    [],
+  );
+
+  const toggleSelectAll = useCallback(() => {
+    if (!visibleFlights.length) return;
+    setSelected((prev) => {
+      const allSeqs = visibleFlights.map((f) => f.flightSequenceNumber);
+      const allSelected = allSeqs.every((s) => prev.has(s));
+      if (allSelected) return new Set();
+      return new Set(allSeqs);
+    });
+  }, [visibleFlights]);
+
+  const clearSelection = useCallback(() => setSelected(new Set()), []);
+
+  /* ── per-row ingest handler ── */
+  const handleRowIngest = useCallback(async (flight: OtpFlight) => {
+    const seq = flight.flightSequenceNumber;
+    setRowIngestState((prev) => ({ ...prev, [seq]: "loading" }));
+    try {
+      await ingestFlight(buildIngestPayload(flight));
+      setRowIngestState((prev) => ({ ...prev, [seq]: "done" }));
+    } catch {
+      setRowIngestState((prev) => ({ ...prev, [seq]: "error" }));
+    }
+  }, []);
+
+  /* ── batch ingest handler ── */
+  const selectedFlights = useMemo(() => {
+    if (!flights) return [];
+    return flights.filter((f) => selected.has(f.flightSequenceNumber));
+  }, [flights, selected]);
+
+  const selectedCancelledCount = useMemo(
+    () => selectedFlights.filter((f) => f.isCancelled).length,
+    [selectedFlights],
+  );
+
+  const handleBatchIngest = useCallback(async () => {
+    if (!selectedFlights.length) return;
+
+    // Warn if cancelled flights are in selection
+    if (selectedCancelledCount > 0 && !showCancelledWarning) {
+      setShowCancelledWarning(true);
+      return;
+    }
+    setShowCancelledWarning(false);
+
+    const payloads = selectedFlights.map(buildIngestPayload);
+    setBatchState("loading");
+    setBatchError(null);
+    try {
+      const accepted = await ingestBatch({ flights: payloads });
+      setBatchJobId(accepted.jobId);
+      setBatchProgress({ queued: accepted.flightsQueued, processed: 0 });
+      setBatchState("polling");
+
+      // Poll until done
+      const deadline = Date.now() + INGEST_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        await sleep(INGEST_POLL_MS);
+        const job = await fetchJobStatus(accepted.jobId);
+        setBatchProgress({ queued: job.flightsQueued, processed: job.flightsProcessed });
+
+        if (job.status === "completed") {
+          setBatchState("done");
+          clearSelection();
+          return;
+        }
+        if (job.status === "failed") {
+          setBatchState("error");
+          setBatchError(job.error ?? "Batch job failed");
+          return;
+        }
+      }
+      setBatchState("error");
+      setBatchError("Batch job timed out");
+    } catch (e) {
+      setBatchState("error");
+      setBatchError(e instanceof Error ? e.message : "Batch ingestion failed");
+    }
+  }, [selectedFlights, selectedCancelledCount, showCancelledWarning, clearSelection]);
+
+  const confirmBatchWithCancelled = useCallback(() => {
+    setShowCancelledWarning(false);
+    // Re-trigger, this time without the cancelled check
+    const payloads = selectedFlights.map(buildIngestPayload);
+    setBatchState("loading");
+    setBatchError(null);
+    (async () => {
+      try {
+        const accepted = await ingestBatch({ flights: payloads });
+        setBatchJobId(accepted.jobId);
+        setBatchProgress({ queued: accepted.flightsQueued, processed: 0 });
+        setBatchState("polling");
+
+        const deadline = Date.now() + INGEST_TIMEOUT_MS;
+        while (Date.now() < deadline) {
+          await sleep(INGEST_POLL_MS);
+          const job = await fetchJobStatus(accepted.jobId);
+          setBatchProgress({ queued: job.flightsQueued, processed: job.flightsProcessed });
+
+          if (job.status === "completed") {
+            setBatchState("done");
+            clearSelection();
+            return;
+          }
+          if (job.status === "failed") {
+            setBatchState("error");
+            setBatchError(job.error ?? "Batch job failed");
+            return;
+          }
+        }
+        setBatchState("error");
+        setBatchError("Batch job timed out");
+      } catch (e) {
+        setBatchState("error");
+        setBatchError(e instanceof Error ? e.message : "Batch ingestion failed");
+      }
+    })();
+  }, [selectedFlights, clearSelection]);
+
   return (
-    <div className="flex-1 flex flex-col min-h-screen">
+    <div className="flex-1 flex flex-col min-h-screen relative">
       {/* Top Bar */}
       <header className="border-b border-border px-4 sm:px-6 py-3 flex items-center gap-3">
         <Link
@@ -258,7 +420,7 @@ export default function TodayPage() {
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-20">
         {isLoading ? (
           <div className="flex items-center justify-center py-32 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -282,22 +444,41 @@ export default function TodayPage() {
             </p>
           </div>
         ) : (
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-4">
             <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
               {/* Header */}
-              <div className="hidden sm:grid grid-cols-[36px_minmax(110px,1fr)_90px_minmax(140px,1fr)_80px_80px_60px_80px] gap-x-3 px-4 py-2 bg-muted/50 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="hidden sm:grid grid-cols-[28px_36px_minmax(110px,1fr)_110px_90px_minmax(130px,1fr)_70px_70px_50px_60px_70px] gap-x-2 px-4 py-2 bg-muted/50 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span>
+                  <input
+                    type="checkbox"
+                    checked={visibleFlights.length > 0 && visibleFlights.every((f) => selected.has(f.flightSequenceNumber))}
+                    onChange={toggleSelectAll}
+                    className="h-3.5 w-3.5 rounded border-muted-foreground/50 cursor-pointer accent-blue-600"
+                    aria-label="Select all flights"
+                  />
+                </span>
                 <span>#</span>
                 <span>Flight</span>
+                <span>Seq #</span>
                 <span>Status</span>
                 <span>Route</span>
                 <span>STD</span>
                 <span>STA</span>
                 <span className="text-right">Pax</span>
                 <span className="text-right">Delay</span>
+                <span className="text-center">Ingest</span>
               </div>
 
               {visibleFlights.map((flight, idx) => (
-                <FlightRow key={flight.flightSequenceNumber} flight={flight} index={idx + 1} />
+                <FlightRow
+                  key={flight.flightSequenceNumber}
+                  flight={flight}
+                  index={idx + 1}
+                  isSelected={selected.has(flight.flightSequenceNumber)}
+                  onToggleSelect={() => toggleSelect(flight.flightSequenceNumber)}
+                  ingestState={rowIngestState[flight.flightSequenceNumber] ?? "idle"}
+                  onIngest={() => handleRowIngest(flight)}
+                />
               ))}
             </div>
 
@@ -307,6 +488,99 @@ export default function TodayPage() {
           </div>
         )}
       </div>
+
+      {/* ── Floating Batch Action Bar ── */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
+          <div className="pointer-events-auto mb-6 flex items-center gap-3 rounded-xl border border-border bg-background/95 backdrop-blur shadow-lg px-5 py-3">
+            <span className="text-sm font-medium">
+              {selected.size} flight{selected.size > 1 ? "s" : ""} selected
+            </span>
+
+            {selectedCancelledCount > 0 && (
+              <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" />
+                {selectedCancelledCount} cancelled
+              </span>
+            )}
+
+            {batchState === "polling" && (
+              <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {batchProgress.processed}/{batchProgress.queued}
+              </span>
+            )}
+
+            {batchState === "done" && (
+              <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                <Check className="h-3 w-3" />
+                Done
+              </span>
+            )}
+
+            {batchState === "error" && (
+              <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400" title={batchError ?? undefined}>
+                <AlertCircle className="h-3 w-3" />
+                Failed
+              </span>
+            )}
+
+            <button
+              onClick={handleBatchIngest}
+              disabled={batchState === "loading" || batchState === "polling"}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+                "bg-blue-600 text-white hover:bg-blue-700",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              {(batchState === "loading" || batchState === "polling") ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              Ingest {selected.size} flight{selected.size > 1 ? "s" : ""}
+            </button>
+
+            <button
+              onClick={clearSelection}
+              className="rounded p-1.5 hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Clear selection"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cancelled Warning Dialog ── */}
+      {showCancelledWarning && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-background border border-border rounded-lg shadow-xl max-w-sm w-full mx-4 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <h3 className="font-semibold text-sm">Cancelled Flights Selected</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              {selectedCancelledCount} of {selected.size} selected flight{selected.size > 1 ? "s" : ""} {selectedCancelledCount > 1 ? "are" : "is"} cancelled. Ingesting cancelled flights may produce limited data. Continue anyway?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowCancelledWarning(false)}
+                className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBatchWithCancelled}
+                className="rounded-md bg-amber-600 text-white px-3 py-1.5 text-sm hover:bg-amber-700 transition-colors"
+              >
+                Ingest Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -320,7 +594,21 @@ function parseDurationMin(d: string): number {
   return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }
 
-function FlightRow({ flight, index }: { flight: OtpFlight; index: number }) {
+function FlightRow({
+  flight,
+  index,
+  isSelected,
+  onToggleSelect,
+  ingestState,
+  onIngest,
+}: {
+  flight: OtpFlight;
+  index: number;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  ingestState: "idle" | "loading" | "done" | "error";
+  onIngest: () => void;
+}) {
   const status = flight.flightStatus;
   const std = fmtTime(flight.scheduledDepartureUtc);
   const sta = fmtTime(flight.scheduledArrivalUtc);
@@ -337,11 +625,23 @@ function FlightRow({ flight, index }: { flight: OtpFlight; index: number }) {
     <div
       className={cn(
         "transition-colors hover:bg-accent/50",
-        "sm:grid sm:grid-cols-[36px_minmax(110px,1fr)_90px_minmax(140px,1fr)_80px_80px_60px_80px] sm:gap-x-3 sm:items-center",
+        "sm:grid sm:grid-cols-[28px_36px_minmax(110px,1fr)_110px_90px_minmax(130px,1fr)_70px_70px_50px_60px_70px] sm:gap-x-2 sm:items-center",
         "px-4 py-2.5",
-        flight.isCancelled && "opacity-50"
+        flight.isCancelled && "opacity-50",
+        isSelected && "bg-blue-500/5 dark:bg-blue-500/10"
       )}
     >
+      {/* Checkbox */}
+      <div className="hidden sm:flex items-center">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelect}
+          className="h-3.5 w-3.5 rounded border-muted-foreground/50 cursor-pointer accent-blue-600"
+          aria-label={`Select flight GF${flight.flightNumber}`}
+        />
+      </div>
+
       {/* Row Number */}
       <div className="hidden sm:block text-xs tabular-nums text-muted-foreground">
         {index}
@@ -359,6 +659,11 @@ function FlightRow({ flight, index }: { flight: OtpFlight; index: number }) {
         {flight.aircraftRegistration && (
           <span className="text-[10px] text-muted-foreground">{flight.aircraftRegistration}</span>
         )}
+      </div>
+
+      {/* Sequence Number */}
+      <div className="hidden sm:block text-[10px] tabular-nums text-muted-foreground font-mono">
+        {flight.flightSequenceNumber}
       </div>
 
       {/* Status */}
@@ -405,6 +710,36 @@ function FlightRow({ flight, index }: { flight: OtpFlight; index: number }) {
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
+      </div>
+
+      {/* Ingest Button */}
+      <div className="hidden sm:flex justify-center mt-0.5 sm:mt-0">
+        <button
+          onClick={onIngest}
+          disabled={ingestState === "loading"}
+          className={cn(
+            "flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
+            ingestState === "idle" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25",
+            ingestState === "loading" && "bg-blue-500/15 text-blue-600 dark:text-blue-400 cursor-wait",
+            ingestState === "done" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+            ingestState === "error" && "bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/25"
+          )}
+          aria-label={`Ingest flight GF${flight.flightNumber}`}
+        >
+          {ingestState === "loading" ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : ingestState === "done" ? (
+            <Check className="h-3 w-3" />
+          ) : ingestState === "error" ? (
+            <AlertCircle className="h-3 w-3" />
+          ) : (
+            <Download className="h-3 w-3" />
+          )}
+          {ingestState === "idle" && "Ingest"}
+          {ingestState === "loading" && "..."}
+          {ingestState === "done" && "Done"}
+          {ingestState === "error" && "Retry"}
+        </button>
       </div>
     </div>
   );
