@@ -1,7 +1,7 @@
 meta {
-  name: Flight Status
+  name: Get Passenger List - CheckedIn (BP BT)
   type: http
-  seq: 6
+  seq: 4
 }
 
 post {
@@ -12,24 +12,23 @@ post {
 
 headers {
   Content-Type: text/xml; charset=utf-8
-  SOAPAction: "ACS_FlightDetailRQ"
+  SOAPAction: "GetPassengerListRQ"
 }
 
 body:xml {
   <?xml version="1.0" encoding="UTF-8"?>
-  <soapenv:Envelope
-      xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-      xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
-      xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
-      xmlns:v3="http://services.sabre.com/ACS/BSO/flightDetail/v3">
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
+                    xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext"
+                    xmlns:v4="http://services.sabre.com/checkin/getPassengerList/v4">
     <soapenv:Header>
       <eb:MessageHeader soapenv:mustUnderstand="0">
         <eb:From><eb:PartyId/></eb:From>
         <eb:To><eb:PartyId/></eb:To>
         <eb:CPAId>{{cpaid}}</eb:CPAId>
         <eb:ConversationId>{{conversationId}}</eb:ConversationId>
-        <eb:Service>ACS_FlightDetailRQ</eb:Service>
-        <eb:Action>ACS_FlightDetailRQ</eb:Action>
+        <eb:Service>GetPassengerListRQ</eb:Service>
+        <eb:Action>GetPassengerListRQ</eb:Action>
         <eb:MessageData>
           <eb:MessageId>{{messageId}}</eb:MessageId>
           <eb:Timestamp>{{timestamp}}</eb:Timestamp>
@@ -40,22 +39,33 @@ body:xml {
       </wsse:Security>
     </soapenv:Header>
     <soapenv:Body>
-      <v3:ACS_FlightDetailRQ Version="3.2.0">
-        <FlightInfo>
-          <Airline>{{airlineCode}}</Airline>
-          <Flight>{{flightNumber}}</Flight>
-          <Origin>{{origin}}</Origin>
-        </FlightInfo>
-      </v3:ACS_FlightDetailRQ>
+      <v4:GetPassengerListRQ version="4.0.0"
+                             timeStamp="2026-03-07T10:00:00Z"
+                             messageID="MSG-000001"
+                             serviceOption="Stateless">
+        <v4:Itinerary>
+          <v4:Airline>{{airlineCode}}</v4:Airline>
+          <v4:Flight>{{flightNumber}}</v4:Flight>
+          <v4:DepartureDate>{{departureDate}}</v4:DepartureDate>
+          <v4:Origin>{{origin}}</v4:Origin>
+        </v4:Itinerary>
+        <v4:DisplayCodeRequest>
+          <v4:DisplayCodes condition="OR">
+            <v4:DisplayCode>BP</v4:DisplayCode>
+            <v4:DisplayCode>BT</v4:DisplayCode>
+          </v4:DisplayCodes>
+          <v4:SortSequence>Name</v4:SortSequence>
+        </v4:DisplayCodeRequest>
+      </v4:GetPassengerListRQ>
     </soapenv:Body>
   </soapenv:Envelope>
 }
 
 vars:pre-request {
   flightNumber: 2057
+  departureDate: 2026-03-20
   origin: BOM
   airlineCode: GF
-  DepartureDate: 2026-03-20
 }
 
 script:pre-request {

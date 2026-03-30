@@ -24,10 +24,12 @@ Input JSON format:
     }
 """
 
+import re as _re
 from backend.feeder import storage
 from backend.feeder.converter import convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports, convert_schedule
 from backend.feeder.differ import detect_changes
 from backend.sabre.client import SabreClient, SabreError
+from backend.sabre import templates
 import json
 import sys
 import os
@@ -53,6 +55,58 @@ structlog.configure(
 )
 logger = structlog.get_logger(__name__)
 
+
+# ── Passenger list merge helpers ──────────────────────────────────────────
+
+
+def _strip_ns_key(key):
+    """Remove XML namespace prefix from a key."""
+    return _re.sub(r'^[a-zA-Z0-9]+:', '', key)
+
+
+def _extract_passenger_info_list(raw):
+    """Extract the PassengerInfo list from raw GetPassengerListRS dict."""
+    for k, v in (raw or {}).items():
+        if _strip_ns_key(k) == "PassengerInfoList":
+            inner = v or {}
+            for k2, v2 in inner.items():
+                if _strip_ns_key(k2) == "PassengerInfo":
+                    if isinstance(v2, list):
+                        return v2
+                    elif v2:
+                        return [v2]
+            return []
+    return []
+
+
+def _set_passenger_info_list(raw, pax_list):
+    """Set the PassengerInfo list back into the raw dict."""
+    for k, v in (raw or {}).items():
+        if _strip_ns_key(k) == "PassengerInfoList":
+            for k2 in list((v or {}).keys()):
+                if _strip_ns_key(k2) == "PassengerInfo":
+                    v[k2] = pax_list
+                    return
+
+
+def _pax_dedup_key(p):
+    """Build a dedup key from a raw passenger dict."""
+    if isinstance(p, dict):
+        pnr_raw = p.get("PNRLocator") or p.get("v4:PNRLocator", "")
+        if isinstance(pnr_raw, dict):
+            pnr = pnr_raw.get("#text", "")
+        else:
+            pnr = str(pnr_raw)
+        name = p.get("Name_Details") or p.get("v4:Name_Details", {})
+        if not isinstance(name, dict):
+            name = {}
+        last = name.get("LastName", name.get("v4:LastName", ""))
+        pid = p.get("PassengerID", p.get("v4:PassengerID", ""))
+        return f"{pnr}|{last}|{pid}"
+    return str(id(p))
+
+
+# ── Pipeline helpers ──────────────────────────────────────────────────────
 
 def _process_api_call(api_type, snapshot_type, flight_info,
                       raw_data, raw_xml, meta, converter_fn, converter_args):
@@ -213,27 +267,88 @@ def run_feeder(flights):
                     "error": str(e),
                 }
 
-            # 2. Passenger List
-            try:
-                raw, xml, meta = client.get_passenger_list(
-                    airline, fn, dep_date, origin)
-                details = _process_api_call(
-                    "PassengerList", "passenger_list", flight_info,
-                    raw, xml, meta,
-                    convert_passenger_list, (raw, airline,
-                                             fn, dep_date, origin),
-                )
-                flight_result["apis"]["passengerList"] = {
-                    "status": "success",
-                    **details,
-                }
-            except SabreError as e:
-                logger.error("passenger_list_failed",
-                             flight=f"{airline}{fn}", error=str(e))
+            # 2. Passenger List — 4 sequential calls with different display codes
+            #    SEQ 3: RV,XRV (Booked)  SEQ 4: BP,BT (Checked-in/Boarded)
+            #    SEQ 5: NS,OFL (No-show/Offloaded)  SEQ 6: AE (catch-all)
+            pax_calls = [
+                ("Booked",      templates.DISPLAY_CODES_BOOKED),
+                ("CheckedIn",   templates.DISPLAY_CODES_CHECKEDIN),
+                ("NoShowOFL",   templates.DISPLAY_CODES_NOSHOW_OFL),
+                ("AllEdit",     templates.DISPLAY_CODES_ALL),
+            ]
+            merged_raw = None
+            merged_xml_parts = []
+            merged_meta = None
+            pax_call_statuses = []
+
+            for label, codes in pax_calls:
+                try:
+                    raw, xml, meta = client.get_passenger_list(
+                        airline, fn, dep_date, origin,
+                        display_codes=codes)
+                    pax_call_statuses.append(
+                        {"call": label, "status": "success"})
+
+                    if merged_raw is None:
+                        # First successful call: use as base
+                        merged_raw = raw
+                        merged_xml_parts.append(xml)
+                        merged_meta = meta
+                    else:
+                        # Merge: append passengers from subsequent calls
+                        merged_xml_parts.append(xml)
+                        subsequent_pax = _extract_passenger_info_list(raw)
+                        if subsequent_pax:
+                            base_pax_list = _extract_passenger_info_list(
+                                merged_raw)
+                            # De-duplicate by PNR + LastName + PassengerID
+                            existing_keys = set()
+                            for p in base_pax_list:
+                                existing_keys.add(_pax_dedup_key(p))
+                            for p in subsequent_pax:
+                                if _pax_dedup_key(p) not in existing_keys:
+                                    base_pax_list.append(p)
+                                    existing_keys.add(_pax_dedup_key(p))
+                            # Update the merged raw with combined list
+                            _set_passenger_info_list(merged_raw, base_pax_list)
+
+                except SabreError as e:
+                    logger.warning("passenger_list_partial_fail",
+                                   flight=f"{airline}{fn}",
+                                   call=label, error=str(e))
+                    pax_call_statuses.append({"call": label, "status": "error",
+                                              "error": str(e)})
+
+            if merged_raw is not None:
+                try:
+                    details = _process_api_call(
+                        "PassengerList", "passenger_list", flight_info,
+                        merged_raw, merged_xml_parts[0], merged_meta,
+                        convert_passenger_list, (merged_raw, airline,
+                                                 fn, dep_date, origin),
+                    )
+                    flight_result["apis"]["passengerList"] = {
+                        "status": "success",
+                        "calls": pax_call_statuses,
+                        **details,
+                    }
+                except Exception as e:
+                    logger.error("passenger_list_convert_failed",
+                                 flight=f"{airline}{fn}", error=str(e))
+                    flight_result["success"] = False
+                    flight_result["apis"]["passengerList"] = {
+                        "status": "error",
+                        "error": str(e),
+                        "calls": pax_call_statuses,
+                    }
+            else:
+                logger.error("passenger_list_all_calls_failed",
+                             flight=f"{airline}{fn}")
                 flight_result["success"] = False
                 flight_result["apis"]["passengerList"] = {
                     "status": "error",
-                    "error": str(e),
+                    "error": "All 4 passenger list calls failed",
+                    "calls": pax_call_statuses,
                 }
 
             # 3. Reservations

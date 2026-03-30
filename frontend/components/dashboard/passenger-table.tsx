@@ -28,9 +28,14 @@ import { cn } from "@/lib/utils";
 
 export type FilterCabin = "all" | "Y" | "J";
 export type FilterStatus = "all" | "booked" | "checkedIn" | "boarded";
-export type FilterType = "all" | "revenue" | "nonRevenue" | "child" | "infant";
+export type FilterType = "all" | "revenue" | "nonRevenue" | "child" | "infant" | "group" | "unnamedGroup";
 export type FilterLoyalty = "all" | "FF" | "BLU" | "SLV" | "GLD" | "BLK";
 export type FilterNationality = string; // "all" or a country code like "GB"
+export type FilterSSR = "all" | "meal" | "wheelchair" | "emergencyContact" | "ffTier";
+export type FilterBoardingPass = "all" | "issued" | "notIssued";
+export type FilterSeat = "all" | "assigned" | "unassigned";
+export type FilterConnecting = "all" | "thru" | "local" | "standby";
+export type FilterDestination = string; // "all" or destination code
 
 interface PassengerTableProps {
   flightNumber: string;
@@ -82,6 +87,11 @@ export function PassengerTable({
   const debouncedSearch = useDebounce(search);
   const [sortKey, setSortKey] = useState<SortKey>("lastName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [filterSSR, setFilterSSR] = useState<FilterSSR>("all");
+  const [filterBP, setFilterBP] = useState<FilterBoardingPass>("all");
+  const [filterSeat, setFilterSeat] = useState<FilterSeat>("all");
+  const [filterConnecting, setFilterConnecting] = useState<FilterConnecting>("all");
+  const [filterDestination, setFilterDestination] = useState<FilterDestination>("all");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["passengers", flightNumber, origin, date, snapshotSequence],
@@ -98,6 +108,14 @@ export function PassengerTable({
   }
 
   const passengers = useMemo(() => data?.passengers ?? [], [data]);
+
+  const uniqueDestinations = useMemo(() => {
+    const dests = new Set<string>();
+    for (const p of passengers) {
+      if (p.destination) dests.add(p.destination);
+    }
+    return Array.from(dests).sort();
+  }, [passengers]);
 
   const filtered = useMemo(() => {
     let list = [...passengers];
@@ -133,6 +151,8 @@ export function PassengerTable({
     else if (filterType === "nonRevenue") list = list.filter((p) => !p.isRevenue);
     else if (filterType === "child") list = list.filter((p) => p.isChild);
     else if (filterType === "infant") list = list.filter((p) => p.hasInfant);
+    else if (filterType === "group") list = list.filter((p) => p.isGroup || p.groupCode);
+    else if (filterType === "unnamedGroup") list = list.filter((p) => p.isUnnamedGroup || (p.groupCode && p.lastName === "PAX" && !p.firstName));
 
     // Loyalty filter
     if (filterLoyalty !== "all") {
@@ -142,6 +162,30 @@ export function PassengerTable({
     // Nationality filter
     if (filterNationality !== "all") {
       list = list.filter((p) => p.nationality === filterNationality);
+    }
+
+    // SSR filter
+    if (filterSSR === "meal") list = list.filter((p) => p.specialMeal);
+    else if (filterSSR === "wheelchair") list = list.filter((p) => p.wheelchairCode);
+    else if (filterSSR === "emergencyContact") list = list.filter((p) => p.hasEmergencyContact);
+    else if (filterSSR === "ffTier") list = list.filter((p) => p.ffTierName);
+
+    // Boarding pass filter
+    if (filterBP === "issued") list = list.filter((p) => p.boardingPassIssued);
+    else if (filterBP === "notIssued") list = list.filter((p) => !p.boardingPassIssued);
+
+    // Seat filter
+    if (filterSeat === "assigned") list = list.filter((p) => p.seat);
+    else if (filterSeat === "unassigned") list = list.filter((p) => !p.seat);
+
+    // Connecting filter
+    if (filterConnecting === "thru") list = list.filter((p) => p.isThru);
+    else if (filterConnecting === "local") list = list.filter((p) => !p.isThru && !p.isStandby);
+    else if (filterConnecting === "standby") list = list.filter((p) => p.isStandby);
+
+    // Destination filter
+    if (filterDestination !== "all") {
+      list = list.filter((p) => p.destination === filterDestination);
     }
 
     // Sort
@@ -159,7 +203,7 @@ export function PassengerTable({
     });
 
     return list;
-  }, [passengers, debouncedSearch, filterCabin, filterStatus, filterType, filterLoyalty, filterNationality, sortKey, sortDir]);
+  }, [passengers, debouncedSearch, filterCabin, filterStatus, filterType, filterLoyalty, filterNationality, filterSSR, filterBP, filterSeat, filterConnecting, filterDestination, sortKey, sortDir]);
 
   function getStatusBadge(p: PassengerRecord) {
     if (p.isBoarded) return <Badge className="bg-emerald-500/15 text-emerald-600 border-transparent text-[10px]">Boarded</Badge>;
@@ -292,6 +336,8 @@ export function PassengerTable({
               <option value="nonRevenue">Non-Revenue</option>
               <option value="child">Children</option>
               <option value="infant">With Infant</option>
+              <option value="group">Group Booking</option>
+              <option value="unnamedGroup">Unnamed Group</option>
             </select>
             {filterType !== "all" && (
               <button
@@ -329,9 +375,140 @@ export function PassengerTable({
               </button>
             )}
           </div>
-          {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all" || filterNationality !== "all") && (
+          <div className="relative">
+            <select
+              value={filterSSR}
+              onChange={(e) => setFilterSSR(e.target.value as FilterSSR)}
+              className={cn(
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                filterSSR !== "all"
+                  ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium"
+                  : "border-input bg-background"
+              )}
+            >
+              <option value="all">All SSR</option>
+              <option value="meal">Special Meal</option>
+              <option value="wheelchair">Wheelchair</option>
+              <option value="emergencyContact">Emergency Contact</option>
+              <option value="ffTier">FF Tier</option>
+            </select>
+            {filterSSR !== "all" && (
+              <button
+                onClick={() => setFilterSSR("all")}
+                className="absolute right-0.5 top-1 rounded-full p-0.5 hover:bg-orange-500/20 transition-colors"
+                aria-label="Clear SSR filter"
+              >
+                <X className="h-3 w-3 text-orange-500" />
+              </button>
+            )}
+          </div>
+          <div className="relative">
+            <select
+              value={filterBP}
+              onChange={(e) => setFilterBP(e.target.value as FilterBoardingPass)}
+              className={cn(
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                filterBP !== "all"
+                  ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-400 font-medium"
+                  : "border-input bg-background"
+              )}
+            >
+              <option value="all">Boarding Pass</option>
+              <option value="issued">BP Issued</option>
+              <option value="notIssued">No BP</option>
+            </select>
+            {filterBP !== "all" && (
+              <button
+                onClick={() => setFilterBP("all")}
+                className="absolute right-0.5 top-1 rounded-full p-0.5 hover:bg-teal-500/20 transition-colors"
+                aria-label="Clear boarding pass filter"
+              >
+                <X className="h-3 w-3 text-teal-500" />
+              </button>
+            )}
+          </div>
+          <div className="relative">
+            <select
+              value={filterSeat}
+              onChange={(e) => setFilterSeat(e.target.value as FilterSeat)}
+              className={cn(
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                filterSeat !== "all"
+                  ? "border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium"
+                  : "border-input bg-background"
+              )}
+            >
+              <option value="all">All Seats</option>
+              <option value="assigned">Seat Assigned</option>
+              <option value="unassigned">No Seat</option>
+            </select>
+            {filterSeat !== "all" && (
+              <button
+                onClick={() => setFilterSeat("all")}
+                className="absolute right-0.5 top-1 rounded-full p-0.5 hover:bg-indigo-500/20 transition-colors"
+                aria-label="Clear seat filter"
+              >
+                <X className="h-3 w-3 text-indigo-500" />
+              </button>
+            )}
+          </div>
+          <div className="relative">
+            <select
+              value={filterConnecting}
+              onChange={(e) => setFilterConnecting(e.target.value as FilterConnecting)}
+              className={cn(
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                filterConnecting !== "all"
+                  ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-medium"
+                  : "border-input bg-background"
+              )}
+            >
+              <option value="all">All Routes</option>
+              <option value="thru">Connecting</option>
+              <option value="local">Local (O&D)</option>
+              <option value="standby">Standby</option>
+            </select>
+            {filterConnecting !== "all" && (
+              <button
+                onClick={() => setFilterConnecting("all")}
+                className="absolute right-0.5 top-1 rounded-full p-0.5 hover:bg-cyan-500/20 transition-colors"
+                aria-label="Clear connecting filter"
+              >
+                <X className="h-3 w-3 text-cyan-500" />
+              </button>
+            )}
+          </div>
+          {uniqueDestinations.length > 1 && (
+            <div className="relative">
+              <select
+                value={filterDestination}
+                onChange={(e) => setFilterDestination(e.target.value as FilterDestination)}
+                className={cn(
+                  "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                  filterDestination !== "all"
+                    ? "border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium"
+                    : "border-input bg-background"
+                )}
+              >
+                <option value="all">All Dest.</option>
+                {uniqueDestinations.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+              {filterDestination !== "all" && (
+                <button
+                  onClick={() => setFilterDestination("all")}
+                  className="absolute right-0.5 top-1 rounded-full p-0.5 hover:bg-rose-500/20 transition-colors"
+                  aria-label="Clear destination filter"
+                >
+                  <X className="h-3 w-3 text-rose-500" />
+                </button>
+              )}
+            </div>
+          )}
+          {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all" || filterNationality !== "all" || filterSSR !== "all" || filterBP !== "all" || filterSeat !== "all" || filterConnecting !== "all" || filterDestination !== "all") && (
             <button
-              onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); setFilterNationality("all"); }}
+              onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); setFilterNationality("all"); setFilterSSR("all"); setFilterBP("all"); setFilterSeat("all"); setFilterConnecting("all"); setFilterDestination("all"); }}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
             >
               <X className="h-3 w-3" />
@@ -345,7 +522,7 @@ export function PassengerTable({
       </div>
 
       {/* Active filter chips */}
-      {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all" || filterNationality !== "all") && (
+      {(search || filterCabin !== "all" || filterStatus !== "all" || filterType !== "all" || filterLoyalty !== "all" || filterNationality !== "all" || filterSSR !== "all" || filterBP !== "all" || filterSeat !== "all" || filterConnecting !== "all" || filterDestination !== "all") && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] text-muted-foreground mr-0.5">Active:</span>
           {search && (
@@ -374,7 +551,7 @@ export function PassengerTable({
           )}
           {filterType !== "all" && (
             <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
-              Type: {filterType === "nonRevenue" ? "Non-Revenue" : filterType === "infant" ? "With Infant" : filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+              Type: {filterType === "nonRevenue" ? "Non-Revenue" : filterType === "infant" ? "With Infant" : filterType === "group" ? "Group Booking" : filterType === "unnamedGroup" ? "Unnamed Group" : filterType.charAt(0).toUpperCase() + filterType.slice(1)}
               <button onClick={() => setFilterType("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove type filter">
                 <X className="h-2.5 w-2.5" />
               </button>
@@ -396,8 +573,48 @@ export function PassengerTable({
               </button>
             </Badge>
           )}
+          {filterSSR !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              SSR: {filterSSR === "meal" ? "Special Meal" : filterSSR === "wheelchair" ? "Wheelchair" : filterSSR === "emergencyContact" ? "Emergency Contact" : "FF Tier"}
+              <button onClick={() => setFilterSSR("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove SSR filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterBP !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              BP: {filterBP === "issued" ? "Issued" : "Not Issued"}
+              <button onClick={() => setFilterBP("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove boarding pass filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterSeat !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              Seat: {filterSeat === "assigned" ? "Assigned" : "Unassigned"}
+              <button onClick={() => setFilterSeat("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove seat filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterConnecting !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              Route: {filterConnecting === "thru" ? "Connecting" : filterConnecting === "local" ? "Local (O&D)" : "Standby"}
+              <button onClick={() => setFilterConnecting("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove connecting filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterDestination !== "all" && (
+            <Badge variant="secondary" className="gap-1 text-[10px] pl-2 pr-1 py-0.5">
+              Dest: {filterDestination}
+              <button onClick={() => setFilterDestination("all")} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label="Remove destination filter">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
           <button
-            onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); setFilterNationality("all"); }}
+            onClick={() => { setSearch(""); setFilterCabin("all"); setFilterStatus("all"); setFilterType("all"); setFilterLoyalty("all"); setFilterNationality("all"); setFilterSSR("all"); setFilterBP("all"); setFilterSeat("all"); setFilterConnecting("all"); setFilterDestination("all"); }}
             className="text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-1 underline underline-offset-2"
           >
             Clear all
@@ -419,13 +636,14 @@ export function PassengerTable({
               <TableHead>{renderSortHeader("Status", "status")}</TableHead>
               <TableHead>{renderSortHeader("Bags", "bagCount")}</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>SSR</TableHead>
               <TableHead>Codes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   No passengers match the current filters.
                 </TableCell>
               </TableRow>
@@ -440,9 +658,19 @@ export function PassengerTable({
                   onClick={() => onSelectPassenger?.(p.pnr)}
                 >
                   <TableCell className="font-medium">
-                    {p.lastName}, {p.firstName}
+                    <span className={cn(
+                      (p.isUnnamedGroup || (p.groupCode && p.lastName === "PAX" && !p.firstName)) && "italic text-muted-foreground"
+                    )}>
+                      {(p.isUnnamedGroup || (p.groupCode && p.lastName === "PAX" && !p.firstName))
+                        ? <span className="flex items-center gap-1">Unnamed <Badge className="bg-rose-500/15 text-rose-500 border-transparent text-[9px] px-1">GRP</Badge></span>
+                        : <>{p.lastName}, {p.firstName}</>
+                      }
+                    </span>
                     {p.isChild && <Badge variant="outline" className="ml-1.5 text-[9px] px-1 border-amber-300 text-amber-600">CHD</Badge>}
                     {p.hasInfant && <Badge variant="outline" className="ml-1.5 text-[9px] px-1 border-emerald-300 text-emerald-600">INF</Badge>}
+                    {p.groupCode && !(p.isUnnamedGroup || (p.groupCode && p.lastName === "PAX" && !p.firstName)) && (
+                      <Badge variant="outline" className="ml-1.5 text-[9px] px-1 border-violet-300 text-violet-600">GRP</Badge>
+                    )}
                   </TableCell>
                   <TableCell className="font-mono text-xs">{p.pnr}</TableCell>
                   <TableCell className="text-xs">{p.nationality || "—"}</TableCell>
@@ -452,8 +680,25 @@ export function PassengerTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{p.seat || "—"}</TableCell>
-                  <TableCell className="text-xs">{p.bookingClass}</TableCell>
-                  <TableCell>{getStatusBadge(p)}</TableCell>
+                  <TableCell className="text-xs">
+                    {p.bookingClass}
+                    {p.desiredBookingClass && p.desiredBookingClass !== p.bookingClass && (
+                      <span className="text-[9px] text-amber-500 ml-0.5" title={`Desired: ${p.desiredBookingClass}`}>→{p.desiredBookingClass}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {getStatusBadge(p)}
+                      {p.boardingPassIssued && (
+                        <span className="text-[9px] text-emerald-500" title="Boarding pass issued">BP</span>
+                      )}
+                      {p.checkInSequence > 0 && (
+                        <span className="text-[9px] text-muted-foreground" title={`Check-in #${p.checkInSequence}${p.checkInTime ? ` at ${p.checkInTime}` : ""}${p.checkInDate ? ` on ${p.checkInDate}` : ""}`}>
+                          #{p.checkInSequence}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {p.bagCount > 0 && (
                       <span className="flex items-center gap-1 text-xs">
@@ -463,16 +708,52 @@ export function PassengerTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    {!p.isRevenue && <Badge variant="outline" className="text-[9px] px-1 border-purple-300 text-purple-600">NR</Badge>}
-                    {p.isThru && <Badge variant="outline" className="text-[9px] px-1 ml-0.5">THRU</Badge>}
+                    <div className="flex flex-wrap gap-0.5">
+                      {!p.isRevenue && <Badge variant="outline" className="text-[9px] px-1 border-purple-300 text-purple-600">NR</Badge>}
+                      {p.isThru && <Badge variant="outline" className="text-[9px] px-1">THRU</Badge>}
+                      {p.groupCode && (
+                        <Badge variant="outline" className="text-[9px] px-1 border-violet-400 text-violet-500" title={`Group: ${p.groupCode}`}>
+                          {p.groupCode}
+                        </Badge>
+                      )}
+                      {p.corpId && (
+                        <Badge variant="outline" className="text-[9px] px-1 border-cyan-300 text-cyan-600" title={`Corporate ID: ${p.corpId}`}>
+                          CORP
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-0.5 max-w-[120px]">
-                      {p.editCodes.slice(0, 4).map((code) => (
+                      {p.specialMeal && (
+                        <Badge variant="outline" className="text-[9px] px-1 border-orange-300 text-orange-600" title={`Special Meal: ${p.specialMeal}`}>
+                          {p.specialMeal}
+                        </Badge>
+                      )}
+                      {p.wheelchairCode && (
+                        <Badge variant="outline" className="text-[9px] px-1 border-sky-300 text-sky-600" title={`Wheelchair: ${p.wheelchairCode}`}>
+                          {p.wheelchairCode}
+                        </Badge>
+                      )}
+                      {p.ffTierName && (
+                        <Badge variant="outline" className="text-[9px] px-1 border-yellow-300 text-yellow-600" title={`FF Tier: ${p.ffTierName}${p.ffStatus ? ` (${p.ffStatus})` : ""}`}>
+                          {p.ffTierName}
+                        </Badge>
+                      )}
+                      {p.hasEmergencyContact && (
+                        <Badge variant="outline" className="text-[9px] px-1 border-rose-300 text-rose-500" title="Emergency contact on file">
+                          EC
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-0.5 max-w-[120px]">
+                      {(p.editCodes ?? []).slice(0, 4).map((code) => (
                         <Badge key={code} variant="secondary" className="text-[9px] px-1">{code}</Badge>
                       ))}
-                      {p.editCodes.length > 4 && (
-                        <Badge variant="secondary" className="text-[9px] px-1">+{p.editCodes.length - 4}</Badge>
+                      {(p.editCodes ?? []).length > 4 && (
+                        <Badge variant="secondary" className="text-[9px] px-1">+{(p.editCodes ?? []).length - 4}</Badge>
                       )}
                     </div>
                   </TableCell>

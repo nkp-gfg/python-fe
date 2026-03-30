@@ -1,8 +1,21 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { Loader2, Clock, Plane, DoorOpen, Hash } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  Loader2,
+  Clock,
+  Plane,
+  DoorOpen,
+  Hash,
+  Users,
+  ArrowRight,
+  Timer,
+  MessageSquare,
+  TowerControl,
+  PlaneTakeoff,
+  PlaneLanding,
+} from "lucide-react";
 import { format } from "date-fns";
 import { compareSnapshot, fetchStatusHistory, fetchSnapshots, restoreSnapshotVersion } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import type { FlightStatusRecord, ClassCounts } from "@/lib/types";
 
 interface StatusHistoryProps {
   flightNumber: string;
@@ -30,15 +44,28 @@ interface StatusHistoryProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  Scheduled: "bg-blue-500/15 text-blue-600",
-  OnTime: "bg-emerald-500/15 text-emerald-600",
-  Boarding: "bg-amber-500/15 text-amber-600",
-  Departed: "bg-purple-500/15 text-purple-600",
-  Arrived: "bg-emerald-500/15 text-emerald-600",
-  Delayed: "bg-red-500/15 text-red-600",
-  Cancelled: "bg-red-500/15 text-red-600",
-  Diverted: "bg-orange-500/15 text-orange-600",
+  Scheduled: "bg-blue-500/15 text-blue-600 border-blue-300",
+  OnTime: "bg-emerald-500/15 text-emerald-600 border-emerald-300",
+  Boarding: "bg-amber-500/15 text-amber-600 border-amber-300",
+  Departed: "bg-purple-500/15 text-purple-600 border-purple-300",
+  Arrived: "bg-emerald-500/15 text-emerald-600 border-emerald-300",
+  Delayed: "bg-red-500/15 text-red-600 border-red-300",
+  Cancelled: "bg-red-500/15 text-red-600 border-red-300",
+  Diverted: "bg-orange-500/15 text-orange-600 border-orange-300",
 };
+
+const STATUS_DOT_COLORS: Record<string, string> = {
+  Scheduled: "bg-blue-500",
+  OnTime: "bg-emerald-500",
+  Boarding: "bg-amber-500",
+  Departed: "bg-purple-500",
+  Arrived: "bg-emerald-500",
+  Delayed: "bg-red-500",
+  Cancelled: "bg-red-500",
+  Diverted: "bg-orange-500",
+};
+
+/* ---------- helpers ---------- */
 
 function formatTs(ts: string): string {
   try {
@@ -47,6 +74,70 @@ function formatTs(ts: string): string {
     return ts;
   }
 }
+
+/** Extract time portion (HH:mm) from "YYYY-MM-DDTHH:mm" or "HH:mm:ss" */
+function fmtTime(v: string | undefined): string {
+  if (!v) return "—";
+  // Full ISO with T
+  const tIdx = v.indexOf("T");
+  if (tIdx >= 0) {
+    const timePart = v.slice(tIdx + 1); // "HH:mm:ss" or "HH:mm"
+    return timePart ? timePart.slice(0, 5) : "—";
+  }
+  // Already a time string
+  if (v.includes(":")) return v.slice(0, 5);
+  return v || "—";
+}
+
+function totalPax(counts: Record<string, ClassCounts> | undefined): { booked: number; onBoard: number; bp: number } {
+  if (!counts) return { booked: 0, onBoard: 0, bp: 0 };
+  let booked = 0, onBoard = 0, bp = 0;
+  for (const c of Object.values(counts)) {
+    booked += c.booked ?? 0;
+    onBoard += c.onBoard ?? 0;
+    bp += c.boardingPasses ?? 0;
+  }
+  return { booked, onBoard, bp };
+}
+
+/** Compute which fields changed between current and the *previous* (older) record. */
+interface ChangedFields {
+  status?: boolean;
+  gate?: boolean;
+  terminal?: boolean;
+  aircraft?: boolean;
+  std?: boolean;
+  etd?: boolean;
+  sta?: boolean;
+  eta?: boolean;
+  boarding?: boolean;
+  paxBooked?: boolean;
+  paxOnBoard?: boolean;
+}
+
+function diffRecords(
+  current: FlightStatusRecord,
+  prev: FlightStatusRecord | undefined,
+): ChangedFields {
+  if (!prev) return {}; // first (oldest) record — nothing to diff
+  const ch: ChangedFields = {};
+  if (current.status !== prev.status) ch.status = true;
+  if (current.gate !== prev.gate) ch.gate = true;
+  if (current.terminal !== prev.terminal) ch.terminal = true;
+  if (current.aircraft?.type !== prev.aircraft?.type || current.aircraft?.registration !== prev.aircraft?.registration) ch.aircraft = true;
+  if (current.schedule?.scheduledDeparture !== prev.schedule?.scheduledDeparture) ch.std = true;
+  if (current.schedule?.estimatedDeparture !== prev.schedule?.estimatedDeparture) ch.etd = true;
+  if (current.schedule?.scheduledArrival !== prev.schedule?.scheduledArrival) ch.sta = true;
+  if (current.schedule?.estimatedArrival !== prev.schedule?.estimatedArrival) ch.eta = true;
+  if (current.boarding?.time !== prev.boarding?.time) ch.boarding = true;
+  const curPax = totalPax(current.passengerCounts);
+  const prevPax = totalPax(prev.passengerCounts);
+  if (curPax.booked !== prevPax.booked) ch.paxBooked = true;
+  if (curPax.onBoard !== prevPax.onBoard) ch.paxOnBoard = true;
+  return ch;
+}
+
+const changedCls = "text-amber-600 dark:text-amber-400 font-medium";
 
 export function StatusHistory({
   flightNumber,
@@ -78,6 +169,14 @@ export function StatusHistory({
 
   const isLoading = loadingHistory || loadingSnaps;
 
+  // Records arrive newest-first; compute diffs (each record compared to the NEXT in array = older)
+  const history = records ?? [];
+  const diffs = useMemo(() => {
+    return history.map((rec, i) => diffRecords(rec, history[i + 1]));
+  }, [history]);
+
+  const snaps = snapshots ?? [];
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -87,16 +186,12 @@ export function StatusHistory({
     );
   }
 
-  const history = records ?? [];
-  const snaps = snapshots ?? [];
-
   async function handleRestore() {
     if (!selectedSnapshotSequence || restoring) return;
     const ok = window.confirm(
-      `Restore snapshot #${selectedSnapshotSequence} as latest data for this flight? This writes new latest documents.`
+      `Restore snapshot #${selectedSnapshotSequence} as latest data for this flight? This writes new latest documents.`,
     );
     if (!ok) return;
-
     try {
       setRestoring(true);
       await restoreSnapshotVersion(flightNumber, selectedSnapshotSequence, origin, date);
@@ -108,7 +203,7 @@ export function StatusHistory({
 
   return (
     <div className="space-y-6">
-      {/* Status Timeline */}
+      {/* ── Flight Status Evolution ────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -121,48 +216,162 @@ export function StatusHistory({
         </CardHeader>
         <CardContent>
           {history.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-6">No status records found.</p>
+            <p className="text-xs text-muted-foreground text-center py-6">
+              No status records found.
+            </p>
           ) : (
             <div className="relative space-y-0">
-              <div className="absolute left-5 top-2 bottom-2 w-px bg-border" />
+              {/* vertical timeline line */}
+              <div className="absolute left-[18px] top-4 bottom-4 w-px bg-border" />
+
               {history.map((rec, i) => {
+                const ch = diffs[i];
                 const colorClass = STATUS_COLORS[rec.status] ?? "bg-muted text-muted-foreground";
+                const dotColor = STATUS_DOT_COLORS[rec.status] ?? "bg-muted-foreground";
+                const pax = totalPax(rec.passengerCounts);
+                const hasChanges = Object.values(ch).some(Boolean);
+
                 return (
-                  <div key={i} className="relative flex gap-4 py-3 pl-1">
-                    <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-background">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
+                  <div key={i} className="relative flex gap-3 py-3 pl-0 group">
+                    {/* timeline dot */}
+                    <div className="relative z-10 mt-1 flex h-9 w-9 shrink-0 items-center justify-center">
+                      <div className={cn("h-3 w-3 rounded-full ring-4 ring-background", dotColor)} />
                     </div>
-                    <div className="flex-1 min-w-0 space-y-1">
+
+                    {/* content card */}
+                    <div
+                      className={cn(
+                        "flex-1 min-w-0 rounded-lg border p-3 space-y-2 transition-colors",
+                        hasChanges ? "border-amber-300/50 bg-amber-500/5" : "bg-muted/20",
+                      )}
+                    >
+                      {/* row 1: status + timestamp */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge className={cn("text-[10px] border-transparent", colorClass)}>
-                          {rec.status}
+                          {rec.status || "Unknown"}
                         </Badge>
-                        <span className="text-xs text-muted-foreground">{formatTs(rec.fetchedAt)}</span>
+                        {ch.status && (
+                          <span className="text-[9px] text-amber-600 font-medium">CHANGED</span>
+                        )}
+                        <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatTs(rec.fetchedAt)}
+                        </span>
                       </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+
+                      {/* row 2: schedule times grid */}
+                      {rec.schedule && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1">
+                          <div className="text-[11px]">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <PlaneTakeoff className="h-3 w-3" /> STD
+                            </span>
+                            <span className={cn("font-mono", ch.std && changedCls)}>
+                              {fmtTime(rec.schedule.scheduledDeparture)}
+                            </span>
+                          </div>
+                          <div className="text-[11px]">
+                            <span className="text-muted-foreground">ETD</span>
+                            <span className={cn("font-mono ml-1", ch.etd && changedCls)}>
+                              {fmtTime(rec.schedule.estimatedDeparture)}
+                            </span>
+                          </div>
+                          <div className="text-[11px]">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <PlaneLanding className="h-3 w-3" /> STA
+                            </span>
+                            <span className={cn("font-mono", ch.sta && changedCls)}>
+                              {fmtTime(rec.schedule.scheduledArrival)}
+                            </span>
+                          </div>
+                          <div className="text-[11px]">
+                            <span className="text-muted-foreground">ETA</span>
+                            <span className={cn("font-mono ml-1", ch.eta && changedCls)}>
+                              {fmtTime(rec.schedule.estimatedArrival)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* row 3: operational details */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                         {rec.gate && (
-                          <span className="flex items-center gap-1">
+                          <span className={cn("flex items-center gap-1", ch.gate && changedCls)}>
                             <DoorOpen className="h-3 w-3" />
                             Gate {rec.gate}
                           </span>
                         )}
-                        {rec.terminal && <span>Terminal {rec.terminal}</span>}
-                        {rec.aircraft?.type && <span>Aircraft {rec.aircraft.type} ({rec.aircraft.registration})</span>}
-                        {rec.boarding?.time && <span>Boarding {rec.boarding.time}</span>}
+                        {rec.terminal && (
+                          <span className={cn("flex items-center gap-1", ch.terminal && changedCls)}>
+                            <TowerControl className="h-3 w-3" />
+                            Terminal {rec.terminal}
+                          </span>
+                        )}
+                        {rec.aircraft?.type && (
+                          <span className={cn("flex items-center gap-1", ch.aircraft && changedCls)}>
+                            <Plane className="h-3 w-3" />
+                            {rec.aircraft.type}
+                            {rec.aircraft.registration ? ` (${rec.aircraft.registration})` : ""}
+                          </span>
+                        )}
+                        {rec.boarding?.time && (
+                          <span className={cn("flex items-center gap-1", ch.boarding && changedCls)}>
+                            <Clock className="h-3 w-3" />
+                            Boarding {fmtTime(rec.boarding.time)}
+                          </span>
+                        )}
+                        {typeof rec.timeToDeparture === "number" && rec.timeToDeparture > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Timer className="h-3 w-3" />
+                            T-{rec.timeToDeparture}min
+                          </span>
+                        )}
+                        {rec.schedule?.durationMinutes ? (
+                          <span className="flex items-center gap-1">
+                            <ArrowRight className="h-3 w-3" />
+                            {Math.floor(rec.schedule.durationMinutes / 60)}h{String(rec.schedule.durationMinutes % 60).padStart(2, "0")}m
+                          </span>
+                        ) : null}
                       </div>
-                      {rec.schedule && (
-                        <div className="flex flex-wrap gap-x-4 text-xs text-muted-foreground">
-                          {rec.schedule.scheduledDeparture && <span>STD: {rec.schedule.scheduledDeparture}</span>}
-                          {rec.schedule.estimatedDeparture && <span>ETD: {rec.schedule.estimatedDeparture}</span>}
-                          {rec.schedule.scheduledArrival && <span>STA: {rec.schedule.scheduledArrival}</span>}
-                          {rec.schedule.estimatedArrival && <span>ETA: {rec.schedule.estimatedArrival}</span>}
+
+                      {/* row 4: passenger counts per cabin */}
+                      {rec.passengerCounts && Object.keys(rec.passengerCounts).length > 0 && (
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <Users className="h-3 w-3 text-muted-foreground" />
+                          {Object.entries(rec.passengerCounts).map(([cabin, counts]) => (
+                            <Badge key={cabin} variant="outline" className="text-[9px] px-1.5 font-mono">
+                              <span className="font-semibold">{cabin}</span>
+                              <span className="mx-0.5">:</span>
+                              <span className={cn(ch.paxBooked && changedCls)}>{counts.booked}</span>
+                              <span className="text-muted-foreground mx-0.5">bkd</span>
+                              <span className={cn(ch.paxOnBoard && changedCls)}>{counts.onBoard}</span>
+                              <span className="text-muted-foreground mx-0.5">obd</span>
+                              <span>{counts.boardingPasses}</span>
+                              <span className="text-muted-foreground mx-0.5">bp</span>
+                            </Badge>
+                          ))}
+                          <span className="text-[9px] text-muted-foreground ml-1">
+                            Total: {pax.booked} booked / {pax.onBoard} on-board / {pax.bp} BP
+                          </span>
                         </div>
                       )}
-                      {rec.passengerCounts && Object.keys(rec.passengerCounts).length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {Object.entries(rec.passengerCounts).map(([cabin, counts]) => (
-                            <Badge key={cabin} variant="outline" className="text-[9px] px-1.5">
-                              {cabin}: {counts.booked}bk {counts.onBoard}bd
+
+                      {/* row 5: remarks */}
+                      {rec.remarks && rec.remarks.length > 0 && (
+                        <div className="flex gap-1 items-start text-[10px] text-muted-foreground">
+                          <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+                          <span className="italic">
+                            {rec.remarks.map((r) => (typeof r === "string" ? r : r.text ?? "")).join(" · ")}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* row 6: codeshare */}
+                      {rec.codeshareInfo && rec.codeshareInfo.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {rec.codeshareInfo.map((cs, ci) => (
+                            <Badge key={ci} variant="secondary" className="text-[9px]">
+                              CS: {cs}
                             </Badge>
                           ))}
                         </div>
@@ -178,7 +387,7 @@ export function StatusHistory({
 
       <Separator />
 
-      {/* Snapshots */}
+      {/* ── Data Snapshots ─────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">

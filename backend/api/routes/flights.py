@@ -680,6 +680,512 @@ def _derive_flight_phase(fs, analysis):
     }
 
 
+def _build_insights(passengers, reservation_doc, schedule_doc, pl, change_summary):
+    """Compute 28 analytics insights from available data sources."""
+    insights = {}
+    total_pax = len(passengers)
+
+    # ── 1. Connecting vs Local passengers ───────────────────
+    connecting = 0
+    local = 0
+    for px in passengers:
+        if px.get("isThru"):
+            connecting += 1
+        else:
+            local += 1
+    insights["connectingPassengers"] = {
+        "connecting": connecting,
+        "local": local,
+        "connectingPct": round(connecting / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 2. Booking channel analytics ────────────────────────
+    channel_counts = {}
+    channel_categories = {"online": 0, "agent": 0, "corporate": 0, "other": 0}
+    online_sines = {"WEB", "MOB", "APP", "ND1", "ND2", "NDC"}
+    if reservation_doc:
+        for rv in reservation_doc.get("reservations", []):
+            pos = rv.get("pointOfSale", {})
+            if isinstance(pos, dict):
+                src = pos.get("agentSine", "") or ""
+                if src:
+                    channel_counts[src] = channel_counts.get(
+                        src, 0) + rv.get("numberInParty", 1)
+                    if src.upper() in online_sines:
+                        channel_categories["online"] += rv.get(
+                            "numberInParty", 1)
+                    elif src.upper().startswith("STX") or len(src) <= 4:
+                        channel_categories["agent"] += rv.get(
+                            "numberInParty", 1)
+                    else:
+                        channel_categories["other"] += rv.get(
+                            "numberInParty", 1)
+    insights["bookingChannels"] = {
+        "channels": dict(sorted(channel_counts.items(), key=lambda x: -x[1])),
+        "categories": channel_categories,
+    }
+
+    # ── 3. Payment method distribution ──────────────────────
+    payment_counts = {}
+    if reservation_doc:
+        for rv in reservation_doc.get("reservations", []):
+            fop = rv.get("formOfPayment", "")
+            if fop:
+                payment_counts[fop] = payment_counts.get(fop, 0) + 1
+    insights["paymentMethods"] = dict(
+        sorted(payment_counts.items(), key=lambda x: -x[1]))
+
+    # ── 4. Document compliance (DOCS/DOCV/DOCA) ────────────
+    doc_codes = {"DOCS": 0, "DOCV": 0, "DOCA": 0}
+    for px in passengers:
+        codes = px.get("editCodes", [])
+        for dc in ("DOCS", "DOCV", "DOCA"):
+            if dc in codes:
+                doc_codes[dc] += 1
+    insights["documentCompliance"] = {
+        k: {"count": v, "pct": round(
+            v / total_pax * 100, 1) if total_pax else 0}
+        for k, v in doc_codes.items()
+    }
+
+    # ── 5. Check-in sequence analysis ───────────────────────
+    sequences = []
+    for px in passengers:
+        seq = px.get("checkInSequence", 0)
+        if seq and seq > 0:
+            sequences.append(seq)
+    if sequences:
+        sequences.sort()
+        insights["checkInSequence"] = {
+            "total": len(sequences),
+            "earliest": sequences[0],
+            "latest": sequences[-1],
+            "median": sequences[len(sequences) // 2],
+        }
+    else:
+        insights["checkInSequence"] = {
+            "total": 0, "earliest": 0, "latest": 0, "median": 0}
+
+    # ── 6. Booking lead time ────────────────────────────────
+    dep_date_str = (pl or {}).get("departureDate", "")
+    lead_times = []
+    if reservation_doc and dep_date_str:
+        from datetime import datetime
+        try:
+            dep_dt = datetime.strptime(dep_date_str, "%Y-%m-%d")
+        except (ValueError, TypeError):
+            dep_dt = None
+        if dep_dt:
+            for rv in reservation_doc.get("reservations", []):
+                created = rv.get("createdAt", "")
+                if created:
+                    try:
+                        cr_dt = datetime.fromisoformat(
+                            created.replace("Z", "+00:00")).replace(tzinfo=None)
+                        days = (dep_dt - cr_dt).days
+                        if 0 <= days <= 365:
+                            lead_times.append(days)
+                    except (ValueError, TypeError):
+                        pass
+    if lead_times:
+        lead_times.sort()
+        insights["bookingLeadTime"] = {
+            "avgDays": round(sum(lead_times) / len(lead_times), 1),
+            "minDays": lead_times[0],
+            "maxDays": lead_times[-1],
+            "medianDays": lead_times[len(lead_times) // 2],
+            "distribution": {
+                "sameDay": sum(1 for d in lead_times if d == 0),
+                "within7d": sum(1 for d in lead_times if 1 <= d <= 7),
+                "within30d": sum(1 for d in lead_times if 8 <= d <= 30),
+                "within90d": sum(1 for d in lead_times if 31 <= d <= 90),
+                "over90d": sum(1 for d in lead_times if d > 90),
+            },
+        }
+    else:
+        insights["bookingLeadTime"] = None
+
+    # ── 7. Seat occupancy ───────────────────────────────────
+    seated = 0
+    unseated = 0
+    seat_map = {}
+    for px in passengers:
+        seat = px.get("seat", "")
+        if seat:
+            seated += 1
+            row = "".join(c for c in seat if c.isdigit()) or "?"
+            seat_map[row] = seat_map.get(row, 0) + 1
+        else:
+            unseated += 1
+    insights["seatOccupancy"] = {
+        "seated": seated,
+        "unseated": unseated,
+        "seatPct": round(seated / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 8. Baggage analytics ────────────────────────────────
+    bag_counts = []
+    has_bag_routes = 0
+    for px in passengers:
+        bc = px.get("bagCount")
+        if bc is not None and bc >= 0:
+            bag_counts.append(bc)
+        if px.get("baggageRoutes"):
+            has_bag_routes += 1
+    insights["baggage"] = {
+        "withBags": sum(1 for b in bag_counts if b > 0),
+        "withoutBags": sum(1 for b in bag_counts if b == 0),
+        "totalBags": sum(bag_counts),
+        "avgBags": round(sum(bag_counts) / len(bag_counts), 1) if bag_counts else 0,
+        "dataAvailablePct": round(len(bag_counts) / total_pax * 100, 1) if total_pax else 0,
+        "withBagRoutes": has_bag_routes,
+    }
+
+    # ── 9. Edit code intelligence ───────────────────────────
+    code_freq = {}
+    for px in passengers:
+        for code in px.get("editCodes", []):
+            code_freq[code] = code_freq.get(code, 0) + 1
+    top_codes = sorted(code_freq.items(), key=lambda x: -x[1])[:20]
+    insights["editCodes"] = {
+        "uniqueCodes": len(code_freq),
+        "topCodes": [{"code": c, "count": n} for c, n in top_codes],
+    }
+
+    # ── 10. Multi-segment itinerary ─────────────────────────
+    seg_counts = {}
+    if reservation_doc:
+        for rv in reservation_doc.get("reservations", []):
+            segs = len(rv.get("segments", []))
+            seg_counts[segs] = seg_counts.get(segs, 0) + 1
+    insights["multiSegment"] = {
+        "distribution": dict(sorted(seg_counts.items())),
+        "multiSegmentPct": round(
+            sum(v for k, v in seg_counts.items() if k > 1) /
+            sum(seg_counts.values()) * 100, 1
+        ) if seg_counts else 0,
+    }
+
+    # ── 11. PNR party size distribution ─────────────────────
+    party_sizes = {}
+    if reservation_doc:
+        for rv in reservation_doc.get("reservations", []):
+            ps = rv.get("numberInParty", 1)
+            party_sizes[ps] = party_sizes.get(ps, 0) + 1
+    insights["pnrPartySize"] = {
+        "distribution": dict(sorted(party_sizes.items())),
+        "avgSize": round(
+            sum(k * v for k, v in party_sizes.items()) /
+            sum(party_sizes.values()), 1
+        ) if party_sizes else 0,
+    }
+
+    # ── 12. Infant tracking ─────────────────────────────────
+    infants_with_parent = 0
+    infant_names = []
+    for px in passengers:
+        if px.get("hasInfant"):
+            infants_with_parent += 1
+            infant_names.append(
+                f"{px.get('lastName', '')} (via {px.get('pnr', '')})")
+    insights["infantTracking"] = {
+        "total": infants_with_parent,
+        "details": infant_names[:20],
+    }
+
+    # ── 13. Wheelchair type breakdown ───────────────────────
+    wc_types = {"WCHR": 0, "WCHS": 0, "WCHC": 0}
+    for px in passengers:
+        for code in px.get("editCodes", []):
+            if code in wc_types:
+                wc_types[code] += 1
+    insights["wheelchairTypes"] = {k: v for k, v in wc_types.items() if v > 0}
+
+    # ── 14. Meal code detail ────────────────────────────────
+    meal_codes = {}
+    if reservation_doc:
+        for rv in reservation_doc.get("reservations", []):
+            for pax in rv.get("passengers", []):
+                meal = pax.get("specialMeal", "")
+                if meal:
+                    meal_codes[meal] = meal_codes.get(meal, 0) + 1
+    insights["mealCodes"] = dict(
+        sorted(meal_codes.items(), key=lambda x: -x[1]))
+
+    # ── 15. Boarding rate vs schedule ───────────────────────
+    boarded_total = sum(1 for px in passengers if px.get("isBoarded"))
+    checked_in_total = sum(1 for px in passengers if px.get("isCheckedIn"))
+    insights["boardingRate"] = {
+        "boarded": boarded_total,
+        "checkedIn": checked_in_total,
+        "notCheckedIn": total_pax - checked_in_total - boarded_total,
+        "boardedPct": round(boarded_total / total_pax * 100, 1) if total_pax else 0,
+        "checkedInPct": round((checked_in_total + boarded_total) / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 16. Change velocity ─────────────────────────────────
+    change_types = dict(sorted(
+        ((k, v) for k, v in (change_summary or {}).items()),
+        key=lambda x: -x[1]
+    ))
+    total_changes = sum(change_types.values())
+    insights["changeVelocity"] = {
+        "totalChanges": total_changes,
+        "changeTypes": change_types,
+    }
+
+    # ── 17. Revenue class mix (booking class distribution) ──
+    class_dist = {}
+    for px in passengers:
+        bc = px.get("bookingClass", "")
+        if bc:
+            class_dist[bc] = class_dist.get(bc, 0) + 1
+    insights["revenueClassMix"] = dict(
+        sorted(class_dist.items(), key=lambda x: -x[1]))
+
+    # ── 18. VCR / ticket status ─────────────────────────────
+    vcr_types = {}
+    has_ticket = 0
+    for px in passengers:
+        vt = px.get("vcrType", "")
+        if vt:
+            vcr_types[vt] = vcr_types.get(vt, 0) + 1
+        if px.get("ticketNumber"):
+            has_ticket += 1
+    insights["ticketStatus"] = {
+        "vcrTypes": vcr_types,
+        "withTicket": has_ticket,
+        "withoutTicket": total_pax - has_ticket,
+        "ticketPct": round(has_ticket / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 19. Flight duration & distance ──────────────────────
+    if schedule_doc:
+        insights["flightInfo"] = {
+            "elapsedTime": schedule_doc.get("elapsedTime", ""),
+            "airMilesFlown": schedule_doc.get("airMilesFlown", 0),
+            "aircraftType": schedule_doc.get("aircraftType", ""),
+            "mealCode": schedule_doc.get("mealCode", ""),
+        }
+    else:
+        insights["flightInfo"] = None
+
+    # ── 20. Corporate travel IDs ────────────────────────────
+    corp_ids = {}
+    for px in passengers:
+        cid = px.get("corpId", "")
+        if cid:
+            corp_ids[cid] = corp_ids.get(cid, 0) + 1
+    insights["corporateTravel"] = {
+        "totalCorporate": sum(corp_ids.values()),
+        "corporatePct": round(sum(corp_ids.values()) / total_pax * 100, 1) if total_pax else 0,
+        "companies": dict(sorted(corp_ids.items(), key=lambda x: -x[1])),
+    }
+
+    # ── 21. Priority passengers ─────────────────────────────
+    priority_codes = {}
+    for px in passengers:
+        pc = px.get("priorityCode", "")
+        if pc:
+            priority_codes[pc] = priority_codes.get(pc, 0) + 1
+    insights["priorityPassengers"] = {
+        "total": sum(priority_codes.values()),
+        "codes": dict(sorted(priority_codes.items(), key=lambda x: -x[1])),
+    }
+
+    # ── 22. Seniority analytics ─────────────────────────────
+    seniority_count = 0
+    for px in passengers:
+        if px.get("seniorityDate"):
+            seniority_count += 1
+    insights["seniority"] = {
+        "withSeniority": seniority_count,
+        "pct": round(seniority_count / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 23. Connection risk scoring ─────────────────────────
+    # Passengers with 1-segment are direct; multi-segment with short layovers
+    # could be at-risk. Simple heuristic: connecting pax without check-in.
+    at_risk = 0
+    for px in passengers:
+        if px.get("isThru") and not px.get("isCheckedIn") and not px.get("isBoarded"):
+            at_risk += 1
+    insights["connectionRisk"] = {
+        "atRiskCount": at_risk,
+        "totalConnecting": connecting,
+        "riskPct": round(at_risk / connecting * 100, 1) if connecting else 0,
+    }
+
+    # ── 24. Desired vs actual booking class (upgrade/downgrade) ──
+    upgrade_count = 0
+    downgrade_count = 0
+    class_mismatch = 0
+    for px in passengers:
+        desired = px.get("desiredBookingClass", "")
+        actual = px.get("bookingClass", "")
+        if desired and actual and desired != actual:
+            class_mismatch += 1
+            # Simple heuristic: J > Y means upgrade to business
+            biz_classes = {"J", "C", "D", "I", "R"}
+            if actual in biz_classes and desired not in biz_classes:
+                upgrade_count += 1
+            elif desired in biz_classes and actual not in biz_classes:
+                downgrade_count += 1
+    insights["classMismatch"] = {
+        "total": class_mismatch,
+        "upgrades": upgrade_count,
+        "downgrades": downgrade_count,
+    }
+
+    # ── 25. Passenger type distribution ─────────────────────
+    pax_types = {}
+    for px in passengers:
+        pt = px.get("passengerType", "")
+        if pt:
+            pax_types[pt] = pax_types.get(pt, 0) + 1
+    insights["passengerTypes"] = dict(
+        sorted(pax_types.items(), key=lambda x: -x[1]))
+
+    # ── 26. Boarding pass issuance ──────────────────────────
+    bp_issued = sum(1 for px in passengers if px.get("boardingPassIssued"))
+    insights["boardingPasses"] = {
+        "issued": bp_issued,
+        "notIssued": total_pax - bp_issued,
+        "issuedPct": round(bp_issued / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 27. Reservation recency ─────────────────────────────
+    if reservation_doc:
+        from datetime import datetime
+        timestamps = []
+        for rv in reservation_doc.get("reservations", []):
+            mod = rv.get("modifiedAt", "") or rv.get("createdAt", "")
+            if mod:
+                try:
+                    ts = datetime.fromisoformat(mod.replace("Z", "+00:00"))
+                    timestamps.append(ts.isoformat())
+                except (ValueError, TypeError):
+                    pass
+        timestamps.sort(reverse=True)
+        insights["reservationRecency"] = {
+            "latestModification": timestamps[0] if timestamps else None,
+            "totalReservations": len(reservation_doc.get("reservations", [])),
+        }
+    else:
+        insights["reservationRecency"] = None
+
+    # ── 28. Equipment & configuration ───────────────────────
+    insights["equipment"] = {
+        "aircraftType": (schedule_doc or {}).get("aircraftType", "") or (pl or {}).get("aircraftType", ""),
+        "seatConfig": ((pl or {}).get("seatConfig", "")
+                       or (schedule_doc or {}).get("seatConfig", "")),
+    }
+
+    # ── 29. Check-in timeline (time-of-day distribution) ────
+    ci_hours = {}
+    ci_count = 0
+    for px in passengers:
+        ci_time = px.get("checkInTime", "")
+        if ci_time and ":" in ci_time:
+            try:
+                hh = int(ci_time.split(":")[0])
+                bucket = f"{hh:02d}:00"
+                ci_hours[bucket] = ci_hours.get(bucket, 0) + 1
+                ci_count += 1
+            except (ValueError, IndexError):
+                pass
+    insights["checkInTimeline"] = {
+        "totalWithTime": ci_count,
+        "hourDistribution": dict(sorted(ci_hours.items())),
+        "peakHour": max(ci_hours, key=ci_hours.get) if ci_hours else None,
+        "coveragePct": round(ci_count / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 30. Emergency contact coverage ──────────────────────
+    ec_count = sum(1 for px in passengers if px.get("hasEmergencyContact"))
+    insights["emergencyContacts"] = {
+        "withContact": ec_count,
+        "withoutContact": total_pax - ec_count,
+        "coveragePct": round(ec_count / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 31. Nationality distribution ────────────────────────
+    nat_counts = {}
+    for px in passengers:
+        nat = px.get("nationality", "")
+        if nat:
+            nat_counts[nat] = nat_counts.get(nat, 0) + 1
+    unknown_nat = total_pax - sum(nat_counts.values())
+    insights["nationalityBreakdown"] = {
+        "countries": dict(sorted(nat_counts.items(), key=lambda x: -x[1])),
+        "uniqueCountries": len(nat_counts),
+        "unknown": unknown_nat,
+        "coveragePct": round((total_pax - unknown_nat) / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 32. Baggage routing destinations ────────────────────
+    route_dests = {}
+    pax_with_routes = 0
+    for px in passengers:
+        routes = px.get("baggageRoutes") or []
+        if routes:
+            pax_with_routes += 1
+            for rt in routes:
+                dest = rt.get("destination", "")
+                if dest:
+                    route_dests[dest] = route_dests.get(dest, 0) + 1
+    insights["baggageRouting"] = {
+        "destinations": dict(sorted(route_dests.items(), key=lambda x: -x[1])),
+        "paxWithRoutes": pax_with_routes,
+        "coveragePct": round(pax_with_routes / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 33. Standby & upgrade queue summary ─────────────────
+    standby_count = 0
+    upgrade_count_q = 0
+    standby_cabins = {}
+    for px in passengers:
+        if px.get("isStandby"):
+            standby_count += 1
+            cab = px.get("cabin", "?")
+            standby_cabins[cab] = standby_cabins.get(cab, 0) + 1
+        if px.get("priorityCode") == "UPG":
+            upgrade_count_q += 1
+    insights["standbyUpgrade"] = {
+        "standbyTotal": standby_count,
+        "upgradeTotal": upgrade_count_q,
+        "standbyCabins": standby_cabins,
+        "standbyPct": round(standby_count / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    # ── 34. Operational readiness risk ──────────────────────
+    no_seat = 0
+    no_bp = 0
+    no_checkin = 0
+    thru_no_seat = 0
+    for px in passengers:
+        has_seat = bool(px.get("seat", ""))
+        has_bp = bool(px.get("boardingPassIssued"))
+        is_ci = bool(px.get("isCheckedIn") or px.get("isBoarded"))
+        if not has_seat:
+            no_seat += 1
+        if not has_bp and is_ci:
+            no_bp += 1
+        if not is_ci:
+            no_checkin += 1
+        if px.get("isThru") and not has_seat:
+            thru_no_seat += 1
+    insights["operationalReadiness"] = {
+        "noSeat": no_seat,
+        "checkedInNoBP": no_bp,
+        "notCheckedIn": no_checkin,
+        "thruNoSeat": thru_no_seat,
+        "readinessPct": round((total_pax - no_checkin) / total_pax * 100, 1) if total_pax else 0,
+    }
+
+    return insights
+
+
 def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_doc=None, trip_report_doc=None, schedule_doc=None):
     if pl:
         passengers = pl.get("passengers", [])
@@ -779,6 +1285,126 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
             if fs:
                 fs["aircraft"] = aircraft
 
+    # --- Group booking summary ---
+    group_booking_summary = None
+    if pl:
+        group_bookings = pl.get("groupBookings", [])
+        if not group_bookings:
+            # Fallback: compute from passengers (covers pre-backfill docs)
+            gmap = {}
+            for px in passengers:
+                gc = px.get("groupCode", "")
+                if not gc:
+                    continue
+                if gc not in gmap:
+                    gmap[gc] = {
+                        "groupCode": gc, "pnr": px.get("pnr", ""),
+                        "cabin": px.get("cabin", ""),
+                        "bookingClass": px.get("bookingClass", ""),
+                        "totalMembers": 0, "namedMembers": 0,
+                        "unnamedMembers": 0, "checkedIn": 0, "boarded": 0,
+                        "members": [],
+                    }
+                g = gmap[gc]
+                g["totalMembers"] += 1
+                is_unnamed = px.get("isUnnamedGroup", False) or (
+                    px.get("lastName") == "PAX" and not px.get("firstName"))
+                if is_unnamed:
+                    g["unnamedMembers"] += 1
+                else:
+                    g["namedMembers"] += 1
+                if px.get("isCheckedIn"):
+                    g["checkedIn"] += 1
+                if px.get("isBoarded"):
+                    g["boarded"] += 1
+                g["members"].append({
+                    "lastName": px.get("lastName", ""),
+                    "firstName": px.get("firstName", ""),
+                    "pnr": px.get("pnr", ""),
+                    "passengerId": px.get("passengerId", ""),
+                    "lineNumber": px.get("lineNumber", 0),
+                    "isCheckedIn": px.get("isCheckedIn", False),
+                    "isBoarded": px.get("isBoarded", False),
+                    "isUnnamed": is_unnamed,
+                    "seat": px.get("seat", ""),
+                })
+            group_bookings = sorted(
+                gmap.values(), key=lambda g: g["groupCode"])
+        else:
+            # Enrich stored groups with member details from passengers
+            pax_by_group = {}
+            for px in passengers:
+                gc = px.get("groupCode", "")
+                if gc:
+                    pax_by_group.setdefault(gc, []).append(px)
+            for gb in group_bookings:
+                if not gb.get("members"):
+                    gc = gb["groupCode"]
+                    gb["members"] = []
+                    for px in pax_by_group.get(gc, []):
+                        is_unnamed = px.get("isUnnamedGroup", False) or (
+                            px.get("lastName") == "PAX" and not px.get("firstName"))
+                        gb["members"].append({
+                            "lastName": px.get("lastName", ""),
+                            "firstName": px.get("firstName", ""),
+                            "pnr": px.get("pnr", ""),
+                            "passengerId": px.get("passengerId", ""),
+                            "lineNumber": px.get("lineNumber", 0),
+                            "isCheckedIn": px.get("isCheckedIn", False),
+                            "isBoarded": px.get("isBoarded", False),
+                            "isUnnamed": is_unnamed,
+                            "seat": px.get("seat", ""),
+                        })
+        if group_bookings:
+            group_booking_summary = {
+                "totalGroups": len(group_bookings),
+                "totalGroupPassengers": sum(g["totalMembers"] for g in group_bookings),
+                "totalUnnamed": sum(g["unnamedMembers"] for g in group_bookings),
+                "totalNamed": sum(g["namedMembers"] for g in group_bookings),
+                "groups": group_bookings,
+            }
+
+    # --- Special requests & services summary from reservations ---
+    special_requests_summary = None
+    if reservation_doc:
+        meal_counts = {}
+        wheelchair_counts = {}
+        total_emergency = 0
+        total_ff = 0
+        ff_tiers = {}
+        booking_sources = {}
+        for rv in reservation_doc.get("reservations", []):
+            # Booking channel
+            pos = rv.get("pointOfSale", {})
+            if isinstance(pos, dict) and pos:
+                src = pos.get("agentSine", "")
+                if src:
+                    booking_sources[src] = booking_sources.get(src, 0) + 1
+            for pax in rv.get("passengers", []):
+                meal = pax.get("specialMeal", "")
+                if meal:
+                    meal_counts[meal] = meal_counts.get(meal, 0) + 1
+                wc = pax.get("wheelchairCode", "")
+                if wc:
+                    wheelchair_counts[wc] = wheelchair_counts.get(wc, 0) + 1
+                if pax.get("hasEmergencyContact"):
+                    total_emergency += 1
+                if pax.get("frequentFlyerNumber"):
+                    total_ff += 1
+                    tier = pax.get("ffTierName", "")
+                    if tier:
+                        ff_tiers[tier] = ff_tiers.get(tier, 0) + 1
+        special_requests_summary = {
+            "specialMeals": meal_counts,
+            "totalSpecialMeals": sum(meal_counts.values()),
+            "wheelchairs": wheelchair_counts,
+            "totalWheelchairs": sum(wheelchair_counts.values()),
+            "emergencyContacts": total_emergency,
+            "frequentFlyers": total_ff,
+            "ffTiers": ff_tiers,
+            "bookingSources": booking_sources,
+        }
+
     return {
         "flightStatus": fs,
         "route": {
@@ -819,6 +1445,11 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
         },
         "tree": tree,
         "schedule": _strip_id(schedule_doc) if schedule_doc else None,
+        "groupBookingSummary": group_booking_summary,
+        "specialRequestsSummary": special_requests_summary,
+        "codeshareInfo": fs.get("codeshareInfo", []) if fs else [],
+        "departureGate": pl.get("departureGate", "") if pl else "",
+        "insights": _build_insights(passengers, reservation_doc, schedule_doc, pl, change_summary) if pl and passengers else None,
     }
 
 

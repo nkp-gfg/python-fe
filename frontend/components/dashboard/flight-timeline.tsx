@@ -220,6 +220,7 @@ function TimelineEventItem({ event, isLast }: {
 }
 
 function StatsCard({ stats }: { stats: FlightTimelineResponse["stats"] }) {
+  if (!stats) return null;
   return (
     <Card className="mb-4">
       <CardHeader className="pb-2">
@@ -231,25 +232,25 @@ function StatsCard({ stats }: { stats: FlightTimelineResponse["stats"] }) {
       <CardContent>
         <div className="grid grid-cols-4 gap-3 text-center">
           <div>
-            <div className="text-2xl font-bold text-emerald-600">{stats.totalCheckins}</div>
+            <div className="text-2xl font-bold text-emerald-600">{stats.totalCheckins ?? 0}</div>
             <div className="text-xs text-muted-foreground">Check-ins</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-purple-600">{stats.totalBoardings}</div>
+            <div className="text-2xl font-bold text-purple-600">{stats.totalBoardings ?? 0}</div>
             <div className="text-xs text-muted-foreground">Boarded</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-amber-600">{stats.totalUpgrades}</div>
+            <div className="text-2xl font-bold text-amber-600">{stats.totalUpgrades ?? 0}</div>
             <div className="text-xs text-muted-foreground">Upgrades</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-cyan-600">{stats.totalSeatChanges}</div>
+            <div className="text-2xl font-bold text-cyan-600">{stats.totalSeatChanges ?? 0}</div>
             <div className="text-xs text-muted-foreground">Seat Changes</div>
           </div>
         </div>
         <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs text-muted-foreground">
-          <span>Total Events: {stats.totalEvents}</span>
-          {stats.timeRange.first && stats.timeRange.last && (
+          <span>Total Events: {stats.totalEvents ?? 0}</span>
+          {stats.timeRange?.first && stats.timeRange?.last && (
             <span>
               {formatTimestampFull(stats.timeRange.first)} - {formatTimestampFull(stats.timeRange.last)}
             </span>

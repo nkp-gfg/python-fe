@@ -226,17 +226,24 @@ class SabreClient:
 
     # ── Passenger List ─────────────────────────────────────────────────────
 
-    def get_passenger_list(self, airline, flight_number, departure_date, origin):
+    def get_passenger_list(self, airline, flight_number, departure_date, origin,
+                           display_codes=None):
         """
         Call GetPassengerListRQ.
+        display_codes: pre-built XML string of DisplayCode elements
+                       (use templates.DISPLAY_CODES_* constants).
+                       Defaults to DISPLAY_CODES_BOOKED if not supplied.
         Returns (parsed_body_dict, raw_xml_string, request_meta).
         """
+        if display_codes is None:
+            display_codes = templates.DISPLAY_CODES_BOOKED
         body = templates.PASSENGER_LIST.format(
             **self._common_vars(),
             airline=airline,
             flight_number=flight_number,
             departure_date=departure_date,
             origin=origin,
+            display_codes=display_codes,
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
             "GetPassengerListRQ", body)

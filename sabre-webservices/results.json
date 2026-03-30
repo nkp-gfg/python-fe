@@ -1,0 +1,74 @@
+[
+  {
+    "iterationIndex": 0,
+    "results": [
+      {
+        "test": {
+          "filename": "v2-Get Passenger List.bru"
+        },
+        "request": {
+          "method": "POST",
+          "url": "https://airline.webservices.platform.sabre.com/GF",
+          "headers": {
+            "Content-Type": "text/xml; charset=utf-8",
+            "SOAPAction": "\"GetPassengerListRQ\""
+          },
+          "data": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n                  xmlns:eb=\"http://www.ebxml.org/namespaces/messageHeader\"\n                  xmlns:wsse=\"http://schemas.xmlsoap.org/ws/2002/12/secext\"\n                  xmlns:v4=\"http://services.sabre.com/checkin/getPassengerList/v4\">\n  <soapenv:Header>\n    <eb:MessageHeader soapenv:mustUnderstand=\"0\" eb:version=\"2.0.0\">\n      <eb:From><eb:PartyId/></eb:From>\n      <eb:To><eb:PartyId/></eb:To>\n      <eb:CPAId>GF</eb:CPAId>\n      <eb:ConversationId>{{conversationId}}</eb:ConversationId>\n      <eb:Service>GetPassengerListRQ</eb:Service>\n      <eb:Action>GetPassengerListRQ</eb:Action>\n      <eb:MessageData>\n        <eb:MessageId>mid:088eaa07-81b8-447e-8bb0-31a9d9ff71c0@clientofsabre.com</eb:MessageId>\n        <eb:Timestamp>2026-03-29T11:01:48.479Z</eb:Timestamp>\n      </eb:MessageData>\n    </eb:MessageHeader>\n    <wsse:Security soapenv:mustUnderstand=\"0\">\n      <wsse:BinarySecurityToken>{{sessionToken}}</wsse:BinarySecurityToken>\n    </wsse:Security>\n  </soapenv:Header>\n  <soapenv:Body>\n    <v4:GetPassengerListRQ version=\"4.0.0\"\n                           timeStamp=\"2026-03-29T11:01:48.479Z\"\n                           messageID=\"MSG-000001\"\n                           serviceOption=\"Stateless\">\n      <v4:Itinerary>\n        <v4:Airline>GF</v4:Airline>\n        <v4:Flight>2068</v4:Flight>\n        <v4:DepartureDate>2026-03-20</v4:DepartureDate>\n        <v4:Origin>DMM</v4:Origin>\n        <!-- NOTE: Destination and ClassOfService are FILTERS — they reduce results -->\n        <!-- filter by arrival airport -->\n        <!-- <v4:Destination>BAH</v4:Destination> -->\n        <!-- filter by booking class -->\n        <!-- <v4:ClassOfService>Y</v4:ClassOfService> -->\n      </v4:Itinerary>\n\n      <!-- DisplayCodeRequest: condition=\"OR\" means return pax matching ANY code -->\n      <!-- Using all codes together gives the most complete passenger list -->\n      <v4:DisplayCodeRequest>\n        <v4:DisplayCodes condition=\"OR\">\n          <v4:DisplayCode>AE</v4:DisplayCode>\n        </v4:DisplayCodes>\n        <v4:SortSequence>Name</v4:SortSequence>\n      </v4:DisplayCodeRequest>\n    </v4:GetPassengerListRQ>\n  </soapenv:Body>\n</soapenv:Envelope>"
+        },
+        "response": {
+          "status": 500,
+          "statusText": "Internal Server Error",
+          "headers": {
+            "vary": "Origin,Access-Control-Request-Method,Access-Control-Request-Headers",
+            "content-length": "1338",
+            "soapaction": "\"\"",
+            "x-xss-protection": "1; mode=block",
+            "strict-transport-security": "max-age=31536000",
+            "x-content-type-options": "nosniff",
+            "x-frame-options": "SAMEORIGIN",
+            "content-security-policy": "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';",
+            "referrer-policy": "origin-when-cross-origin",
+            "content-type": "text/xml; charset=utf-8",
+            "date": "Sun, 29 Mar 2026 11:01:48 GMT",
+            "via": "1.1 google",
+            "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+            "connection": "close"
+          },
+          "data": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Header><eb:MessageHeader xmlns:eb=\"http://www.ebxml.org/namespaces/messageHeader\" eb:version=\"1.0\" soap-env:mustUnderstand=\"1\"><eb:From><eb:PartyId eb:type=\"URI\"/></eb:From><eb:To><eb:PartyId eb:type=\"URI\"/></eb:To><eb:CPAId>GF</eb:CPAId><eb:ConversationId>{{conversationId}}</eb:ConversationId><eb:Service>GetPassengerListRQ</eb:Service><eb:Action>ErrorRS</eb:Action><eb:MessageData><eb:MessageId>4269450397089750420</eb:MessageId><eb:Timestamp>2026-03-29T11:01:48</eb:Timestamp><eb:RefToMessageId>mid:088eaa07-81b8-447e-8bb0-31a9d9ff71c0@clientofsabre.com</eb:RefToMessageId></eb:MessageData></eb:MessageHeader><wsse:Security xmlns:wsse=\"http://schemas.xmlsoap.org/ws/2002/12/secext\"><wsse:BinarySecurityToken valueType=\"String\" EncodingType=\"wsse:Base64Binary\">{{sessionToken}}</wsse:BinarySecurityToken></wsse:Security></soap-env:Header><soap-env:Body><soap-env:Fault><faultcode>soap-env:Client.InvalidSecurityToken</faultcode><faultstring>Invalid or Expired binary security token: {{sessionToken}}</faultstring><detail><StackTrace>com.sabre.universalservices.base.session.SessionException: errors.session.USG_INVALID_SECURITY_TOKEN</StackTrace></detail></soap-env:Fault></soap-env:Body></soap-env:Envelope>",
+          "url": "https://airline.webservices.platform.sabre.com/GF",
+          "responseTime": 536
+        },
+        "error": null,
+        "status": "pass",
+        "assertionResults": [],
+        "testResults": [],
+        "preRequestTestResults": [],
+        "postResponseTestResults": [],
+        "shouldStopRunnerExecution": false,
+        "runDuration": 0.8342351,
+        "name": "v2-Get Passenger List",
+        "path": "v2-Get Passenger List",
+        "iterationIndex": 0
+      }
+    ],
+    "summary": {
+      "totalRequests": 1,
+      "passedRequests": 1,
+      "failedRequests": 0,
+      "errorRequests": 0,
+      "skippedRequests": 0,
+      "totalAssertions": 0,
+      "passedAssertions": 0,
+      "failedAssertions": 0,
+      "totalTests": 0,
+      "passedTests": 0,
+      "failedTests": 0,
+      "totalPreRequestTests": 0,
+      "passedPreRequestTests": 0,
+      "failedPreRequestTests": 0,
+      "totalPostResponseTests": 0,
+      "passedPostResponseTests": 0,
+      "failedPostResponseTests": 0
+    }
+  }
+]

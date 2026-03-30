@@ -37,6 +37,19 @@ def _safe_int(val, default=0):
         return default
 
 
+def _combine_datetime(date_val, time_val):
+    """Combine date and time parts into ISO string, returning '' if both empty."""
+    d = (date_val or "").strip()
+    t = (time_val or "").strip()
+    if d and t:
+        return f"{d}T{t}"
+    if d:
+        return d
+    if t:
+        return t
+    return ""
+
+
 def _now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -71,6 +84,24 @@ def _extract_flight_remarks(data):
             remarks.append({"type": "", "text": rm})
 
     return remarks
+
+
+def _extract_codeshare_info(itin):
+    """Extract codeshare/partner info from FreeTextInfoList."""
+    info = []
+    fti_list = _ensure_list(
+        (itin.get("FreeTextInfoList") or {}).get("FreeTextInfo", [])
+    )
+    for fti in fti_list:
+        if isinstance(fti, dict):
+            text_line = fti.get("TextLine", {})
+            if isinstance(text_line, dict):
+                text = text_line.get("Text", "")
+                if isinstance(text, list) and len(text) >= 2:
+                    info.append(str(text[1]))
+                elif isinstance(text, str) and text:
+                    info.append(text)
+    return info
 
 
 def convert_flight_status(raw_data, airline, flight_number, origin, departure_date=""):
@@ -116,10 +147,30 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
             "seatConfig": itin.get("SeatConfig", ""),
         },
         "schedule": {
-            "scheduledDeparture": f"{itin.get('ScheduledDepartureDate', '') or itin.get('DepartureDate', '')}T{itin.get('ScheduledDepartureTime', '') or itin.get('DepartureTime', '')}",
-            "estimatedDeparture": f"{itin.get('EstimatedDepartureDate', '') or itin.get('DepartureDate', '')}T{itin.get('EstimatedDepartureTime', '') or itin.get('DepartureTime', '')}",
-            "scheduledArrival": f"{itin.get('ScheduledArrivalDate', '') or itin.get('ArrivalDate', '')}T{itin.get('ScheduledArrivalTime', '') or itin.get('ArrivalTime', '')}",
-            "estimatedArrival": f"{itin.get('EstimatedArrivalDate', '') or itin.get('ArrivalDate', '')}T{itin.get('EstimatedArrivalTime', '') or itin.get('ArrivalTime', '')}",
+            "scheduledDeparture": _combine_datetime(
+                itin.get('ScheduledDepartureDate', '') or itin.get(
+                    'DepartureDate', ''),
+                itin.get('ScheduledDepartureTime', '') or itin.get(
+                    'DepartureTime', ''),
+            ),
+            "estimatedDeparture": _combine_datetime(
+                itin.get('EstimatedDepartureDate', '') or itin.get(
+                    'DepartureDate', ''),
+                itin.get('EstimatedDepartureTime', '') or itin.get(
+                    'DepartureTime', ''),
+            ),
+            "scheduledArrival": _combine_datetime(
+                itin.get('ScheduledArrivalDate', '') or itin.get(
+                    'ArrivalDate', ''),
+                itin.get('ScheduledArrivalTime', '') or itin.get(
+                    'ArrivalTime', ''),
+            ),
+            "estimatedArrival": _combine_datetime(
+                itin.get('EstimatedArrivalDate', '') or itin.get(
+                    'ArrivalDate', ''),
+                itin.get('EstimatedArrivalTime', '') or itin.get(
+                    'ArrivalTime', ''),
+            ),
             "durationMinutes": _safe_int(itin.get("FlightDurationInMinutes")),
         },
         "gate": itin.get("DepartureGate", ""),
@@ -144,6 +195,7 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
             "cabinInUse": jump.get("@cabinInUse", "false") == "true",
         },
         "remarks": _extract_flight_remarks(data),
+        "codeshareInfo": _extract_codeshare_info(itin),
         "_raw": raw_data,
     }
     return doc
@@ -204,6 +256,31 @@ def convert_passenger_list(raw_data, airline, flight_number, departure_date, ori
         if has_infant:
             infant_count += 1
 
+        group_code = p.get("GroupCode", "")
+        # Detect unnamed group booking: Sabre returns "PAX" as placeholder
+        # for group members whose real names haven't been assigned yet.
+        is_group = bool(group_code)
+        is_unnamed_group = is_group and name.get(
+            "LastName", "") == "PAX" and not name.get("FirstName")
+        name_assoc_id = ""
+        pnr_raw = p.get("PNRLocator")
+        if isinstance(pnr_raw, dict):
+            name_assoc_id = pnr_raw.get("@nameAssociationID", "")
+
+        # Baggage routing per passenger
+        baggage_routes = []
+        for br in _ensure_list(
+            (p.get("BaggageRouteList") or {}).get("BaggageRoute", [])
+        ):
+            if isinstance(br, dict):
+                baggage_routes.append({
+                    "airline": br.get("Airline", ""),
+                    "flight": br.get("Flight", ""),
+                    "origin": br.get("Origin", ""),
+                    "destination": br.get("Destination", ""),
+                    "segmentStatus": br.get("SegmentStatus", ""),
+                })
+
         passengers.append({
             "lastName": name.get("LastName", ""),
             "firstName": name.get("FirstName", ""),
@@ -225,14 +302,56 @@ def convert_passenger_list(raw_data, airline, flight_number, departure_date, ori
             "isBoarded": str(boarding_info.get("BoardStatus", "false")).lower() == "true",
             "boardingPassIssued": str(p.get("BoardingPassFlag", "false")).lower() == "true",
             "checkInSequence": _safe_int(checkin_info.get("CheckInNumber")),
+            "checkInDate": checkin_info.get("CheckInDate", ""),
+            "checkInTime": checkin_info.get("CheckInTime", ""),
             "isRevenue": "Revenue" in indicators,
             "isThru": str(p.get("ThruIndicator", "false")).lower() == "true",
             "isChild": is_child,
             "hasInfant": has_infant,
             "vcrType": vcr.get("@type", "") if isinstance(vcr, dict) else "",
             "ticketNumber": vcr.get("SerialNumber", "") if isinstance(vcr, dict) else "",
+            "vcrInUse": (vcr.get("@inUse", "false") == "true") if isinstance(vcr, dict) else False,
+            "vcrAirlineNumber": vcr.get("AirlineNumber", "") if isinstance(vcr, dict) else "",
+            "vcrCouponNumber": vcr.get("CouponNumber", "") if isinstance(vcr, dict) else "",
             "editCodes": edit_codes,
+            "groupCode": group_code,
+            "isGroup": is_group,
+            "isUnnamedGroup": is_unnamed_group,
+            "nameAssociationId": name_assoc_id,
+            "baggageRoutes": baggage_routes,
         })
+
+    # Build group booking summary from passenger data
+    group_map = {}
+    for px in passengers:
+        gc = px.get("groupCode", "")
+        if gc:
+            if gc not in group_map:
+                group_map[gc] = {
+                    "groupCode": gc,
+                    "pnr": px["pnr"],
+                    "totalMembers": 0,
+                    "namedMembers": 0,
+                    "unnamedMembers": 0,
+                    "cabin": px.get("cabin", ""),
+                    "bookingClass": px.get("bookingClass", ""),
+                    "checkedIn": 0,
+                    "boarded": 0,
+                }
+            g = group_map[gc]
+            g["totalMembers"] += 1
+            if px.get("isUnnamedGroup"):
+                g["unnamedMembers"] += 1
+            else:
+                g["namedMembers"] += 1
+            if px.get("isCheckedIn"):
+                g["checkedIn"] += 1
+            if px.get("isBoarded"):
+                g["boarded"] += 1
+    group_bookings = list(group_map.values())
+
+    # Itinerary-level departure info
+    dep_dates = itin_info.get("DepartureArrival_Dates", {})
 
     doc = {
         "airline": airline,
@@ -242,12 +361,18 @@ def convert_passenger_list(raw_data, airline, flight_number, departure_date, ori
         "departureDate": departure_date,
         "fetchedAt": _now_iso(),
         "aircraftType": itin.get("AircraftType", ""),
+        "departureGate": itin_info.get("DepartureGate", ""),
+        "scheduledDeparture": dep_dates.get("Scheduled_DepartureDate", ""),
+        "estimatedDeparture": dep_dates.get("Estimated_DepartureDate", ""),
+        "departureTime": dep_dates.get("DepartureTime", ""),
+        "arrivalTime": dep_dates.get("ArrivalTime", ""),
         "cabinSummary": cabin_summary,
         "totalPassengers": len(passengers),
         "adultCount": adult_count,
         "childCount": child_count,
         "infantCount": infant_count,
         "totalSouls": len(passengers) + infant_count,
+        "groupBookings": group_bookings,
         "passengers": passengers,
         "_raw": raw_data,
     }
@@ -286,6 +411,8 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
             apis_request = special_requests.get("APISRequest", {})
             if isinstance(apis_request, list):
                 apis_request = apis_request[0] if apis_request else {}
+            if not isinstance(apis_request, dict):
+                apis_request = {}
             docs_entries = _ensure_list(apis_request.get("DOCSEntry", []))
             gender = ""
             date_of_birth = ""
@@ -300,24 +427,76 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                             "DocumentNationalityCountry", "")
                         break
 
-            # Extract pre-reserved seat
+            # DOCA — destination address (APIS requirement)
+            doca_entry = apis_request.get("DOCAEntry", {})
+            if isinstance(doca_entry, list):
+                doca_entry = doca_entry[0] if doca_entry else {}
+            doca_address = ""
+            if isinstance(doca_entry, dict):
+                doca_address = doca_entry.get("FreeText", "")
+
+            # Extract pre-reserved seat (expanded)
             seats = px.get("Seats") or {}
             pre_reserved = _ensure_list(
                 (seats.get("PreReservedSeats") or {}).get("PreReservedSeat", [])
             )
             seat_number = ""
+            seat_status_code = ""
+            seat_type_code = ""
+            seat_board_point = ""
+            seat_off_point = ""
             if pre_reserved and isinstance(pre_reserved[0], dict):
-                seat_number = pre_reserved[0].get("SeatNumber", "")
+                seat_obj = pre_reserved[0]
+                seat_number = seat_obj.get("SeatNumber", "")
+                seat_status_code = seat_obj.get("SeatStatusCode", "")
+                seat_type_code = seat_obj.get("SeatTypeCode", "")
+                seat_board_point = seat_obj.get("BoardPoint", "")
+                seat_off_point = seat_obj.get("OffPoint", "")
 
-            # Extract frequent flyer info
+            # Extract frequent flyer info (expanded with tier)
             loyalty_list = _ensure_list(px.get("FrequentFlyer", []))
             frequent_flyer = ""
             ff_airline = ""
+            ff_tier_level = ""
+            ff_tier_name = ""
+            ff_status = ""
+            ff_supplier = ""
             for ff in loyalty_list:
                 if isinstance(ff, dict):
-                    frequent_flyer = ff.get("FrequentFlyerNumber", "")
-                    ff_airline = ff.get("AirlineCode", "")
+                    frequent_flyer = ff.get(
+                        "FrequentFlyerNumber", ff.get("Number", ""))
+                    ff_airline = ff.get("AirlineCode", ff.get(
+                        "ReceivingCarrierCode", ""))
+                    ff_tier_level = ff.get("TierLevelNumber", "")
+                    ff_tier_name = ff.get("ShortText", "")
+                    ff_status = ff.get("StatusCode", "")
+                    ff_supplier = ff.get("SupplierCode", "")
                     break
+
+            # Special meal request
+            meal_request = special_requests.get("SpecialMealRequest", {})
+            if isinstance(meal_request, list):
+                meal_request = meal_request[0] if meal_request else {}
+            special_meal = ""
+            if isinstance(meal_request, dict) and meal_request.get("MealType"):
+                special_meal = meal_request.get("MealType", "")
+
+            # Wheelchair request
+            wheelchair_req = special_requests.get("WheelchairRequest", {})
+            if isinstance(wheelchair_req, list):
+                wheelchair_req = wheelchair_req[0] if wheelchair_req else {}
+            wheelchair_code = ""
+            if isinstance(wheelchair_req, dict) and wheelchair_req.get("WheelchairCode"):
+                wheelchair_code = wheelchair_req.get("WheelchairCode", "")
+
+            # Emergency contact
+            emergency_req = special_requests.get("EmergencyContactRequest", {})
+            if isinstance(emergency_req, list):
+                emergency_req = emergency_req[0] if emergency_req else {}
+            has_emergency_contact = False
+            if isinstance(emergency_req, dict) and emergency_req:
+                has_emergency_contact = emergency_req.get(
+                    "PassengerRefusal", "true") == "false"
 
             passengers.append({
                 "lastName": px.get("LastName", ""),
@@ -328,11 +507,23 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                 "dateOfBirth": date_of_birth,
                 "nationality": nationality,
                 "seatNumber": seat_number,
+                "seatStatusCode": seat_status_code,
+                "seatTypeCode": seat_type_code,
+                "seatBoardPoint": seat_board_point,
+                "seatOffPoint": seat_off_point,
                 "frequentFlyerNumber": frequent_flyer,
                 "frequentFlyerAirline": ff_airline,
+                "ffTierLevel": ff_tier_level,
+                "ffTierName": ff_tier_name,
+                "ffStatus": ff_status,
+                "ffSupplierCode": ff_supplier,
+                "specialMeal": special_meal,
+                "wheelchairCode": wheelchair_code,
+                "hasEmergencyContact": has_emergency_contact,
+                "docaAddress": doca_address,
             })
 
-        # Segments
+        # Segments (expanded)
         raw_segments = _ensure_list(
             (pax_res.get("Segments") or {}).get("Segment", [])
         )
@@ -340,6 +531,11 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
         for seg in raw_segments:
             air = seg.get("Air", {})
             if air:
+                marriage = air.get("MarriageGrp", {})
+                if isinstance(marriage, dict):
+                    marriage_group = marriage.get("Group", "")
+                else:
+                    marriage_group = ""
                 segments.append({
                     "departureAirport": air.get("DepartureAirport", ""),
                     "arrivalAirport": air.get("ArrivalAirport", ""),
@@ -349,6 +545,16 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                     "flightNumber": air.get("FlightNumber", ""),
                     "bookingClass": air.get("ClassOfService", ""),
                     "status": air.get("ActionCode", ""),
+                    "isCodeShare": str(air.get("@CodeShare", "false")).lower() == "true",
+                    "equipmentType": air.get("EquipmentType", ""),
+                    "operatingAirline": air.get("OperatingAirlineCode", ""),
+                    "operatingFlightNumber": air.get("OperatingFlightNumber", ""),
+                    "segmentBookedDate": air.get("SegmentBookedDate", ""),
+                    "scheduleChangeIndicator": str(air.get("ScheduleChangeIndicator", "false")).lower() == "true",
+                    "inboundConnection": str(air.get("inboundConnection", "false")).lower() == "true",
+                    "outboundConnection": str(air.get("outboundConnection", "false")).lower() == "true",
+                    "marriageGroup": marriage_group,
+                    "eTicket": str(air.get("Eticket", "false")).lower() == "true",
                 })
 
         # Tickets
@@ -442,12 +648,61 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
         elif isinstance(rf, str):
             received_from = rf
 
+        # Booking details (expanded)
+        booking_header = booking.get("Header", "")
+        creation_agent = booking.get("CreationAgentID", "")
+        pnr_sequence = _safe_int(booking.get("PNRSequence"))
+        flights_range = booking.get("FlightsRange", {})
+        flights_range_start = ""
+        flights_range_end = ""
+        if isinstance(flights_range, dict):
+            flights_range_start = flights_range.get("@Start", "")
+            flights_range_end = flights_range.get("@End", "")
+
+        # POS — Point of Sale
+        pos_raw = inner.get("POS", {})
+        pos_source = pos_raw.get("Source", {}) if isinstance(
+            pos_raw, dict) else {}
+        point_of_sale = {}
+        if isinstance(pos_source, dict) and pos_source:
+            point_of_sale = {
+                "agentDutyCode": pos_source.get("@AgentDutyCode", ""),
+                "agentSine": pos_source.get("@AgentSine", ""),
+                "airlineVendorId": pos_source.get("@AirlineVendorID", ""),
+                "bookingSource": pos_source.get("@BookingSource", ""),
+                "pseudoCityCode": pos_source.get("@PseudoCityCode", ""),
+                "homePseudoCityCode": pos_source.get("@HomePseudoCityCode", ""),
+                "isoCountry": pos_source.get("@ISOCountry", ""),
+            }
+
+        # Form of Payment from OpenReservationElements
+        form_of_payment = ""
+        ore = inner.get("OpenReservationElements", {})
+        ore_list = _ensure_list(ore.get("OpenReservationElement", []))
+        for el in ore_list:
+            if isinstance(el, dict) and el.get("@type") == "FP":
+                fop = el.get("FormOfPayment", {})
+                if isinstance(fop, dict):
+                    other = fop.get("Other", {})
+                    if isinstance(other, dict):
+                        form_of_payment = other.get("Text", "")
+                    elif isinstance(other, str):
+                        form_of_payment = other
+                break
+
         reservations.append({
             "pnr": pnr,
             "numberInParty": _safe_int(inner.get("@numberInParty")),
             "numberOfInfants": _safe_int(inner.get("@numberOfInfants")),
             "createdAt": booking.get("CreationTimestamp", ""),
-            "updatedAt": booking.get("ModificationTimestamp", ""),
+            "updatedAt": booking.get("UpdateTimestamp", booking.get("ModificationTimestamp", "")),
+            "bookingHeader": booking_header,
+            "creationAgent": creation_agent,
+            "pnrSequence": pnr_sequence,
+            "flightsRangeStart": flights_range_start,
+            "flightsRangeEnd": flights_range_end,
+            "pointOfSale": point_of_sale,
+            "formOfPayment": form_of_payment,
             "passengers": passengers,
             "segments": segments,
             "tickets": tickets,

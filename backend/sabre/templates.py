@@ -134,15 +134,30 @@ PASSENGER_LIST = """<?xml version="1.0" encoding="UTF-8"?>
             </v4:Itinerary>
             <v4:DisplayCodeRequest>
                 <v4:DisplayCodes condition="OR">
-                    <v4:DisplayCode>RV</v4:DisplayCode>
-                    <v4:DisplayCode>XRV</v4:DisplayCode>
-                    <v4:DisplayCode>BP</v4:DisplayCode>
+{display_codes}
                 </v4:DisplayCodes>
                 <v4:SortSequence>Name</v4:SortSequence>
             </v4:DisplayCodeRequest>
         </v4:GetPassengerListRQ>
     </soapenv:Body>
 </soapenv:Envelope>"""
+
+# Pre-built display code sets for each passenger list call
+DISPLAY_CODES_BOOKED = (
+    '                    <v4:DisplayCode>RV</v4:DisplayCode>\n'
+    '                    <v4:DisplayCode>XRV</v4:DisplayCode>'
+)
+DISPLAY_CODES_CHECKEDIN = (
+    '                    <v4:DisplayCode>BP</v4:DisplayCode>\n'
+    '                    <v4:DisplayCode>BT</v4:DisplayCode>'
+)
+DISPLAY_CODES_NOSHOW_OFL = (
+    '                    <v4:DisplayCode>NS</v4:DisplayCode>\n'
+    '                    <v4:DisplayCode>OFL</v4:DisplayCode>'
+)
+DISPLAY_CODES_ALL = (
+    '                    <v4:DisplayCode>AE</v4:DisplayCode>'
+)
 
 RESERVATION = """<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"

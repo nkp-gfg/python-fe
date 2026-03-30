@@ -75,6 +75,16 @@ function ReservationCard({
                   {r.numberOfInfants} Inf
                 </Badge>
               )}
+              {r.bookingHeader && (
+                <Badge variant="outline" className="text-[10px] border-violet-300 text-violet-600">
+                  {r.bookingHeader}
+                </Badge>
+              )}
+              {r.formOfPayment && (
+                <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-600">
+                  {r.formOfPayment}
+                </Badge>
+              )}
             </CardTitle>
             <ChevronRight
               className={cn(
@@ -84,10 +94,10 @@ function ReservationCard({
             />
           </div>
           <div className="flex gap-3 text-xs text-muted-foreground">
-            {r.passengers.slice(0, 3).map((p, i) => (
+            {(r.passengers ?? []).slice(0, 3).map((p, i) => (
               <span key={i}>{p.lastName}, {p.firstName}</span>
             ))}
-            {r.passengers.length > 3 && <span>+{r.passengers.length - 3} more</span>}
+            {(r.passengers ?? []).length > 3 && <span>+{(r.passengers ?? []).length - 3} more</span>}
           </div>
         </CardHeader>
       </button>
@@ -109,10 +119,11 @@ function ReservationCard({
                   <TableHead>Nationality</TableHead>
                   <TableHead>Seat</TableHead>
                   <TableHead>FF#</TableHead>
+                  <TableHead>SSR</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {r.passengers.map((p, i) => (
+                {(r.passengers ?? []).map((p, i) => (
                   <TableRow key={i}>
                     <TableCell className="font-medium text-sm">{p.lastName}, {p.firstName}</TableCell>
                     <TableCell>
@@ -123,7 +134,35 @@ function ReservationCard({
                     <TableCell className="text-xs">{p.nationality || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{p.seatNumber || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {p.frequentFlyerNumber ? `${p.frequentFlyerAirline} ${p.frequentFlyerNumber}` : "—"}
+                      {p.frequentFlyerNumber ? (
+                        <span className="flex items-center gap-1">
+                          {p.frequentFlyerAirline} {p.frequentFlyerNumber}
+                          {p.ffTierName && (
+                            <Badge variant="outline" className="text-[9px] px-1 border-yellow-300 text-yellow-600">
+                              {p.ffTierName}
+                            </Badge>
+                          )}
+                        </span>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-0.5">
+                        {p.specialMeal && (
+                          <Badge variant="outline" className="text-[9px] px-1 border-orange-300 text-orange-600" title={`Special Meal: ${p.specialMeal}`}>
+                            {p.specialMeal}
+                          </Badge>
+                        )}
+                        {p.wheelchairCode && (
+                          <Badge variant="outline" className="text-[9px] px-1 border-sky-300 text-sky-600" title={`Wheelchair: ${p.wheelchairCode}`}>
+                            {p.wheelchairCode}
+                          </Badge>
+                        )}
+                        {p.hasEmergencyContact && (
+                          <Badge variant="outline" className="text-[9px] px-1 border-rose-300 text-rose-600" title="Has Emergency Contact">
+                            ECnt
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -132,21 +171,31 @@ function ReservationCard({
           </div>
 
           {/* Segments */}
-          {r.segments.length > 0 && (
+          {(r.segments ?? []).length > 0 && (
             <div>
               <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
                 <Plane className="h-3 w-3" /> Segments
               </h4>
               <div className="space-y-2">
-                {r.segments.map((seg, i) => (
+                {(r.segments ?? []).map((seg, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs rounded border p-2">
                     <Badge variant="outline" className="text-[10px]">
                       {seg.marketingAirline}{seg.flightNumber}
                     </Badge>
+                    {seg.isCodeShare && seg.operatingAirline && (
+                      <Badge variant="outline" className="text-[9px] px-1 border-indigo-300 text-indigo-600" title={`Operated by ${seg.operatingAirline}${seg.operatingFlightNumber || ""}`}>
+                        op: {seg.operatingAirline}{seg.operatingFlightNumber || ""}
+                      </Badge>
+                    )}
                     <span className="font-mono font-medium">{seg.departureAirport}</span>
                     <ChevronRight className="h-3 w-3 text-muted-foreground" />
                     <span className="font-mono font-medium">{seg.arrivalAirport}</span>
                     <span className="text-muted-foreground ml-auto">{seg.departureDate}</span>
+                    {seg.equipmentType && (
+                      <Badge variant="secondary" className="text-[9px] px-1" title={`Aircraft: ${seg.equipmentType}`}>
+                        {seg.equipmentType}
+                      </Badge>
+                    )}
                     <Badge variant="secondary" className="text-[10px]">{seg.bookingClass}</Badge>
                     <Badge
                       variant="outline"
@@ -164,13 +213,13 @@ function ReservationCard({
           )}
 
           {/* Tickets */}
-          {r.tickets.length > 0 && (
+          {(r.tickets ?? []).length > 0 && (
             <div>
               <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
                 <Ticket className="h-3 w-3" /> Tickets
               </h4>
               <div className="flex flex-wrap gap-2">
-                {r.tickets.map((t, i) => (
+                {(r.tickets ?? []).map((t, i) => (
                   <Badge key={i} variant="outline" className="font-mono text-[10px] px-2">
                     {t.ticketNumber}
                     {t.eTicket === "true" && <span className="ml-1 text-emerald-500">eT</span>}
@@ -291,10 +340,13 @@ function ReservationCard({
           )}
 
           {/* Meta */}
-          <div className="flex gap-4 text-[10px] text-muted-foreground pt-1">
+          <div className="flex flex-wrap gap-4 text-[10px] text-muted-foreground pt-1">
             <span>Created: {formatDate(r.createdAt)}</span>
             <span>Updated: {formatDate(r.updatedAt)}</span>
             {r.receivedFrom && <span>Agent: {r.receivedFrom}</span>}
+            {r.creationAgent && <span>Channel: {r.creationAgent}</span>}
+            {r.pointOfSale?.isoCountry && <span>POS: {r.pointOfSale.isoCountry}</span>}
+            {r.pointOfSale?.pseudoCityCode && <span>PCC: {r.pointOfSale.pseudoCityCode}</span>}
           </div>
         </CardContent>
       )}

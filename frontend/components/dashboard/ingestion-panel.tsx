@@ -321,7 +321,7 @@ export function IngestionPanel() {
           </div>
 
           {batchQueue.length > 0 && !activeJobId && (
-            <div className="mb-4 space-y-2 max-h-40 overflow-y-auto">
+            <div className="mb-4 space-y-2 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
               {batchQueue.map((f, i) => (
                 <div key={i} className="flex flex-col xs:flex-row xs:items-center justify-between rounded-md border bg-muted/40 p-2.5 text-sm">
                   <Link

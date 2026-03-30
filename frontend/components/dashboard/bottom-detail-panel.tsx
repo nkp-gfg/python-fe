@@ -71,7 +71,7 @@ const VIEW_CONFIG: Record<DetailView, { title: string; icon: React.ReactNode; de
     description: "Jump seat, non-revenue, offloaded, and no-show passengers.",
   },
   sob: {
-    title: "Souls on Board (SOB)",
+    title: "Passengers on Board (POB)",
     icon: <ShieldCheck className="h-4 w-4 text-emerald-500" />,
     description: "All souls physically on board: boarded passengers + their lap infants.",
   },
@@ -132,9 +132,19 @@ function filterPassengers(passengers: PassengerRecord[], view: DetailView): Pass
 
 function getStatusBadge(p: PassengerRecord) {
   if (p.isBoarded)
-    return <Badge className="bg-emerald-500/15 text-emerald-600 border-transparent text-[10px]">Boarded</Badge>;
+    return (
+      <div className="flex items-center gap-1">
+        <Badge className="bg-emerald-500/15 text-emerald-600 border-transparent text-[10px]">Boarded</Badge>
+        {p.boardingPassIssued && <span className="text-[9px] text-emerald-500" title="Boarding pass issued">BP</span>}
+      </div>
+    );
   if (p.isCheckedIn)
-    return <Badge className="bg-blue-500/15 text-blue-600 border-transparent text-[10px]">Checked-In</Badge>;
+    return (
+      <div className="flex items-center gap-1">
+        <Badge className="bg-blue-500/15 text-blue-600 border-transparent text-[10px]">Checked-In</Badge>
+        {p.boardingPassIssued && <span className="text-[9px] text-emerald-500" title="Boarding pass issued">BP</span>}
+      </div>
+    );
   return <Badge className="bg-amber-500/15 text-amber-600 border-transparent text-[10px]">Booked</Badge>;
 }
 
@@ -154,6 +164,8 @@ function getTypeBadge(p: PassengerRecord) {
     badges.push(<Badge key="inf" className="bg-teal-500/15 text-teal-600 border-transparent text-[10px]">+Infant</Badge>);
   if (p.isStandby)
     badges.push(<Badge key="sb" className="bg-rose-500/15 text-rose-600 border-transparent text-[10px]">Standby</Badge>);
+  if (p.corpId)
+    badges.push(<Badge key="corp" className="bg-cyan-500/15 text-cyan-600 border-transparent text-[10px]" title={`Corporate ID: ${p.corpId}`}>Corp</Badge>);
   return badges.length > 0 ? <div className="flex gap-1 flex-wrap">{badges}</div> : null;
 }
 
@@ -216,11 +228,11 @@ export function BottomDetailPanel({
 
   // For "others" view, also compute jump seat and offloaded/no-show from dashboard
   const othersInfo = view === "others" ? {
-    jumpSeat: dashboard.stateSummary.others.jumpSeat,
-    offloaded: dashboard.stateSummary.others.offloaded,
-    noShow: dashboard.stateSummary.others.noShow,
-    offloadedAvailable: dashboard.stateSummary.others.offloadedAvailable,
-    noShowAvailable: dashboard.stateSummary.others.noShowAvailable,
+    jumpSeat: dashboard.stateSummary?.others?.jumpSeat ?? 0,
+    offloaded: dashboard.stateSummary?.others?.offloaded ?? 0,
+    noShow: dashboard.stateSummary?.others?.noShow ?? 0,
+    offloadedAvailable: dashboard.stateSummary?.others?.offloadedAvailable ?? false,
+    noShowAvailable: dashboard.stateSummary?.others?.noShowAvailable ?? false,
   } : null;
 
   return (
@@ -283,7 +295,7 @@ export function BottomDetailPanel({
             Lap infants aboard: <span className="font-semibold text-teal-600">{summary.infants}</span>
           </span>
           <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-            Total Souls on Board: {summary.souls}
+            Total Passengers on Board: {summary.souls}
           </span>
         </div>
       )}
@@ -311,6 +323,7 @@ export function BottomDetailPanel({
                 <TableHead className="py-1.5 px-2">{renderSortHeader("Seat", "seat")}</TableHead>
                 <TableHead className="py-1.5 px-2">{renderSortHeader("Status", "status")}</TableHead>
                 <TableHead className="py-1.5 px-2">Type</TableHead>
+                <TableHead className="py-1.5 px-2">Check-In</TableHead>
                 <TableHead className="py-1.5 px-2">{renderSortHeader("Ticket", "ticketNumber")}</TableHead>
                 <TableHead className="py-1.5 px-2 text-right">{renderSortHeader("Bags", "bagCount", "ml-auto")}</TableHead>
               </TableRow>
@@ -345,7 +358,18 @@ export function BottomDetailPanel({
                   <TableCell className="py-1 px-2 font-mono">{p.seat || "—"}</TableCell>
                   <TableCell className="py-1 px-2">{getStatusBadge(p)}</TableCell>
                   <TableCell className="py-1 px-2">{getTypeBadge(p)}</TableCell>
-                  <TableCell className="py-1 px-2 font-mono text-muted-foreground">{p.ticketNumber || "—"}</TableCell>
+                  <TableCell className="py-1 px-2 text-[10px] text-muted-foreground">
+                    {p.checkInSequence ? (
+                      <span title={`${p.checkInDate || ""} ${p.checkInTime || ""}`.trim()}>
+                        #{p.checkInSequence}
+                        {p.checkInTime && <span className="ml-0.5">{p.checkInTime}</span>}
+                      </span>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell className="py-1 px-2 font-mono text-muted-foreground">
+                    {p.vcrType && <span className="text-[9px] mr-0.5" title={`VCR Type: ${p.vcrType}`}>{p.vcrType}</span>}
+                    {p.ticketNumber || "—"}
+                  </TableCell>
                   <TableCell className="py-1 px-2 text-right">{p.bagCount}</TableCell>
                 </TableRow>
               ))}

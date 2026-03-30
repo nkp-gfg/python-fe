@@ -1,31 +1,43 @@
-import type { FlightDashboard } from "@/lib/types";
+import type { FlightDashboard, SpecialRequestsSummary } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface Props {
   passengerSummary: FlightDashboard["passengerSummary"];
   analysis: FlightDashboard["analysis"];
+  specialRequestsSummary?: SpecialRequestsSummary | null;
+  departureGate?: string;
 }
 
-export function StatCards({ passengerSummary: ps, analysis }: Props) {
+export function StatCards({ passengerSummary: ps, analysis, specialRequestsSummary, departureGate }: Props) {
+  const totalSSR = (specialRequestsSummary?.totalSpecialMeals ?? 0) + (specialRequestsSummary?.totalWheelchairs ?? 0);
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-4">
       <StatCard
-        value={ps.totalPassengers}
+        value={ps?.totalPassengers ?? 0}
         label="Total Pax"
-        sub={`${ps.totalSouls} souls (incl. ${ps.infantCount} INF)`}
+        sub={`${ps?.totalSouls ?? 0} souls (incl. ${ps?.infantCount ?? 0} INF)`}
         accent="text-foreground"
       />
       <StatCard
-        value={analysis.economy.total}
+        value={analysis?.economy?.total ?? 0}
         label="Economy"
-        sub={`Auth: ${ps.cabinSummary.find((c) => c.cabin === "Y")?.authorized ?? "—"}`}
+        sub={`Auth: ${ps?.cabinSummary?.find((c) => c.cabin === "Y")?.authorized ?? "—"}`}
         accent="text-emerald-400"
       />
       <StatCard
-        value={analysis.business.total}
+        value={analysis?.business?.total ?? 0}
         label="Business"
-        sub={`Auth: ${ps.cabinSummary.find((c) => c.cabin === "J")?.authorized ?? "—"}`}
+        sub={`Auth: ${ps?.cabinSummary?.find((c) => c.cabin === "J")?.authorized ?? "—"}`}
         accent="text-amber-400"
+      />
+      <StatCard
+        value={totalSSR > 0 ? totalSSR : (departureGate || "—")}
+        label={totalSSR > 0 ? "Special Requests" : "Gate"}
+        sub={totalSSR > 0
+          ? `${specialRequestsSummary?.totalSpecialMeals ?? 0} meals, ${specialRequestsSummary?.totalWheelchairs ?? 0} WCHR, ${specialRequestsSummary?.frequentFlyers ?? 0} FF`
+          : departureGate ? `Gate ${departureGate}` : "No gate assigned"
+        }
+        accent={totalSSR > 0 ? "text-sky-400" : "text-violet-400"}
       />
     </div>
   );
@@ -37,7 +49,7 @@ function StatCard({
   sub,
   accent,
 }: {
-  value: number;
+  value: number | string;
   label: string;
   sub: string;
   accent: string;

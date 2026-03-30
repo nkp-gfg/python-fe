@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
   ArrowRight,
+  BarChart3,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -32,6 +33,7 @@ import {
   Ticket,
   Table2,
   Star,
+  ChevronRight,
   X,
 } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
@@ -55,7 +57,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { StatePanels } from "@/components/dashboard/state-panels";
-import type { StateCardKey } from "@/components/dashboard/state-panels";
+import type { StateCardKey, PanelFilter } from "@/components/dashboard/state-panels";
 import { PhaseTimeline } from "@/components/dashboard/phase-timeline";
 import { PhaseAlertBanner } from "@/components/dashboard/phase-alert-banner";
 import { BottomDetailPanel } from "@/components/dashboard/bottom-detail-panel";
@@ -64,6 +66,7 @@ import { PassengerTree } from "@/components/dashboard/passenger-tree";
 import { IngestionPanel } from "@/components/dashboard/ingestion-panel";
 import { useToast } from "@/components/ui/toast";
 import { TileInfoPanel, type TileInfoKey } from "@/components/dashboard/tile-info-panel";
+import { InsightInfoPanel, type InsightInfoKey } from "@/components/dashboard/insight-info-panel";
 import { PassengerTable, type FilterCabin, type FilterStatus, type FilterType, type FilterLoyalty, type FilterNationality } from "@/components/dashboard/passenger-table";
 import { StandbyPanel } from "@/components/dashboard/standby-panel";
 import { PassengerDetailSheet } from "@/components/dashboard/passenger-detail-sheet";
@@ -73,6 +76,7 @@ import { StatusHistory } from "@/components/dashboard/status-history";
 import { ReservationView } from "@/components/dashboard/reservation-view";
 import { FlightTimeline } from "@/components/dashboard/flight-timeline";
 import { BoardingProgress } from "@/components/dashboard/boarding-progress";
+import { FlightInsightsPanel } from "@/components/dashboard/flight-insights";
 
 type FlightSelection = {
   flightNumber: string;
@@ -92,6 +96,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
   const [ingestOpen, setIngestOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [insightInfoOpen, setInsightInfoOpen] = useState(false);
+  const [activeInsightInfo, setActiveInsightInfo] = useState<InsightInfoKey>("connectingPassengers");
   const [treeDialogOpen, setTreeDialogOpen] = useState(false);
   const [matrixDialogOpen, setMatrixDialogOpen] = useState(false);
   const [activeInfo, setActiveInfo] = useState<TileInfoKey>("booked");
@@ -105,14 +111,25 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [detailPnr, setDetailPnr] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [bottomView, setBottomView] = useState<DetailView | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "passengers" | "standby" | "changes" | "history" | "reservations" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "insights">("overview");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [snapshotSequence, setSnapshotSequence] = useState<number | null>(null);
+  const [selectedGroupCode, setSelectedGroupCode] = useState<string | null>(null);
   const [filterCabin, setFilterCabin] = useState<FilterCabin>("all");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [filterLoyalty, setFilterLoyalty] = useState<FilterLoyalty>("all");
   const [filterNationality, setFilterNationality] = useState<FilterNationality>("all");
+
+  /** Handle clicks on individual numbers inside state-panel cards */
+  const handlePanelFilter = (f: PanelFilter) => {
+    setFilterStatus(f.status ?? "all");
+    setFilterCabin((f.cabin ?? "all") as FilterCabin);
+    setFilterType((f.type ?? "all") as FilterType);
+    setFilterLoyalty("all");
+    setFilterNationality("all");
+    setActiveTab("passengers");
+  };
 
   const { data: flights, isLoading: flightsLoading, error: flightsError, refetch: refetchFlights, isFetching: flightsFetching } = useQuery({
     queryKey: ["flights"],
@@ -248,14 +265,16 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         flight.departureDate === effectiveSelected?.date,
     ) ?? null;
 
-  const tabLabels: Record<"overview" | "passengers" | "standby" | "changes" | "history" | "reservations" | "activity", string> = {
+  const tabLabels: Record<"overview" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "insights", string> = {
     overview: "Overview",
     passengers: "Passengers",
+    groups: "Group Bookings",
     standby: "Standby",
     changes: "Changes",
     history: "History",
     reservations: "Reservations",
     activity: "Activity",
+    insights: "Insights",
   };
 
   const availableDates = useMemo(() => {
@@ -372,6 +391,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     setTreeDialogOpen(false);
     setMatrixDialogOpen(false);
     setInfoOpen(false);
+    setInsightInfoOpen(false);
     setIngestOpen(true);
   }
 
@@ -379,8 +399,18 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     setTreeDialogOpen(false);
     setMatrixDialogOpen(false);
     setIngestOpen(false);
+    setInsightInfoOpen(false);
     setActiveInfo(key);
     setInfoOpen(true);
+  }
+
+  function openInsightInfo(key: InsightInfoKey) {
+    setTreeDialogOpen(false);
+    setMatrixDialogOpen(false);
+    setIngestOpen(false);
+    setInfoOpen(false);
+    setActiveInsightInfo(key);
+    setInsightInfoOpen(true);
   }
 
   function openTreeDialog() {
@@ -1005,11 +1035,13 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           {([
             { key: "overview", icon: LayoutDashboard, label: "Overview" },
             { key: "passengers", icon: Users, label: "Passengers" },
+            { key: "groups", icon: Users, label: "Groups" },
             { key: "standby", icon: Timer, label: "Standby" },
             { key: "changes", icon: Activity, label: "Changes" },
             { key: "history", icon: History, label: "History" },
             { key: "reservations", icon: BookOpen, label: "Reservations" },
             { key: "activity", icon: Clock, label: "Activity" },
+            { key: "insights", icon: BarChart3, label: "Insights" },
           ] as const).map(({ key, icon: Icon, label }) => (
             <button
               key={key}
@@ -1112,6 +1144,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
               {!dashboardLoading && !dashboardError && dashboard && effectiveSelected && (
                 <>
                   {/* Compact Flight Header */}
+                  <ErrorBoundary compact label="Flight Header">
                   <div className="rounded-lg border bg-card shadow-sm px-4 py-2.5">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                       {/* Flight identity */}
@@ -1134,16 +1167,16 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         ) : dashboard.dataIntegrity && !dashboard.dataIntegrity.valid ? (
                           <span
                             className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 cursor-help"
-                            title={dashboard.dataIntegrity.warnings.join(" | ")}
+                            title={(dashboard.dataIntegrity?.warnings ?? []).join(" | ")}
                           >
                             <ShieldAlert className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">{dashboard.dataIntegrity.warnings.length} warning{dashboard.dataIntegrity.warnings.length !== 1 ? "s" : ""}</span>
+                            <span className="hidden sm:inline">{(dashboard.dataIntegrity?.warnings ?? []).length} warning{(dashboard.dataIntegrity?.warnings ?? []).length !== 1 ? "s" : ""}</span>
                           </span>
                         ) : null}
                         <span className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{dashboard.route.origin || effectiveSelected.origin}</span>
+                          <span className="font-medium text-foreground">{dashboard.route?.origin || effectiveSelected.origin}</span>
                           <ArrowRight className="h-3 w-3" />
-                          <span className="font-medium text-foreground">{dashboard.route.destination || selectedFlight?.destination || "—"}</span>
+                          <span className="font-medium text-foreground">{dashboard.route?.destination || selectedFlight?.destination || "—"}</span>
                           <span className="mx-0.5">•</span>
                           {effectiveSelected.date}
                           <span className="mx-0.5">•</span>
@@ -1156,12 +1189,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         {/* Prominent souls on board */}
                         <button
                           className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 hover:ring-1 hover:ring-emerald-400 transition-all cursor-pointer"
-                          title="Souls on Board — boarded passengers + their lap infants"
+                          title="Passengers on Board — boarded passengers + their lap infants"
                           onClick={() => setBottomView(bottomView === "sob" ? null : "sob")}
                         >
                           <Users className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                          <span className="font-bold text-emerald-700 dark:text-emerald-300">{dashboard.overview.soulsOnBoard}</span>
-                          <span className="text-emerald-600 dark:text-emerald-400">Souls on Board</span>
+                          <span className="font-bold text-emerald-700 dark:text-emerald-300">{dashboard.overview?.soulsOnBoard ?? 0}</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">Passengers on Board</span>
                         </button>
                         <button
                           className="flex items-center gap-1.5 hover:bg-muted/50 rounded px-1 py-0.5 transition-colors cursor-pointer"
@@ -1169,7 +1202,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           onClick={() => setBottomView(bottomView === "souls" ? null : "souls")}
                         >
                           <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-semibold">{dashboard.overview.totalSouls}</span>
+                          <span className="font-semibold">{dashboard.overview?.totalSouls ?? 0}</span>
                           <span className="text-muted-foreground">Souls on Manifest</span>
                         </button>
                         <button
@@ -1178,12 +1211,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           onClick={() => setBottomView(bottomView === "records" ? null : "records")}
                         >
                           <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-semibold">{dashboard.overview.manifestRecords}</span>
+                          <span className="font-semibold">{dashboard.overview?.manifestRecords ?? 0}</span>
                           <span className="text-muted-foreground">Manifest Records</span>
                         </button>
                         <div className="flex items-center gap-1.5" title="Change updates">
                           <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-semibold">{dashboard.overview.trackedChanges}</span>
+                          <span className="font-semibold">{dashboard.overview?.trackedChanges ?? 0}</span>
                           <span className="text-muted-foreground">updates</span>
                         </div>
                         <Separator orientation="vertical" className="h-5 hidden md:block" />
@@ -1192,6 +1225,29 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           {/* Schedule with delay indicator */}
                           <ScheduleDelay schedule={dashboard.flightStatus?.schedule} />
                         </div>
+                        {/* Gate & Codeshare */}
+                        {(dashboard.departureGate || (dashboard.codeshareInfo && dashboard.codeshareInfo.length > 0)) && (
+                          <>
+                            <Separator orientation="vertical" className="h-5 hidden md:block" />
+                            <div className="hidden md:flex items-center gap-2 text-xs">
+                              {dashboard.departureGate && (
+                                <span className="flex items-center gap-1">
+                                  <span className="text-muted-foreground">Gate</span>
+                                  <span className="font-semibold text-violet-600 dark:text-violet-400">{dashboard.departureGate}</span>
+                                </span>
+                              )}
+                              {dashboard.codeshareInfo && dashboard.codeshareInfo.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                  {dashboard.codeshareInfo.map((info, i) => (
+                                    <Badge key={i} variant="outline" className="text-[9px] px-1.5 border-indigo-300 text-indigo-600">
+                                      {info}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
                         {/* Last-fetched timestamp */}
                         {dashboard.fetchedAt && (
                           <>
@@ -1223,6 +1279,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       </div>
                     </div>
                   </div>
+                  </ErrorBoundary>
 
                   {snapshotSequence && (
                     <div className="rounded-lg border border-amber-300/60 bg-amber-50/70 dark:bg-amber-950/20 px-3 py-2 flex items-center justify-between gap-3">
@@ -1240,7 +1297,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                     </div>
                   )}
 
-                  {/* Stats Strip — shared across all tabs, interactive */}
+                  {/* Stats Strip — Row 1: Core metrics */}
                   <div className="flex gap-2.5 mt-2 overflow-x-auto scrollbar-none pb-0.5">
                     {/* Cabin */}
                     <div className="rounded-lg border bg-card px-3 py-3 shadow-sm shrink-0">
@@ -1427,17 +1484,41 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         })()}
                       </div>
                     </div>
+
+
                   </div>
 
                   {/* Tab Navigation — now handled by vertical nav rail */}
                   <div>
                     <div className="rounded-lg border bg-card px-3 py-2 mb-2 flex items-center justify-between">
                       <div className="text-sm font-medium">{tabLabels[activeTab]}</div>
-                      {snapshotSequence && (
-                        <Badge variant="outline" className="text-[10px]">
-                          Snapshot #{snapshotSequence}
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Special Requests — inline in tab header */}
+                        {dashboard.specialRequestsSummary && (dashboard.specialRequestsSummary.totalSpecialMeals > 0 || dashboard.specialRequestsSummary.totalWheelchairs > 0 || dashboard.specialRequestsSummary.frequentFlyers > 0) && (
+                          <>
+                            {dashboard.specialRequestsSummary.totalSpecialMeals > 0 && (
+                              <span className="text-xs font-semibold text-orange-500">{dashboard.specialRequestsSummary.totalSpecialMeals} <span className="text-[10px] font-normal text-muted-foreground">Meals</span></span>
+                            )}
+                            {dashboard.specialRequestsSummary.frequentFlyers > 0 && (
+                              <span className="text-xs font-semibold text-yellow-500">{dashboard.specialRequestsSummary.frequentFlyers} <span className="text-[10px] font-normal text-muted-foreground">FF</span></span>
+                            )}
+                            {dashboard.specialRequestsSummary.emergencyContacts > 0 && (
+                              <span className="text-xs font-semibold text-rose-500">{dashboard.specialRequestsSummary.emergencyContacts} <span className="text-[10px] font-normal text-muted-foreground">ECnt</span></span>
+                            )}
+                            {Object.entries(dashboard.specialRequestsSummary?.specialMeals ?? {}).sort((a, b) => b[1] - a[1]).map(([code, count]) => (
+                              <Badge key={code} variant="outline" className="text-[9px] px-1 py-0 border-orange-300 text-orange-600">{code}: {count}</Badge>
+                            ))}
+                            {Object.entries(dashboard.specialRequestsSummary?.ffTiers ?? {}).sort((a, b) => b[1] - a[1]).map(([tier, count]) => (
+                              <Badge key={tier} variant="outline" className="text-[9px] px-1 py-0 border-yellow-300 text-yellow-600">{tier}: {count}</Badge>
+                            ))}
+                          </>
+                        )}
+                        {snapshotSequence && (
+                          <Badge variant="outline" className="text-[10px]">
+                            Snapshot #{snapshotSequence}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
 
                     {/* Overview Tab — compact executive dashboard */}
@@ -1466,6 +1547,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         onInfoClick={openInfo}
                         onCardClick={(key: StateCardKey) => setBottomView(bottomView === key ? null : key)}
                         activeCard={(bottomView === "booked" || bottomView === "checkedIn" || bottomView === "boarded" || bottomView === "others") ? bottomView : null}
+                        onFilterClick={handlePanelFilter}
                       />
 
                       {/* 4-Card Overview Grid */}
@@ -1480,15 +1562,15 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                               <div>
                                 <p className="text-[10px] text-muted-foreground">Adults</p>
-                                <p className="text-lg font-bold">{dashboard.passengerSummary.adultCount}</p>
+                                <p className="text-lg font-bold">{dashboard.passengerSummary?.adultCount ?? 0}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] text-muted-foreground">Children</p>
-                                <p className="text-lg font-bold text-amber-500">{dashboard.passengerSummary.childCount}</p>
+                                <p className="text-lg font-bold text-amber-500">{dashboard.passengerSummary?.childCount ?? 0}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] text-muted-foreground">Infants</p>
-                                <p className="text-lg font-bold text-emerald-500">{dashboard.passengerSummary.infantCount}</p>
+                                <p className="text-lg font-bold text-emerald-500">{dashboard.passengerSummary?.infantCount ?? 0}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] text-muted-foreground">Non-Rev</p>
@@ -1755,6 +1837,164 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                     </ErrorBoundary>
                     )}
 
+                    {/* Groups Tab */}
+                    {activeTab === "groups" && (
+                      <ErrorBoundary compact label="Group Bookings">
+                      <div className="mt-1">
+                        {dashboard.groupBookingSummary && dashboard.groupBookingSummary.totalGroups > 0 ? (
+                          <div className="flex gap-3 min-h-[300px]">
+                            {/* Left: Group list */}
+                            <div className={cn(
+                              "flex flex-col gap-1 border rounded-lg bg-card overflow-y-auto transition-all",
+                              selectedGroupCode ? "w-1/3 min-w-[220px]" : "w-full"
+                            )}>
+                              <div className="sticky top-0 z-10 bg-card border-b px-3 py-2 flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <Users className="h-3.5 w-3.5 text-violet-500" />
+                                  <span className="text-xs font-medium">Groups</span>
+                                </div>
+                                <Badge variant="secondary" className="text-[10px] px-1.5">
+                                  {dashboard.groupBookingSummary.totalGroupPassengers} pax / {dashboard.groupBookingSummary.totalGroups} grp
+                                </Badge>
+                              </div>
+                              {dashboard.groupBookingSummary.groups.map((g) => {
+                                const hasUnnamed = g.unnamedMembers > 0;
+                                const isSelected = selectedGroupCode === g.groupCode;
+                                return (
+                                  <button
+                                    key={g.groupCode}
+                                    onClick={() => setSelectedGroupCode(isSelected ? null : g.groupCode)}
+                                    className={cn(
+                                      "flex items-center justify-between px-3 py-2.5 text-xs text-left transition-all mx-1 rounded-md",
+                                      isSelected
+                                        ? "bg-violet-500/10 border border-violet-500/30"
+                                        : "hover:bg-muted/50 border border-transparent",
+                                      hasUnnamed && !isSelected && "bg-rose-500/5"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="font-mono font-semibold text-violet-600 dark:text-violet-400 shrink-0">{g.groupCode}</span>
+                                      {!selectedGroupCode && (
+                                        <span className="text-muted-foreground truncate">PNR {g.pnr}</span>
+                                      )}
+                                      {!selectedGroupCode && (
+                                        <Badge variant="outline" className={cn("text-[9px] px-1 shrink-0", g.cabin === "J" ? "border-amber-300 text-amber-600" : "border-emerald-300 text-emerald-600")}>
+                                          {g.cabin === "J" ? "BIZ" : "ECO"} / {g.bookingClass}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                      <span className="font-medium">{g.totalMembers}</span>
+                                      {hasUnnamed ? (
+                                        <Badge className="bg-rose-500/15 text-rose-600 border-transparent text-[9px] px-1">
+                                          {g.unnamedMembers} ?
+                                        </Badge>
+                                      ) : (
+                                        <Badge className="bg-emerald-500/15 text-emerald-600 border-transparent text-[9px] px-1">
+                                          \u2713
+                                        </Badge>
+                                      )}
+                                      <ChevronRight className={cn("h-3 w-3 text-muted-foreground transition-transform", isSelected && "rotate-90")} />
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Right: Member details */}
+                            {selectedGroupCode && (() => {
+                              const group = dashboard.groupBookingSummary!.groups.find((g) => g.groupCode === selectedGroupCode);
+                              if (!group) return null;
+                              return (
+                                <div className="flex-1 border rounded-lg bg-card overflow-y-auto">
+                                  <div className="sticky top-0 z-10 bg-card border-b px-4 py-2.5 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-semibold text-violet-600 dark:text-violet-400">{group.groupCode}</span>
+                                      <span className="text-xs text-muted-foreground">PNR {group.pnr}</span>
+                                      <Badge variant="outline" className={cn("text-[9px] px-1", group.cabin === "J" ? "border-amber-300 text-amber-600" : "border-emerald-300 text-emerald-600")}>
+                                        {group.cabin === "J" ? "BIZ" : "ECO"} / {group.bookingClass}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                                        <span>{group.totalMembers} pax</span>
+                                        {group.boarded > 0 && <span className="text-emerald-500">{group.boarded} boarded</span>}
+                                        {group.checkedIn > 0 && <span className="text-blue-500">{group.checkedIn} CKIN</span>}
+                                      </div>
+                                      <button onClick={() => setSelectedGroupCode(null)} className="rounded p-0.5 text-muted-foreground hover:bg-muted/70 hover:text-foreground">
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {group.members && group.members.length > 0 ? (
+                                    <div className="divide-y">
+                                      {group.members.map((m, idx) => (
+                                        <button
+                                          key={m.passengerId || idx}
+                                          onClick={() => {
+                                            if (m.pnr) {
+                                              setDetailPnr(m.pnr);
+                                              setDetailOpen(true);
+                                            }
+                                          }}
+                                          className="flex items-center justify-between w-full px-4 py-2.5 text-xs text-left hover:bg-muted/50 transition-colors"
+                                        >
+                                          <div className="flex items-center gap-3 min-w-0">
+                                            <span className="text-muted-foreground w-5 text-right shrink-0">{m.lineNumber || idx + 1}</span>
+                                            {m.isUnnamed ? (
+                                              <span className="text-rose-500 italic">Unnamed Passenger</span>
+                                            ) : (
+                                              <span className="font-medium">
+                                                {m.lastName}{m.firstName ? `, ${m.firstName}` : ""}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                                            {m.seat && (
+                                              <Badge variant="outline" className="text-[9px] px-1 font-mono">
+                                                {m.seat}
+                                              </Badge>
+                                            )}
+                                            {m.isBoarded ? (
+                                              <Badge className="bg-emerald-500/15 text-emerald-600 border-transparent text-[9px] px-1.5">
+                                                Boarded
+                                              </Badge>
+                                            ) : m.isCheckedIn ? (
+                                              <Badge className="bg-blue-500/15 text-blue-600 border-transparent text-[9px] px-1.5">
+                                                Checked In
+                                              </Badge>
+                                            ) : m.isUnnamed ? (
+                                              <Badge className="bg-rose-500/15 text-rose-600 border-transparent text-[9px] px-1.5">
+                                                Unnamed
+                                              </Badge>
+                                            ) : (
+                                              <Badge variant="secondary" className="text-[9px] px-1.5">
+                                                Booked
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                                      No member details available
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+                            No group bookings on this flight
+                          </div>
+                        )}
+                      </div>
+                      </ErrorBoundary>
+                    )}
+
                     {/* Standby Tab */}
                     {activeTab === "standby" && (
                       <ErrorBoundary compact label="Standby">
@@ -1842,6 +2082,22 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       </div>
                     </ErrorBoundary>
                     )}
+
+                    {/* Insights Tab */}
+                    {activeTab === "insights" && dashboard.insights && (
+                      <ErrorBoundary compact label="Insights">
+                        <FlightInsightsPanel
+                          insights={dashboard.insights}
+                          totalPassengers={dashboard.passengerSummary.totalPassengers}
+                          onOpenInfo={openInsightInfo}
+                        />
+                      </ErrorBoundary>
+                    )}
+                    {activeTab === "insights" && !dashboard.insights && (
+                      <div className="flex items-center justify-center py-20 text-muted-foreground">
+                        <p>No insights data available for this flight.</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Passenger Detail Sheet */}
@@ -1860,7 +2116,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           </ErrorBoundary>
         </Panel>
 
-        {(ingestOpen || infoOpen) && (
+        {(ingestOpen || infoOpen || insightInfoOpen) && (
           <>
             <PanelResizeHandle className="relative flex w-px items-center justify-center bg-border focus-visible:outline-none data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full transition-colors hover:bg-primary" />
             
@@ -1899,6 +2155,27 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
                       <TileInfoPanel activeTab={activeInfo} />
+                    </div>
+                  </>
+                  </ErrorBoundary>
+                )}
+                {insightInfoOpen && (
+                  <ErrorBoundary compact label="Insight Info">
+                  <>
+                    <div className="flex items-center justify-between border-b bg-muted/30 p-5 sticky top-0 z-10">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10">
+                          <Info className="h-4 w-4 text-violet-500" />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-semibold tracking-tight">Insight Documentation</h2>
+                          <p className="text-sm text-muted-foreground">How this insight is calculated</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setInsightInfoOpen(false)}>Close</Button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
+                      <InsightInfoPanel activeKey={activeInsightInfo} />
                     </div>
                   </>
                   </ErrorBoundary>
@@ -2040,10 +2317,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         {([
           { key: "overview" as const, icon: LayoutDashboard, label: "Overview" },
           { key: "passengers" as const, icon: Users, label: "Pax" },
+          { key: "groups" as const, icon: Users, label: "Groups" },
           { key: "standby" as const, icon: Timer, label: "Standby" },
           { key: "changes" as const, icon: Activity, label: "Changes" },
           { key: "history" as const, icon: History, label: "History" },
           { key: "reservations" as const, icon: BookOpen, label: "Res" },
+          { key: "insights" as const, icon: BarChart3, label: "Insights" },
         ]).map(({ key, icon: Icon, label }) => (
           <button
             key={key}

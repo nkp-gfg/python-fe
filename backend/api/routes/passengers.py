@@ -20,7 +20,7 @@ def _strip_id(doc):
 
 
 def _build_nationality_lookup(db, flight_number, date, origin=None, snapshot_sequence=None):
-    """Build PNR+lastName → nationality lookup from reservations."""
+    """Build PNR+lastName → {nationality, specialMeal, wheelchairCode, ffTier...} lookup from reservations."""
     if snapshot_sequence:
         res_doc = get_snapshot_data_as_of(
             db,
@@ -41,10 +41,28 @@ def _build_nationality_lookup(db, flight_number, date, origin=None, snapshot_seq
         for rv in res_doc.get("reservations", []):
             pnr = rv.get("pnr", "")
             for p in rv.get("passengers", []):
+                key = (pnr, p.get("lastName", "").upper())
+                entry = {}
                 nat = p.get("nationality", "")
                 if nat:
-                    key = (pnr, p.get("lastName", "").upper())
-                    lookup[key] = nat
+                    entry["nationality"] = nat
+                meal = p.get("specialMeal", "")
+                if meal:
+                    entry["specialMeal"] = meal
+                wc = p.get("wheelchairCode", "")
+                if wc:
+                    entry["wheelchairCode"] = wc
+                if p.get("hasEmergencyContact"):
+                    entry["hasEmergencyContact"] = True
+                ff_tier = p.get("ffTierLevel", "")
+                if ff_tier:
+                    entry["ffTierLevel"] = ff_tier
+                    entry["ffTierName"] = p.get("ffTierName", "")
+                ff_status = p.get("ffStatus", "")
+                if ff_status:
+                    entry["ffStatus"] = ff_status
+                if entry:
+                    lookup[key] = entry
     return lookup
 
 
@@ -83,7 +101,7 @@ def get_passengers(
     if not doc:
         raise HTTPException(status_code=404, detail="Passenger list not found")
 
-    # Enrich passengers with nationality from reservations
+    # Enrich passengers with reservation data (nationality, meals, FF tier, etc.)
     nat_lookup = _build_nationality_lookup(
         db,
         flight_number,
@@ -94,7 +112,19 @@ def get_passengers(
     passengers = doc.get("passengers", [])
     for p in passengers:
         key = (p.get("pnr", ""), p.get("lastName", "").upper())
-        p["nationality"] = nat_lookup.get(key, "")
+        enrichment = nat_lookup.get(key, {})
+        p["nationality"] = enrichment.get("nationality", "")
+        if "specialMeal" in enrichment:
+            p["specialMeal"] = enrichment["specialMeal"]
+        if "wheelchairCode" in enrichment:
+            p["wheelchairCode"] = enrichment["wheelchairCode"]
+        if "hasEmergencyContact" in enrichment:
+            p["hasEmergencyContact"] = enrichment["hasEmergencyContact"]
+        if "ffTierLevel" in enrichment:
+            p["ffTierLevel"] = enrichment["ffTierLevel"]
+            p["ffTierName"] = enrichment.get("ffTierName", "")
+        if "ffStatus" in enrichment:
+            p["ffStatus"] = enrichment["ffStatus"]
 
     return _strip_id(doc)
 
@@ -260,6 +290,160 @@ def get_standby_list(
             "total": len(standby_list),
             "passengers": standby_list,
         },
+    }
+
+
+@router.get("/{flight_number}/passengers/groups")
+def get_group_bookings(
+    flight_number: str,
+    origin: str = Query(None, description="Departure airport code"),
+    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    snapshot_sequence: int = Query(None, ge=1),
+):
+    """Get all group bookings for a flight with per-group details.
+
+    Returns a list of group booking objects, each containing the group code,
+    PNR, member count, cabin, and the list of individual group members.
+    Unnamed group members (Sabre placeholder "PAX") are flagged explicitly.
+    """
+    validate_date(date)
+    validate_origin(origin)
+    db = get_db()
+    query = {"flightNumber": flight_number}
+    if origin:
+        query["origin"] = origin
+    if date:
+        query["departureDate"] = date
+
+    if snapshot_sequence:
+        doc = get_snapshot_data_as_of(
+            db,
+            flight_number=flight_number,
+            snapshot_type="passenger_list",
+            snapshot_sequence=snapshot_sequence,
+            origin=origin,
+            departure_date=date,
+        )
+    else:
+        doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
+    if not doc:
+        raise HTTPException(status_code=404, detail="Passenger list not found")
+
+    passengers = doc.get("passengers", [])
+
+    # Build group map — also works with older docs that lack groupCode
+    # by falling back to _raw if available
+    group_map = {}
+    for p in passengers:
+        gc = p.get("groupCode", "")
+        if not gc:
+            continue
+        if gc not in group_map:
+            group_map[gc] = {
+                "groupCode": gc,
+                "pnr": p.get("pnr", ""),
+                "cabin": p.get("cabin", ""),
+                "bookingClass": p.get("bookingClass", ""),
+                "totalMembers": 0,
+                "namedMembers": 0,
+                "unnamedMembers": 0,
+                "checkedIn": 0,
+                "boarded": 0,
+                "members": [],
+            }
+        g = group_map[gc]
+        g["totalMembers"] += 1
+        is_unnamed = p.get("isUnnamedGroup", False) or (
+            p.get("lastName") == "PAX" and not p.get("firstName"))
+        if is_unnamed:
+            g["unnamedMembers"] += 1
+        else:
+            g["namedMembers"] += 1
+        if p.get("isCheckedIn"):
+            g["checkedIn"] += 1
+        if p.get("isBoarded"):
+            g["boarded"] += 1
+        g["members"].append({
+            "lastName": p.get("lastName", ""),
+            "firstName": p.get("firstName", ""),
+            "pnr": p.get("pnr", ""),
+            "passengerId": p.get("passengerId", ""),
+            "lineNumber": p.get("lineNumber", 0),
+            "isCheckedIn": p.get("isCheckedIn", False),
+            "isBoarded": p.get("isBoarded", False),
+            "isUnnamed": is_unnamed,
+            "seat": p.get("seat", ""),
+        })
+
+    # If no groupCode fields exist, try extracting from _raw
+    if not group_map:
+        raw = doc.get("_raw")
+        if raw:
+            from backend.feeder.converter import _strip_ns, _ensure_list
+            stripped = _strip_ns(raw)
+            raw_pax = _ensure_list(
+                stripped.get("PassengerInfoList", {}).get("PassengerInfo", []))
+            pax_by_id = {p.get("passengerId", ""): p for p in passengers}
+            for rp in raw_pax:
+                gc = rp.get("GroupCode", "")
+                if not gc:
+                    continue
+                pid = rp.get("PassengerID", "")
+                stored_pax = pax_by_id.get(pid, {})
+                if gc not in group_map:
+                    pnr_raw = rp.get("PNRLocator", {})
+                    pnr = pnr_raw.get("#text", "") if isinstance(
+                        pnr_raw, dict) else str(pnr_raw)
+                    group_map[gc] = {
+                        "groupCode": gc,
+                        "pnr": pnr,
+                        "cabin": rp.get("Cabin", ""),
+                        "bookingClass": rp.get("BookingClass", ""),
+                        "totalMembers": 0,
+                        "namedMembers": 0,
+                        "unnamedMembers": 0,
+                        "checkedIn": 0,
+                        "boarded": 0,
+                        "members": [],
+                    }
+                g = group_map[gc]
+                g["totalMembers"] += 1
+                name = rp.get("Name_Details", {})
+                is_unnamed = name.get(
+                    "LastName") == "PAX" and not name.get("FirstName")
+                if is_unnamed:
+                    g["unnamedMembers"] += 1
+                else:
+                    g["namedMembers"] += 1
+                if stored_pax.get("isCheckedIn"):
+                    g["checkedIn"] += 1
+                if stored_pax.get("isBoarded"):
+                    g["boarded"] += 1
+                g["members"].append({
+                    "lastName": name.get("LastName", ""),
+                    "firstName": name.get("FirstName", ""),
+                    "pnr": stored_pax.get("pnr", ""),
+                    "passengerId": pid,
+                    "lineNumber": stored_pax.get("lineNumber", 0),
+                    "isCheckedIn": stored_pax.get("isCheckedIn", False),
+                    "isBoarded": stored_pax.get("isBoarded", False),
+                    "isUnnamed": is_unnamed,
+                    "seat": stored_pax.get("seat", ""),
+                })
+
+    groups = sorted(group_map.values(), key=lambda g: g["groupCode"])
+    total_group_pax = sum(g["totalMembers"] for g in groups)
+    total_unnamed = sum(g["unnamedMembers"] for g in groups)
+
+    return {
+        "flightNumber": flight_number,
+        "origin": doc.get("origin", ""),
+        "departureDate": doc.get("departureDate", ""),
+        "fetchedAt": doc.get("fetchedAt", ""),
+        "totalGroups": len(groups),
+        "totalGroupPassengers": total_group_pax,
+        "totalUnnamed": total_unnamed,
+        "groups": groups,
     }
 
 

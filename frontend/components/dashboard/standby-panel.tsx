@@ -71,8 +71,10 @@ function QueueTable({
           <TableHead>Passenger</TableHead>
           <TableHead>PNR</TableHead>
           {type === "upgrade" && <TableHead>Priority</TableHead>}
+          <TableHead>Class</TableHead>
           <TableHead>Current</TableHead>
           <TableHead>Requested</TableHead>
+          <TableHead>Status</TableHead>
           <TableHead>Seniority</TableHead>
         </TableRow>
       </TableHeader>
@@ -101,6 +103,7 @@ function QueueTable({
                 </Badge>
               </TableCell>
             )}
+            <TableCell className="text-xs">{e.bookingClass || "—"}</TableCell>
             <TableCell>
               <Badge variant="outline" className="text-[10px]">{e.cabin}</Badge>
             </TableCell>
@@ -108,6 +111,18 @@ function QueueTable({
               <Badge className="bg-amber-500/15 text-amber-600 border-transparent text-[10px]">
                 {e.desiredBookingClass}
               </Badge>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center gap-1">
+                {e.isCheckedIn ? (
+                  <Badge className="bg-blue-500/15 text-blue-600 border-transparent text-[10px]">CI</Badge>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">—</span>
+                )}
+                {e.boardingPassIssued && (
+                  <span className="text-[9px] text-emerald-500" title="Boarding pass issued">BP</span>
+                )}
+              </div>
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">
               {e.seniorityDate || "—"}

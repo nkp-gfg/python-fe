@@ -225,6 +225,17 @@ export interface PassengerSummary {
   cabinSummary: CabinSummary[];
 }
 
+export interface SpecialRequestsSummary {
+  specialMeals: Record<string, number>;
+  totalSpecialMeals: number;
+  wheelchairs: Record<string, number>;
+  totalWheelchairs: number;
+  emergencyContacts: number;
+  frequentFlyers: number;
+  ffTiers: Record<string, number>;
+  bookingSources: Record<string, number>;
+}
+
 export interface FlightDashboard {
   flightStatus: FlightListItem | null;
   route: RouteSummary;
@@ -243,6 +254,11 @@ export interface FlightDashboard {
     boarded: StateBucket;
     others: OthersSummary;
   };
+  groupBookingSummary: GroupBookingSummary | null;
+  specialRequestsSummary: SpecialRequestsSummary | null;
+  codeshareInfo: string[];
+  departureGate: string;
+  insights: FlightInsights | null;
 }
 
 // --- Flight Phase ---
@@ -361,6 +377,68 @@ export interface PassengerRecord {
   ticketNumber: string;
   editCodes: string[];
   nationality: string;
+  groupCode?: string;
+  isGroup?: boolean;
+  isUnnamedGroup?: boolean;
+  nameAssociationId?: string;
+  // Enriched from converter (passenger_list)
+  checkInDate?: string;
+  checkInTime?: string;
+  baggageRoutes?: { airline: string; flight: string; origin: string; destination: string; segmentStatus: string }[];
+  vcrInUse?: boolean;
+  vcrAirlineNumber?: string;
+  vcrCouponNumber?: string;
+  // Enriched from reservations (cross-referenced)
+  specialMeal?: string;
+  wheelchairCode?: string;
+  hasEmergencyContact?: boolean;
+  ffTierLevel?: string;
+  ffTierName?: string;
+  ffStatus?: string;
+}
+
+export interface GroupBookingMember {
+  lastName: string;
+  firstName: string;
+  pnr: string;
+  passengerId: string;
+  lineNumber: number;
+  isCheckedIn: boolean;
+  isBoarded: boolean;
+  isUnnamed: boolean;
+  seat: string;
+}
+
+export interface GroupBooking {
+  groupCode: string;
+  pnr: string;
+  cabin: string;
+  bookingClass: string;
+  totalMembers: number;
+  namedMembers: number;
+  unnamedMembers: number;
+  checkedIn: number;
+  boarded: number;
+  members?: GroupBookingMember[];
+}
+
+export interface GroupBookingSummary {
+  totalGroups: number;
+  totalGroupPassengers: number;
+  totalUnnamed: number;
+  totalNamed: number;
+  groups: GroupBooking[];
+}
+
+export interface GroupBookingsResponse {
+  flightNumber: string;
+  origin: string;
+  departureDate: string;
+  fetchedAt: string;
+  totalGroups: number;
+  totalGroupPassengers: number;
+  totalUnnamed: number;
+  groups: GroupBooking[];
 }
 
 export interface PassengerListResponse {
@@ -377,7 +455,14 @@ export interface PassengerListResponse {
   childCount: number;
   infantCount: number;
   totalSouls: number;
+  groupBookings?: GroupBooking[];
   passengers: PassengerRecord[];
+  // Enriched from converter
+  departureGate?: string;
+  scheduledDeparture?: string;
+  estimatedDeparture?: string;
+  departureTime?: string;
+  arrivalTime?: string;
 }
 
 // --- Standby List Types ---
@@ -640,6 +725,7 @@ export interface FlightStatusRecord {
   departureDate: string;
   fetchedAt: string;
   status: string;
+  timeToDeparture?: number;
   aircraft: Aircraft;
   schedule: Schedule;
   gate: string;
@@ -649,6 +735,7 @@ export interface FlightStatusRecord {
   passengerCounts: Record<string, ClassCounts>;
   jumpSeat: JumpSeat;
   remarks?: RemarkEntry[];
+  codeshareInfo?: string[];
 }
 
 // --- Reservation Types ---
@@ -664,6 +751,17 @@ export interface ReservationPassenger {
   seatNumber: string;
   frequentFlyerNumber: string;
   frequentFlyerAirline: string;
+  // Enriched fields
+  specialMeal?: string;
+  wheelchairCode?: string;
+  hasEmergencyContact?: boolean;
+  docaAddress?: string;
+  seatStatusCode?: string;
+  seatTypeCode?: string;
+  ffTierLevel?: string;
+  ffTierName?: string;
+  ffStatus?: string;
+  ffSupplierCode?: string;
 }
 
 export interface ReservationSegment {
@@ -675,6 +773,17 @@ export interface ReservationSegment {
   flightNumber: string;
   bookingClass: string;
   status: string;
+  // Enriched fields
+  isCodeShare?: boolean;
+  equipmentType?: string;
+  operatingAirline?: string;
+  operatingFlightNumber?: string;
+  segmentBookedDate?: string;
+  scheduleChangeIndicator?: string;
+  inboundConnection?: string;
+  outboundConnection?: string;
+  marriageGroup?: string;
+  eTicket?: boolean;
 }
 
 export interface SsrRequest {
@@ -719,6 +828,22 @@ export interface Reservation {
   remarks?: RemarkEntry[];
   ancillaryServices?: AncillaryService[];
   receivedFrom?: string;
+  // Enriched fields
+  bookingHeader?: string;
+  creationAgent?: string;
+  pnrSequence?: number;
+  flightsRangeStart?: string;
+  flightsRangeEnd?: string;
+  pointOfSale?: {
+    agentDutyCode?: string;
+    agentSine?: string;
+    airlineVendorId?: string;
+    bookingSource?: string;
+    pseudoCityCode?: string;
+    homePseudoCityCode?: string;
+    isoCountry?: string;
+  };
+  formOfPayment?: string;
 }
 
 export interface ReservationsResponse {
@@ -989,3 +1114,212 @@ export interface PassengerHistoryBadge {
 }
 
 export type PassengerHistoryBadges = Record<string, PassengerHistoryBadge>;
+
+// --- Insights Types ---
+
+export interface InsightsConnecting {
+  connecting: number;
+  local: number;
+  connectingPct: number;
+}
+
+export interface InsightsBookingChannels {
+  channels: Record<string, number>;
+  categories: { online: number; agent: number; corporate: number; other: number };
+}
+
+export interface InsightsDocCompliance {
+  DOCS: { count: number; pct: number };
+  DOCV: { count: number; pct: number };
+  DOCA: { count: number; pct: number };
+}
+
+export interface InsightsCheckInSequence {
+  total: number;
+  earliest: number;
+  latest: number;
+  median: number;
+}
+
+export interface InsightsBookingLeadTime {
+  avgDays: number;
+  minDays: number;
+  maxDays: number;
+  medianDays: number;
+  distribution: {
+    sameDay: number;
+    within7d: number;
+    within30d: number;
+    within90d: number;
+    over90d: number;
+  };
+}
+
+export interface InsightsSeatOccupancy {
+  seated: number;
+  unseated: number;
+  seatPct: number;
+}
+
+export interface InsightsBaggage {
+  withBags: number;
+  withoutBags: number;
+  totalBags: number;
+  avgBags: number;
+  dataAvailablePct: number;
+  withBagRoutes: number;
+}
+
+export interface InsightsEditCodes {
+  uniqueCodes: number;
+  topCodes: { code: string; count: number }[];
+}
+
+export interface InsightsMultiSegment {
+  distribution: Record<string, number>;
+  multiSegmentPct: number;
+}
+
+export interface InsightsPartySize {
+  distribution: Record<string, number>;
+  avgSize: number;
+}
+
+export interface InsightsBoardingRate {
+  boarded: number;
+  checkedIn: number;
+  notCheckedIn: number;
+  boardedPct: number;
+  checkedInPct: number;
+}
+
+export interface InsightsChangeVelocity {
+  totalChanges: number;
+  changeTypes: Record<string, number>;
+}
+
+export interface InsightsTicketStatus {
+  vcrTypes: Record<string, number>;
+  withTicket: number;
+  withoutTicket: number;
+  ticketPct: number;
+}
+
+export interface InsightsFlightInfo {
+  elapsedTime: string;
+  airMilesFlown: number;
+  aircraftType: string;
+  mealCode: string;
+}
+
+export interface InsightsCorporateTravel {
+  totalCorporate: number;
+  corporatePct: number;
+  companies: Record<string, number>;
+}
+
+export interface InsightsPriority {
+  total: number;
+  codes: Record<string, number>;
+}
+
+export interface InsightsConnectionRisk {
+  atRiskCount: number;
+  totalConnecting: number;
+  riskPct: number;
+}
+
+export interface InsightsClassMismatch {
+  total: number;
+  upgrades: number;
+  downgrades: number;
+}
+
+export interface InsightsBoardingPasses {
+  issued: number;
+  notIssued: number;
+  issuedPct: number;
+}
+
+export interface InsightsReservationRecency {
+  latestModification: string | null;
+  totalReservations: number;
+}
+
+export interface InsightsCheckInTimeline {
+  totalWithTime: number;
+  hourDistribution: Record<string, number>;
+  peakHour: string | null;
+  coveragePct: number;
+}
+
+export interface InsightsEmergencyContacts {
+  withContact: number;
+  withoutContact: number;
+  coveragePct: number;
+}
+
+export interface InsightsNationalityBreakdown {
+  countries: Record<string, number>;
+  uniqueCountries: number;
+  unknown: number;
+  coveragePct: number;
+}
+
+export interface InsightsBaggageRouting {
+  destinations: Record<string, number>;
+  paxWithRoutes: number;
+  coveragePct: number;
+}
+
+export interface InsightsStandbyUpgrade {
+  standbyTotal: number;
+  upgradeTotal: number;
+  standbyCabins: Record<string, number>;
+  standbyPct: number;
+}
+
+export interface InsightsOperationalReadiness {
+  noSeat: number;
+  checkedInNoBP: number;
+  notCheckedIn: number;
+  thruNoSeat: number;
+  readinessPct: number;
+}
+
+export interface FlightInsights {
+  connectingPassengers: InsightsConnecting;
+  bookingChannels: InsightsBookingChannels;
+  paymentMethods: Record<string, number>;
+  documentCompliance: InsightsDocCompliance;
+  checkInSequence: InsightsCheckInSequence;
+  bookingLeadTime: InsightsBookingLeadTime | null;
+  seatOccupancy: InsightsSeatOccupancy;
+  baggage: InsightsBaggage;
+  editCodes: InsightsEditCodes;
+  multiSegment: InsightsMultiSegment;
+  pnrPartySize: InsightsPartySize;
+  infantTracking: { total: number; details: string[] };
+  wheelchairTypes: Record<string, number>;
+  mealCodes: Record<string, number>;
+  boardingRate: InsightsBoardingRate;
+  changeVelocity: InsightsChangeVelocity;
+  revenueClassMix: Record<string, number>;
+  ticketStatus: InsightsTicketStatus;
+  flightInfo: InsightsFlightInfo | null;
+  corporateTravel: InsightsCorporateTravel;
+  priorityPassengers: InsightsPriority;
+  seniority: { withSeniority: number; pct: number };
+  connectionRisk: InsightsConnectionRisk;
+  classMismatch: InsightsClassMismatch;
+  passengerTypes: Record<string, number>;
+  boardingPasses: InsightsBoardingPasses;
+  reservationRecency: InsightsReservationRecency | null;
+  equipment: { aircraftType: string; seatConfig: string };
+  checkInTimeline: InsightsCheckInTimeline;
+  emergencyContacts: InsightsEmergencyContacts;
+  nationalityBreakdown: InsightsNationalityBreakdown;
+  baggageRouting: InsightsBaggageRouting;
+  standbyUpgrade: InsightsStandbyUpgrade;
+  operationalReadiness: InsightsOperationalReadiness;
+}

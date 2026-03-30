@@ -8,6 +8,13 @@ import type { TileInfoKey } from "@/components/dashboard/tile-info-panel";
 
 export type StateCardKey = "booked" | "checkedIn" | "boarded" | "others";
 
+/** Describes which filters to apply when a number is clicked */
+export interface PanelFilter {
+  status?: "all" | "booked" | "checkedIn" | "boarded";
+  cabin?: "all" | "Y" | "J";
+  type?: "all" | "revenue" | "nonRevenue" | "child" | "infant";
+}
+
 interface Props {
   stateSummary: FlightDashboard["stateSummary"];
   phase: FlightPhaseCode;
@@ -15,6 +22,7 @@ interface Props {
   onInfoClick: (key: TileInfoKey) => void;
   onCardClick?: (key: StateCardKey) => void;
   activeCard?: StateCardKey | null;
+  onFilterClick?: (filter: PanelFilter) => void;
 }
 
 /* ── Phase-aware card emphasis ring colors ───────────────── */
@@ -108,8 +116,10 @@ function detailFooter(bucket: StateBucket) {
   };
 }
 
-export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCardClick, activeCard }: Props) {
+export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCardClick, activeCard, onFilterClick }: Props) {
+  if (!stateSummary) return null;
   const { booked, checkedIn, boarded, others } = stateSummary;
+  if (!booked || !checkedIn || !boarded || !others) return null;
   const totalPax = booked.totalPassengers + checkedIn.totalPassengers + boarded.totalPassengers;
 
   const extra = checkedInExtraRow(phase, others, totalPax, checkedIn.totalPassengers, boarded.totalPassengers);
@@ -138,6 +148,8 @@ export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCar
           active={activeCard === "booked"}
           focusRing={focusCard === "booked" ? FOCUS_RING.booked : undefined}
           dimmed={focusCard !== "booked" && phase !== "SCHEDULED"}
+          statusFilter="booked"
+          onFilterClick={onFilterClick}
         />
 
         {/* CHECKED-IN */}
@@ -163,6 +175,8 @@ export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCar
           active={activeCard === "checkedIn"}
           focusRing={focusCard === "checkedIn" ? FOCUS_RING.checkedIn : undefined}
           dimmed={focusCard !== "checkedIn" && phase !== "SCHEDULED"}
+          statusFilter="checkedIn"
+          onFilterClick={onFilterClick}
         />
 
         {/* BOARDED */}
@@ -181,6 +195,8 @@ export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCar
           active={activeCard === "boarded"}
           focusRing={focusCard === "boarded" ? FOCUS_RING.boarded : undefined}
           dimmed={focusCard !== "boarded" && phase !== "SCHEDULED"}
+          statusFilter="boarded"
+          onFilterClick={onFilterClick}
         />
 
         {/* OTHERS */}
@@ -201,26 +217,38 @@ export function StatePanels({ stateSummary, phase, focusCard, onInfoClick, onCar
                   <span>Other Passengers</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xl font-bold tracking-tight">
-                    {others.jumpSeat + others.nonRevenue}
-                  </span>
+                  <ClickableValue
+                    value={others.jumpSeat + others.nonRevenue}
+                    className="text-xl font-bold tracking-tight"
+                    onClick={() => onFilterClick?.({ type: "nonRevenue" })}
+                  />
                   <InfoButton onClick={() => onInfoClick("others")} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Row label="Jump Seat" value={others.jumpSeat} />
-                <Row label="Non-Revenue" value={others.nonRevenue} />
-                <Row
+                <ClickableRow
+                  label="Jump Seat"
+                  value={others.jumpSeat}
+                  onClick={() => onFilterClick?.({ type: "nonRevenue" })}
+                />
+                <ClickableRow
+                  label="Non-Revenue"
+                  value={others.nonRevenue}
+                  onClick={() => onFilterClick?.({ type: "nonRevenue" })}
+                />
+                <ClickableRow
                   label="Offloaded"
                   value={others.offloadedAvailable ? others.offloaded : others.checkedInNotBoarded}
                   valueClass={(others.offloadedAvailable ? (others.offloaded ?? 0) : others.checkedInNotBoarded) > 0 ? "text-rose-500 font-semibold" : undefined}
                   inferred={!others.offloadedAvailable}
+                  onClick={() => onFilterClick?.({ status: "checkedIn" })}
                 />
-                <Row
+                <ClickableRow
                   label={others.flightClosed ? "No Show" : "Not Checked In"}
                   value={others.noShowAvailable ? others.noShow : others.notCheckedIn}
                   valueClass={(others.noShowAvailable ? (others.noShow ?? 0) : others.notCheckedIn) > 0 ? "text-orange-500 dark:text-orange-400 font-semibold" : undefined}
                   inferred={!others.noShowAvailable}
+                  onClick={() => onFilterClick?.({ status: "booked" })}
                 />
               </div>
             </div>
@@ -248,6 +276,66 @@ function InfoButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** A clickable numeric value that applies a filter on click */
+function ClickableValue({
+  value,
+  className: cls,
+  onClick,
+}: {
+  value: number | string;
+  className?: string;
+  onClick?: () => void;
+}) {
+  if (!onClick) return <span className={cls}>{value}</span>;
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className={cn(
+        cls,
+        "hover:underline hover:decoration-dotted hover:underline-offset-2 cursor-pointer transition-opacity hover:opacity-80",
+      )}
+      title="Click to filter passengers"
+    >
+      {value}
+    </button>
+  );
+}
+
+/** A row with a clickable value */
+function ClickableRow({
+  label,
+  value,
+  labelClass,
+  valueClass,
+  unavailable,
+  inferred,
+  onClick,
+}: {
+  label: string;
+  value: number | string | null;
+  labelClass?: string;
+  valueClass?: string;
+  unavailable?: boolean;
+  inferred?: boolean;
+  onClick?: () => void;
+}) {
+  const display = unavailable ? "N/A" : (value ?? 0);
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className={labelClass ?? "text-muted-foreground"}>{label}</span>
+      <span className={cn("font-medium", valueClass ?? "text-foreground")}>
+        {onClick && !unavailable ? (
+          <ClickableValue value={display} onClick={onClick} />
+        ) : (
+          display
+        )}
+        {inferred && <span className="text-[9px] text-muted-foreground ml-1" title="Inferred from manifest data">~</span>}
+      </span>
+    </div>
+  );
+}
+
 function PanelCard({
   title,
   icon,
@@ -261,6 +349,8 @@ function PanelCard({
   active,
   focusRing,
   dimmed,
+  statusFilter,
+  onFilterClick,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -277,7 +367,13 @@ function PanelCard({
   active?: boolean;
   focusRing?: string;
   dimmed?: boolean;
+  statusFilter?: "booked" | "checkedIn" | "boarded";
+  onFilterClick?: (filter: PanelFilter) => void;
 }) {
+  const fire = (extra: Partial<PanelFilter>) => {
+    onFilterClick?.({ status: statusFilter ?? "all", ...extra });
+  };
+
   return (
     <Card
       className={cn(
@@ -295,7 +391,11 @@ function PanelCard({
             <span>{title}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className={cn("text-xl font-bold tracking-tight", countClass)}>{count}</span>
+            <ClickableValue
+              value={count}
+              className={cn("text-xl font-bold tracking-tight", countClass)}
+              onClick={() => fire({})}
+            />
             <InfoButton onClick={onInfoClick} />
           </div>
         </div>
@@ -304,29 +404,29 @@ function PanelCard({
             <Row key={r.label} {...r} />
           ))}
         </div>
-        {/* Cabin breakdown with per-cabin detail */}
+        {/* Cabin breakdown with per-cabin detail — clickable */}
         {cabinDetail && (
           <div className="space-y-1.5 mb-2">
-            <CabinRow label="Economy" detail={cabinDetail.economy.detail} />
-            <CabinRow label="Business" detail={cabinDetail.business.detail} />
+            <CabinRow label="Economy" detail={cabinDetail.economy.detail} onFilterClick={(extra) => fire({ cabin: "Y", ...extra })} />
+            <CabinRow label="Business" detail={cabinDetail.business.detail} onFilterClick={(extra) => fire({ cabin: "J", ...extra })} />
           </div>
         )}
         <div className="mt-auto grid grid-cols-4 gap-1.5 border-t pt-2 text-[10px]">
           <div className="flex flex-col">
             <span className="text-muted-foreground">Adults</span>
-            <span className="font-medium text-foreground">{footer.adults}</span>
+            <ClickableValue value={footer.adults} className="font-medium text-foreground" onClick={() => fire({})} />
           </div>
           <div className="flex flex-col">
             <span className="text-muted-foreground">Children</span>
-            <span className="font-medium text-amber-600 dark:text-amber-500">{footer.children}</span>
+            <ClickableValue value={footer.children} className="font-medium text-amber-600 dark:text-amber-500" onClick={() => fire({ type: "child" })} />
           </div>
           <div className="flex flex-col">
             <span className="text-muted-foreground">Infants</span>
-            <span className="font-medium text-emerald-600 dark:text-emerald-500">{footer.infants}</span>
+            <ClickableValue value={footer.infants} className="font-medium text-emerald-600 dark:text-emerald-500" onClick={() => fire({ type: "infant" })} />
           </div>
           <div className="flex flex-col">
             <span className="text-muted-foreground">Staff</span>
-            <span className="font-medium text-purple-600 dark:text-purple-400">{footer.staff ?? 0}</span>
+            <ClickableValue value={footer.staff ?? 0} className="font-medium text-purple-600 dark:text-purple-400" onClick={() => fire({ type: "nonRevenue" })} />
           </div>
         </div>
       </CardContent>
@@ -334,17 +434,20 @@ function PanelCard({
   );
 }
 
-function CabinRow({ label, detail }: { label: string; detail?: CabinDetail }) {
+function CabinRow({ label, detail, onFilterClick }: { label: string; detail?: CabinDetail; onFilterClick?: (extra: Partial<PanelFilter>) => void }) {
   const d = detail ?? { adults: 0, children: 0, infants: 0, staff: 0 };
   const total = d.adults + d.children + d.infants + d.staff;
   return (
     <div>
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground font-medium">{label}</span>
-        <span className="font-semibold text-foreground">{total}</span>
+        <ClickableValue value={total} className="font-semibold text-foreground" onClick={() => onFilterClick?.({})} />
       </div>
       <div className="text-[10px] text-muted-foreground pl-2 mt-0.5">
-        {d.adults} Adults · {d.children} Child · {d.infants} Infant · {d.staff} Staff
+        <ClickableValue value={d.adults} onClick={() => onFilterClick?.({})} /> Adults ·{" "}
+        <ClickableValue value={d.children} onClick={() => onFilterClick?.({ type: "child" })} /> Child ·{" "}
+        <ClickableValue value={d.infants} onClick={() => onFilterClick?.({ type: "infant" })} /> Infant ·{" "}
+        <ClickableValue value={d.staff} onClick={() => onFilterClick?.({ type: "nonRevenue" })} /> Staff
       </div>
     </div>
   );
