@@ -5,8 +5,9 @@ Run with:
     uvicorn backend.api.main:app --reload
 """
 
-from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, audit
+from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, audit, otp
 from backend.api.database import get_db, close_db
+from backend.api.postgres import close_pool as close_pg_pool
 from backend.feeder import storage as feeder_storage
 import logging
 import os
@@ -41,8 +42,9 @@ async def lifespan(app: FastAPI):
         logger.error("MongoDB connection failed during startup: %s", exc)
         # Allow the app to start so health endpoints can report the issue
     yield
-    # Shutdown: close connection
+    # Shutdown: close connections
     close_db()
+    close_pg_pool()
 
 
 app = FastAPI(
@@ -83,6 +85,7 @@ app.include_router(changes.router)
 app.include_router(changes.activity_router)  # Global activity feed
 app.include_router(schedule.router)
 app.include_router(audit.router)
+app.include_router(otp.router)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────

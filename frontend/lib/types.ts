@@ -261,6 +261,43 @@ export interface FlightDashboard {
   insights: FlightInsights | null;
 }
 
+// --- OTP Flight (PostgreSQL — flight_xml_current) ---
+
+export interface OtpDelayDetail {
+  DelayComment: string;
+  DelayDuration: string;
+  DelayReasonCode: string;
+}
+
+export interface OtpFlight {
+  flightSequenceNumber: number;
+  flightNumber: string;
+  origin: string;
+  destination: string;
+  actualOrigin?: string | null;
+  actualDestination?: string | null;
+  flightDate: string;
+  scheduledDepartureUtc?: string | null;
+  estimatedBlockOffUtc?: string | null;
+  scheduledArrivalUtc?: string | null;
+  estimatedBlockOnUtc?: string | null;
+  actualBlockOffUtc?: string | null;
+  actualBlockOnUtc?: string | null;
+  actualTakeoffUtc?: string | null;
+  actualTouchdownUtc?: string | null;
+  scheduledDepartureLocal?: string | null;
+  scheduledArrivalLocal?: string | null;
+  flightStatus: string;
+  isCancelled: boolean;
+  aircraftType?: string | null;
+  aircraftRegistration?: string | null;
+  serviceTypeCode?: string | null;
+  cancelReasonCode?: string | null;
+  totalPax?: number | null;
+  delayDetails?: OtpDelayDetail[] | null;
+  source?: string | null;
+}
+
 // --- Flight Phase ---
 
 export type FlightPhaseCode = "SCHEDULED" | "CHECK_IN" | "BOARDING" | "CLOSED" | "DEPARTED";
