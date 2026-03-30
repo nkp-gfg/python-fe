@@ -11,6 +11,7 @@ import type {
   FlightTimelineResponse, ActivityFeedResponse,
   BoardingProgressResponse, PassengerHistoryBadges,
   GroupBookingsResponse,
+  OtpFlight,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -74,6 +75,10 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 export function fetchFlights(date?: string): Promise<FlightListItem[]> {
   const qs = date ? `?date=${date}` : "";
   return get<FlightListItem[]>(`/flights${qs}`);
+}
+
+export function fetchOtpFlights(date: string): Promise<OtpFlight[]> {
+  return get<OtpFlight[]>(`/otp/flights?date=${date}`);
 }
 
 export function fetchDashboard(

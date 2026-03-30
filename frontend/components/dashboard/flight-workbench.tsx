@@ -3,6 +3,7 @@
 import { startTransition, useDeferredValue, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, useIsMutating } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Activity,
   ArrowRight,
@@ -487,6 +488,13 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          <Link
+            href="/today"
+            className="hidden sm:flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+          >
+            <CalendarDays className="h-3 w-3" />
+            Today
+          </Link>
           <div className="hidden items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 sm:flex">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
