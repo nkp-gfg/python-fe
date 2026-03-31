@@ -1920,9 +1920,10 @@ def get_flight_dashboard(
     result = _build_dashboard_payload(fs, pl, origin, date, change_summary,
                                       reservation_doc, trip_report_doc, schedule_doc)
 
-    # Attach flight sequence number from flights collection
-    if flight_meta and flight_meta.get("flightSequenceNumber"):
-        result["flightSequenceNumber"] = flight_meta["flightSequenceNumber"]
+    # Attach flight sequence number from flights collection (None when missing)
+    result["flightSequenceNumber"] = (
+        flight_meta.get("flightSequenceNumber") if flight_meta else None
+    )
 
     # Cache the result (don't cache snapshot views)
     if not snapshot_sequence:

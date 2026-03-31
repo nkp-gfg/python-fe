@@ -1174,6 +1174,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       <div className="flex items-center gap-3">
                         <h1 className="text-xl font-bold tracking-tight">
                           GF{effectiveSelected.flightNumber}
+                          <span
+                            className={cn("ml-2", dashboard?.flightSequenceNumber != null ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground/50")}
+                            title={dashboard?.flightSequenceNumber != null ? `Flight Sequence Number: ${dashboard.flightSequenceNumber}` : "Flight sequence number not available"}
+                          >
+                            {dashboard?.flightSequenceNumber ?? "N/A"}
+                          </span>
                         </h1>
                         <Badge 
                           variant="secondary"
@@ -1278,16 +1284,6 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                             <span className="hidden md:flex items-center gap-1 text-[10px] text-muted-foreground" title={`Data fetched at ${dashboard.fetchedAt}`}>
                               <Clock className="h-3 w-3" />
                               {new Date(dashboard.fetchedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </>
-                        )}
-                        {/* Flight Sequence Number from R TEXT (PostgreSQL) */}
-                        {dashboard.flightSequenceNumber != null && (
-                          <>
-                            <Separator orientation="vertical" className="h-5 hidden md:block" />
-                            <span className="hidden md:flex items-center gap-1 text-[10px]" title="Flight Sequence Number (R TEXT)">
-                              <span className="text-muted-foreground">R TEXT</span>
-                              <span className="font-semibold text-orange-600 dark:text-orange-400">{dashboard.flightSequenceNumber}</span>
                             </span>
                           </>
                         )}
