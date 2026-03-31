@@ -332,8 +332,8 @@ def update_flight_state(airline, flight_number, origin, departure_date,
         "departureDate": departure_date,
         "createdAt": _now_iso(),
     }
-    if flight_sequence_number is not None:
-        set_on_insert["flightSequenceNumber"] = flight_sequence_number
+    # Note: flightSequenceNumber goes in $set only — putting it in both
+    # $set and $setOnInsert causes a MongoDB path conflict error.
 
     db["flights"].update_one(
         {

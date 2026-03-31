@@ -1,4 +1,9 @@
+# Backend (starts both uvicorn + celery worker)
+.\start-backend.ps1
+
+# Or manually in separate terminals:
 uvicorn backend.api.main:app --reload
+celery -A backend.celery_app worker --loglevel=info --pool=threads --concurrency=4
 
 npm run dev
 

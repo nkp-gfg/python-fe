@@ -1844,8 +1844,18 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
                 counts[ct] = counts.get(ct, 0) + 1
         return counts
 
+    def fetch_flight_meta():
+        """Fetch flight-level metadata (e.g. flightSequenceNumber) from the flights collection."""
+        fq = {"flightNumber": flight_number}
+        if origin:
+            fq["origin"] = origin
+        if date:
+            fq["departureDate"] = date
+        doc = db["flights"].find_one(fq, {"flightSequenceNumber": 1})
+        return doc
+
     # Run all queries in parallel
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    with ThreadPoolExecutor(max_workers=7) as executor:
         futures = {
             executor.submit(fetch_flight_status): "flight_status",
             executor.submit(fetch_passenger_list): "passenger_list",
@@ -1853,6 +1863,7 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
             executor.submit(fetch_trip_reports): "trip_reports",
             executor.submit(fetch_schedule): "schedule",
             executor.submit(fetch_change_summary): "change_summary",
+            executor.submit(fetch_flight_meta): "flight_meta",
         }
         for future in as_completed(futures):
             key = futures[future]
@@ -1901,12 +1912,17 @@ def get_flight_dashboard(
     trip_report_doc = data.get("trip_reports")
     schedule_doc = data.get("schedule")
     change_summary = data.get("change_summary") or {}
+    flight_meta = data.get("flight_meta")
 
     if not fs and not pl:
         raise HTTPException(status_code=404, detail="Flight not found")
 
     result = _build_dashboard_payload(fs, pl, origin, date, change_summary,
                                       reservation_doc, trip_report_doc, schedule_doc)
+
+    # Attach flight sequence number from flights collection
+    if flight_meta and flight_meta.get("flightSequenceNumber"):
+        result["flightSequenceNumber"] = flight_meta["flightSequenceNumber"]
 
     # Cache the result (don't cache snapshot views)
     if not snapshot_sequence:

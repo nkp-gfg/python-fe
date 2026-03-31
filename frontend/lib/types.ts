@@ -259,6 +259,7 @@ export interface FlightDashboard {
   codeshareInfo: string[];
   departureGate: string;
   insights: FlightInsights | null;
+  flightSequenceNumber?: number;
 }
 
 // --- OTP Flight (PostgreSQL — flight_xml_current) ---

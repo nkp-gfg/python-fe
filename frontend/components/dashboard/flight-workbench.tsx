@@ -1281,6 +1281,16 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                             </span>
                           </>
                         )}
+                        {/* Flight Sequence Number from R TEXT (PostgreSQL) */}
+                        {dashboard.flightSequenceNumber != null && (
+                          <>
+                            <Separator orientation="vertical" className="h-5 hidden md:block" />
+                            <span className="hidden md:flex items-center gap-1 text-[10px]" title="Flight Sequence Number (R TEXT)">
+                              <span className="text-muted-foreground">R TEXT</span>
+                              <span className="font-semibold text-orange-600 dark:text-orange-400">{dashboard.flightSequenceNumber}</span>
+                            </span>
+                          </>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
