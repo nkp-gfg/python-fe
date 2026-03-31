@@ -14,6 +14,7 @@ import type {
   AuditResponse,
   OtpFlight,
   ComparisonResult,
+  PassengerComparisonResult,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -424,4 +425,18 @@ export function fetchDataAuditCompare(
   if (seq) params.set("seq", String(seq));
   const qs = params.toString() ? `?${params}` : "";
   return get<ComparisonResult>(`/data-audit/${flightNumber}/compare${qs}`);
+}
+
+export function fetchDataAuditPassengers(
+  flightNumber: string,
+  origin?: string,
+  date?: string,
+  seq?: number,
+): Promise<PassengerComparisonResult> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  if (seq) params.set("seq", String(seq));
+  const qs = params.toString() ? `?${params}` : "";
+  return get<PassengerComparisonResult>(`/data-audit/${flightNumber}/passengers${qs}`);
 }

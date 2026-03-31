@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { fetchDataAuditCompare } from "@/lib/api";
-import type { ComparisonResult, ComparisonRow } from "@/lib/types";
+import { fetchDataAuditCompare, fetchDataAuditPassengers } from "@/lib/api";
+import type { ComparisonResult, ComparisonRow, PassengerComparisonResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,8 +26,14 @@ import {
   XCircle,
   Database,
   ArrowRightLeft,
+  Plane,
+  Users,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+
+type AuditView = "flight" | "passengers";
+type AuditResult = ComparisonResult | PassengerComparisonResult;
 
 /* ─────────── Match status styling ─────────── */
 
@@ -76,10 +83,27 @@ function rowBg(match: ComparisonRow["match"]) {
   }
 }
 
+function EmptyPane({
+  icon: Icon,
+  title,
+  message,
+}: {
+  icon: LucideIcon;
+  title: string;
+  message: string;
+}) {
+  return (
+    <div className="flex h-full min-h-[280px] flex-col items-center justify-center rounded-3xl border border-dashed border-border/70 bg-background/40 px-6 text-center">
+      <Icon className="h-10 w-10 text-muted-foreground/40" />
+      <h3 className="mt-4 text-sm font-semibold text-foreground">{title}</h3>
+      <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">{message}</p>
+    </div>
+  );
+}
+
 /* ─────────── Summary cards ─────────── */
 
-function SummaryCards({ result }: { result: ComparisonResult }) {
-  const { summary } = result;
+function SummaryCards({ summary }: { summary: { match: number; mismatch: number; pg_only: number; mongo_only: number } }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <Card>
@@ -110,24 +134,259 @@ function SummaryCards({ result }: { result: ComparisonResult }) {
   );
 }
 
-/* ─────────── Main Page ─────────── */
+/* ─────────── Comparison Table (reused for both tabs) ─────────── */
+
+function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
+  return (
+    <Card className="overflow-hidden border-border/70 bg-card/90">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[220px]">Field</TableHead>
+              <TableHead>PostgreSQL (OTP)</TableHead>
+              <TableHead>MongoDB (Sabre)</TableHead>
+              <TableHead className="w-[120px]">Status</TableHead>
+              <TableHead>Remark</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.field} className={rowBg(row.match)}>
+                <TableCell className="font-medium text-xs">{row.field}</TableCell>
+                <TableCell className="text-xs font-mono">
+                  {row.pgValue ?? <span className="text-muted-foreground italic">—</span>}
+                </TableCell>
+                <TableCell className="text-xs font-mono">
+                  {row.mongoValue ?? <span className="text-muted-foreground italic">—</span>}
+                </TableCell>
+                <TableCell>{matchBadge(row.match)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {row.remark ?? ""}
+                </TableCell>
+              </TableRow>
+            ))}
+            {rows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  No data available
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
+/* ─────────── DB Status Badges ─────────── */
+
+function DbBadges({
+  pgFound,
+  mongoFound,
+  className,
+}: {
+  pgFound: boolean;
+  mongoFound: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+      <Badge
+        className={cn(
+          "gap-1",
+          pgFound
+            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+            : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+        )}
+      >
+        <Database className="h-3 w-3" />
+        PG: {pgFound ? "Found" : "Not Found"}
+      </Badge>
+      <Badge
+        className={cn(
+          "gap-1",
+          mongoFound
+            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+            : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+        )}
+      >
+        <Database className="h-3 w-3" />
+        Mongo: {mongoFound ? "Found" : "Not Found"}
+      </Badge>
+    </div>
+  );
+}
+
+function SectionRailButton({
+  icon: Icon,
+  title,
+  description,
+  selected,
+  result,
+  loading,
+  error,
+  onClick,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  selected: boolean;
+  result?: AuditResult;
+  loading: boolean;
+  error: Error | null;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={cn(
+        "flex w-full flex-col gap-2 rounded-md px-3 py-3 text-left transition-all",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        selected
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 shrink-0" />
+        <div className="min-w-0">
+          <div className="truncate text-xs font-semibold">{title}</div>
+          <div className={cn("truncate text-[10px]", selected ? "text-primary-foreground/70" : "text-muted-foreground")}>
+            {description}
+          </div>
+        </div>
+      </div>
+
+      <div className={cn("text-[10px]", selected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+        {loading ? (
+          <span className="inline-flex items-center gap-1">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Loading
+          </span>
+        ) : error ? (
+          "Load failed"
+        ) : result ? (
+          `${result.rows.length} fields compared`
+        ) : (
+          "No data yet"
+        )}
+      </div>
+
+      {result ? (
+        <div className="grid grid-cols-2 gap-1 text-[10px]">
+          <span className={cn("rounded px-1.5 py-1", selected ? "bg-primary-foreground/10 text-primary-foreground" : "bg-background text-foreground")}>
+            M {result.summary.match}
+          </span>
+          <span className={cn("rounded px-1.5 py-1", selected ? "bg-primary-foreground/10 text-primary-foreground" : "bg-background text-foreground")}>
+            X {result.summary.mismatch}
+          </span>
+        </div>
+      ) : null}
+    </button>
+  );
+}
+
+function AuditWorkspace({
+  title,
+  description,
+  result,
+  loading,
+  error,
+  isRefreshing,
+  sequenceNumber,
+  emptyMessage,
+}: {
+  title: string;
+  description: string;
+  result?: AuditResult;
+  loading: boolean;
+  error: Error | null;
+  isRefreshing: boolean;
+  sequenceNumber?: number | null;
+  emptyMessage: string;
+}) {
+  return (
+    <main className="h-full w-full overflow-y-auto px-3 py-3 md:px-4 md:py-4">
+      <div className="space-y-3">
+        <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {sequenceNumber ? (
+                <Badge variant="outline" className="border-orange-500/30 text-orange-500">
+                  Seq #{sequenceNumber}
+                </Badge>
+              ) : null}
+              {isRefreshing ? (
+                <Badge variant="outline" className="gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Refreshing
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex min-h-[420px] items-center justify-center text-muted-foreground">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Querying PostgreSQL and MongoDB...
+          </div>
+        ) : error ? (
+          <Card className="border-red-500/30 bg-red-500/5">
+            <CardContent className="flex items-start gap-3 py-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+              <div>
+                <div className="text-sm font-medium text-red-500">Unable to load this section</div>
+                <p className="mt-1 text-sm text-red-500/90">{error.message}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : result ? (
+          <>
+            <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+              <div className="space-y-3">
+                <DbBadges pgFound={result.pgFound} mongoFound={result.mongoFound} />
+                <SummaryCards summary={result.summary} />
+              </div>
+            </div>
+            <ComparisonTable rows={result.rows} />
+          </>
+        ) : (
+          <div className="rounded-lg border bg-card px-4 py-10 shadow-sm">
+            <EmptyPane icon={ArrowRightLeft} title="No comparison loaded" message={emptyMessage} />
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+type SubmittedAuditQuery = {
+  flightNumber: string;
+  origin: string;
+  date: string;
+  seq?: number;
+};
 
 export default function DataAuditPage() {
   const [flightNumber, setFlightNumber] = useState("");
   const [origin, setOrigin] = useState("");
   const [date, setDate] = useState("");
   const [seqNumber, setSeqNumber] = useState("");
+  const [activeView, setActiveView] = useState<AuditView>("flight");
+  const [submitted, setSubmitted] = useState<SubmittedAuditQuery | null>(null);
 
-  // Track submitted values separately so query only runs on submit
-  const [submitted, setSubmitted] = useState<{
-    flightNumber: string;
-    origin: string;
-    date: string;
-    seq: number | undefined;
-  } | null>(null);
-
-  const { data, isLoading, error, isFetching } = useQuery<ComparisonResult>({
-    queryKey: ["data-audit", submitted],
+  // Flight info comparison
+  const flightQuery = useQuery<ComparisonResult>({
+    queryKey: ["data-audit-flight", submitted],
     queryFn: () =>
       fetchDataAuditCompare(
         submitted!.flightNumber,
@@ -140,9 +399,25 @@ export default function DataAuditPage() {
     staleTime: 0,
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  // Passenger comparison
+  const paxQuery = useQuery<PassengerComparisonResult>({
+    queryKey: ["data-audit-pax", submitted],
+    queryFn: () =>
+      fetchDataAuditPassengers(
+        submitted!.flightNumber,
+        submitted!.origin || undefined,
+        submitted!.date || undefined,
+        submitted!.seq,
+      ),
+    enabled: !!submitted,
+    retry: false,
+    staleTime: 0,
+  });
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!flightNumber.trim()) return;
+    setActiveView("flight");
     setSubmitted({
       flightNumber: flightNumber.trim().toUpperCase(),
       origin: origin.trim().toUpperCase(),
@@ -150,6 +425,170 @@ export default function DataAuditPage() {
       seq: seqNumber ? Number(seqNumber) : undefined,
     });
   }
+
+  const flightError = flightQuery.error instanceof Error ? flightQuery.error : null;
+  const paxError = paxQuery.error instanceof Error ? paxQuery.error : null;
+  const activeResult = activeView === "flight" ? flightQuery.data : paxQuery.data;
+  const activeError = activeView === "flight" ? flightError : paxError;
+  const activeLoading = activeView === "flight" ? flightQuery.isLoading : paxQuery.isLoading;
+  const activeRefreshing = activeView === "flight" ? flightQuery.isFetching : paxQuery.isFetching;
+
+  const searchPane = (
+    <aside className="flex h-full flex-col overflow-hidden">
+      <div className="border-b px-5 py-4">
+        <div className="text-[11px] uppercase tracking-[0.16em] text-orange-500">Search</div>
+        <h2 className="mt-2 text-lg font-semibold text-foreground">Flight selector</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Enter the flight you want to audit, then load flight and passenger comparisons.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+        <div className="space-y-1.5">
+          <label htmlFor="fn" className="text-xs font-medium text-muted-foreground">
+            Flight Number *
+          </label>
+          <input
+            id="fn"
+            type="text"
+            required
+            placeholder="GF2152"
+            value={flightNumber}
+            onChange={(e) => setFlightNumber(e.target.value)}
+            className="h-11 w-full rounded-2xl border border-input bg-background/70 px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="origin" className="text-xs font-medium text-muted-foreground">
+            Origin
+          </label>
+          <input
+            id="origin"
+            type="text"
+            placeholder="BAH"
+            maxLength={3}
+            value={origin}
+            onChange={(e) => setOrigin(e.target.value)}
+            className="h-11 w-full rounded-2xl border border-input bg-background/70 px-3 text-sm uppercase shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="date" className="text-xs font-medium text-muted-foreground">
+            Flight Date
+          </label>
+          <input
+            id="date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-11 w-full rounded-2xl border border-input bg-background/70 px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="seq" className="text-xs font-medium text-muted-foreground">
+            Sequence #
+          </label>
+          <input
+            id="seq"
+            type="number"
+            placeholder="Optional"
+            value={seqNumber}
+            onChange={(e) => setSeqNumber(e.target.value)}
+            className="h-11 w-full rounded-2xl border border-input bg-background/70 px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={!flightNumber.trim() || flightQuery.isLoading || paxQuery.isLoading}
+          className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors disabled:pointer-events-none disabled:opacity-50"
+        >
+          {flightQuery.isFetching || paxQuery.isFetching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Search className="h-4 w-4" />
+          )}
+          Compare
+        </button>
+      </form>
+
+      <div className="mt-auto border-t bg-muted/30 p-4">
+        <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Current query</div>
+        {submitted ? (
+          <div className="mt-3 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{submitted.flightNumber}</Badge>
+              <Badge variant="outline">{submitted.origin || "Any origin"}</Badge>
+              <Badge variant="outline">{submitted.date}</Badge>
+              {submitted.seq ? <Badge variant="outline">Seq #{submitted.seq}</Badge> : null}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Select a section from the middle pane to inspect field-level differences.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Start with a flight number. The middle pane will show flight and passenger sections, and the right pane will open the selected comparison.
+          </p>
+        )}
+      </div>
+    </aside>
+  );
+
+  const navigatorPane = (
+    <aside className="flex h-full flex-col overflow-hidden">
+      <div className="border-b px-3 py-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        Sections
+      </div>
+      <div className="flex-1 space-y-2 bg-muted/20 px-2 py-3">
+        <SectionRailButton
+          icon={Plane}
+          title="Flight information"
+          description="OTP vs Sabre"
+          selected={activeView === "flight"}
+          result={flightQuery.data}
+          loading={flightQuery.isLoading}
+          error={flightError}
+          onClick={() => setActiveView("flight")}
+        />
+        <SectionRailButton
+          icon={Users}
+          title="Passenger information"
+          description="Manifest metrics"
+          selected={activeView === "passengers"}
+          result={paxQuery.data}
+          loading={paxQuery.isLoading}
+          error={paxError}
+          onClick={() => setActiveView("passengers")}
+        />
+      </div>
+      <div className="border-t px-3 py-3 text-[10px] leading-5 text-muted-foreground">
+        {submitted
+          ? `Active flight ${submitted.flightNumber} ${submitted.origin || "ANY"}`
+          : "Run a comparison to unlock section details."}
+      </div>
+    </aside>
+  );
+
+  const detailPane = (
+    <AuditWorkspace
+      title={activeView === "flight" ? "Flight information" : "Passenger information"}
+      description={
+        activeView === "flight"
+          ? "Field-level comparison for the operational flight record."
+          : "Field-level comparison for passenger totals and manifest-derived metrics."
+      }
+      result={activeResult}
+      loading={activeLoading}
+      error={activeError}
+      isRefreshing={activeRefreshing && !activeLoading}
+      sequenceNumber={activeView === "flight" ? flightQuery.data?.sequenceNumber : undefined}
+      emptyMessage="Use the search pane to run a compare, then select a section from the middle pane."
+    />
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,184 +614,26 @@ export default function DataAuditPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 space-y-6">
-        {/* ── Search Form ── */}
-        <Card>
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-1.5 min-w-[140px]">
-                <label htmlFor="fn" className="text-xs font-medium text-muted-foreground">
-                  Flight Number *
-                </label>
-                <input
-                  id="fn"
-                  type="text"
-                  required
-                  placeholder="GF2152"
-                  value={flightNumber}
-                  onChange={(e) => setFlightNumber(e.target.value)}
-                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 min-w-[100px]">
-                <label htmlFor="origin" className="text-xs font-medium text-muted-foreground">
-                  Origin
-                </label>
-                <input
-                  id="origin"
-                  type="text"
-                  placeholder="BAH"
-                  maxLength={3}
-                  value={origin}
-                  onChange={(e) => setOrigin(e.target.value)}
-                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring uppercase"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 min-w-[160px]">
-                <label htmlFor="date" className="text-xs font-medium text-muted-foreground">
-                  Flight Date
-                </label>
-                <input
-                  id="date"
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 min-w-[120px]">
-                <label htmlFor="seq" className="text-xs font-medium text-muted-foreground">
-                  Sequence #
-                </label>
-                <input
-                  id="seq"
-                  type="number"
-                  placeholder="Optional"
-                  value={seqNumber}
-                  onChange={(e) => setSeqNumber(e.target.value)}
-                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={!flightNumber.trim() || isLoading}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors disabled:pointer-events-none disabled:opacity-50"
-              >
-                {isFetching ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="h-4 w-4" />
-                )}
-                Compare
-              </button>
-            </form>
-          </CardContent>
-        </Card>
+      <main className="mx-auto max-w-[1600px] px-4 py-6 md:px-6">
+        <div className="space-y-4 xl:hidden">
+          <div className="overflow-hidden rounded-lg border bg-card shadow-sm">{searchPane}</div>
+          <div className="overflow-hidden rounded-lg border bg-card shadow-sm">{navigatorPane}</div>
+          <div className="overflow-hidden rounded-lg border bg-card shadow-sm">{detailPane}</div>
+        </div>
 
-        {/* ── Error ── */}
-        {error && (
-          <Card className="border-red-500/30">
-            <CardContent className="flex items-center gap-3 py-4">
-              <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
-              <p className="text-sm text-red-600 dark:text-red-400">
-                {error instanceof Error ? error.message : "Comparison failed"}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ── Loading ── */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Querying PostgreSQL & MongoDB…
-          </div>
-        )}
-
-        {/* ── Results ── */}
-        {data && !isLoading && (
-          <>
-            {/* DB status badges */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium">{data.flightNumber}</span>
-                {data.sequenceNumber && (
-                  <Badge variant="outline" className="text-orange-500 border-orange-500/30">
-                    Seq #{data.sequenceNumber}
-                  </Badge>
-                )}
-              </div>
-              <Badge
-                className={cn(
-                  "gap-1",
-                  data.pgFound
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                    : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
-                )}
-              >
-                <Database className="h-3 w-3" />
-                PostgreSQL: {data.pgFound ? "Found" : "Not Found"}
-              </Badge>
-              <Badge
-                className={cn(
-                  "gap-1",
-                  data.mongoFound
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                    : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
-                )}
-              >
-                <Database className="h-3 w-3" />
-                MongoDB: {data.mongoFound ? "Found" : "Not Found"}
-              </Badge>
+        <div className="hidden xl:block">
+          <div className="grid min-h-[calc(100vh-7.5rem)] grid-cols-[360px_220px_minmax(0,1fr)] gap-4">
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              {searchPane}
             </div>
-
-            {/* Summary */}
-            <SummaryCards result={data} />
-
-            {/* Comparison table */}
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[200px]">Field</TableHead>
-                    <TableHead>PostgreSQL (OTP)</TableHead>
-                    <TableHead>MongoDB (Sabre)</TableHead>
-                    <TableHead className="w-[120px]">Status</TableHead>
-                    <TableHead>Remark</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.rows.map((row) => (
-                    <TableRow key={row.field} className={rowBg(row.match)}>
-                      <TableCell className="font-medium text-xs">{row.field}</TableCell>
-                      <TableCell className="text-xs font-mono">
-                        {row.pgValue ?? <span className="text-muted-foreground italic">—</span>}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono">
-                        {row.mongoValue ?? <span className="text-muted-foreground italic">—</span>}
-                      </TableCell>
-                      <TableCell>{matchBadge(row.match)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {row.remark ?? ""}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          </>
-        )}
-
-        {/* ── Empty state ── */}
-        {!submitted && !isLoading && (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground space-y-2">
-            <ArrowRightLeft className="h-10 w-10 opacity-30" />
-            <p className="text-sm">Enter a flight number and click Compare</p>
-            <p className="text-xs">
-              Compares field-level data between PostgreSQL OTP and MongoDB Sabre
-            </p>
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              {navigatorPane}
+            </div>
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              {detailPane}
+            </div>
           </div>
-        )}
+        </div>
       </main>
     </div>
   );

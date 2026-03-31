@@ -326,6 +326,21 @@ export interface ComparisonResult {
   };
 }
 
+export interface PassengerComparisonResult {
+  flightNumber: string;
+  date: string | null;
+  origin: string | null;
+  pgFound: boolean;
+  mongoFound: boolean;
+  rows: ComparisonRow[];
+  summary: {
+    match: number;
+    mismatch: number;
+    pg_only: number;
+    mongo_only: number;
+  };
+}
+
 // --- Flight Phase ---
 
 export type FlightPhaseCode = "SCHEDULED" | "CHECK_IN" | "BOARDING" | "CLOSED" | "DEPARTED";

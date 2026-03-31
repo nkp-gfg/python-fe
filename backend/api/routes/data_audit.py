@@ -41,6 +41,24 @@ class ComparisonResult(BaseModel):
     summary: dict
 
 
+class PassengerComparisonRow(BaseModel):
+    field: str
+    pgValue: str | None = None
+    mongoValue: str | None = None
+    match: str  # "match" | "mismatch" | "pg_only" | "mongo_only"
+    remark: str | None = None
+
+
+class PassengerComparisonResult(BaseModel):
+    flightNumber: str
+    date: str | None = None
+    origin: str | None = None
+    pgFound: bool
+    mongoFound: bool
+    rows: list[PassengerComparisonRow]
+    summary: dict
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 _PG_QUERY = """
@@ -265,6 +283,331 @@ def compare_flight_data(
         origin=origin,
         sequenceNumber=seq or (pg_row.get(
             "flight_sequence_number") if pg_row else None),
+        pgFound=pg_found,
+        mongoFound=mongo_found,
+        rows=rows,
+        summary=counts,
+    )
+
+
+# ── Passenger comparison helpers ──────────────────────────────────────────
+
+def _parse_pg_pax_counts(counts) -> dict:
+    """Parse passenger_counts JSONB → {cabin: count} dict."""
+    if not counts:
+        return {}
+    items = counts if isinstance(counts, list) else json.loads(counts)
+    result = {}
+    for p in items:
+        cabin = p.get("@classOfService", "?")
+        result[cabin] = int(p.get("Count", 0))
+    return result
+
+
+def _fetch_mongo_pax(flight_number: str, flight_date: str | None,
+                     origin: str | None) -> dict | None:
+    """Fetch passenger_list doc from MongoDB."""
+    try:
+        db = get_db()
+        query: dict = {"flightNumber": flight_number}
+        if origin:
+            query["origin"] = origin
+        if flight_date:
+            query["departureDate"] = flight_date
+
+        doc = db["passenger_list"].find_one(
+            query, sort=[("fetchedAt", -1)])
+        if doc:
+            doc.pop("_id", None)
+        return doc
+    except Exception:
+        logger.exception(
+            "MongoDB passenger_list query failed for %s", flight_number)
+        return None
+
+
+def _aggregate_mongo_pax(doc: dict) -> dict:
+    """Aggregate passenger-level stats from a passenger_list document."""
+    passengers = doc.get("passengers") or []
+    cabin_summary = doc.get("cabinSummary") or []
+
+    stats: dict = {
+        "totalPassengers": doc.get("totalPassengers"),
+        "totalSouls": doc.get("totalSouls"),
+        "adultCount": doc.get("adultCount"),
+        "childCount": doc.get("childCount"),
+        "infantCount": doc.get("infantCount"),
+    }
+
+    # Cabin counts from cabinSummary
+    for cs in cabin_summary:
+        cabin = cs.get("cabin", "?")
+        stats[f"cabin_{cabin}_count"] = cs.get("count")
+        stats[f"cabin_{cabin}_authorized"] = cs.get("authorized")
+        stats[f"cabin_{cabin}_available"] = cs.get("available")
+
+    # Aggregate from individual passenger records
+    booked = 0
+    checked_in = 0
+    boarded = 0
+    revenue = 0
+    non_revenue = 0
+    staff = 0
+    standby = 0
+    infants_attached = 0
+    children = 0
+    economy = 0
+    business = 0
+
+    for pax in passengers:
+        is_checked_in = pax.get("isCheckedIn", False)
+        is_boarded = pax.get("isBoarded", False)
+        is_revenue = pax.get("isRevenue", True)
+        is_standby = pax.get("isStandby", False)
+        pax_type = (pax.get("passengerType") or "").upper()
+        cabin = (pax.get("cabin") or "").upper()
+
+        if is_boarded:
+            boarded += 1
+        elif is_checked_in:
+            checked_in += 1
+        else:
+            booked += 1
+
+        if is_revenue:
+            revenue += 1
+        else:
+            non_revenue += 1
+
+        if pax_type in ("E", "S") or not is_revenue:
+            staff += 1
+
+        if is_standby:
+            standby += 1
+
+        if pax.get("hasInfant"):
+            infants_attached += 1
+
+        if pax_type == "CHD" or pax.get("isChild"):
+            children += 1
+
+        if cabin == "Y":
+            economy += 1
+        elif cabin in ("J", "C", "F"):
+            business += 1
+
+    stats["booked"] = booked
+    stats["checkedIn"] = checked_in
+    stats["boarded"] = boarded
+    stats["revenue"] = revenue
+    stats["nonRevenue"] = non_revenue
+    stats["staff"] = staff
+    stats["standby"] = standby
+    stats["infantsAttached"] = infants_attached
+    stats["childrenCount"] = children
+    stats["economyPax"] = economy
+    stats["businessPax"] = business
+
+    # Group bookings
+    groups = doc.get("groupBookings") or []
+    stats["totalGroups"] = len(groups)
+    stats["totalGroupPax"] = sum(g.get("totalMembers", 0) for g in groups)
+
+    return stats
+
+
+def _compare_passengers(pg_row: dict | None, mongo_doc: dict | None) -> list[PassengerComparisonRow]:
+    """Build passenger comparison rows."""
+    pg_cabin = _parse_pg_pax_counts(
+        pg_row.get("passenger_counts")) if pg_row else {}
+    pg_total = sum(pg_cabin.values()) if pg_cabin else None
+    mongo_stats = _aggregate_mongo_pax(mongo_doc) if mongo_doc else {}
+
+    # Build comparison field list
+    fields: list[tuple[str, str | None, str | None, str | None]] = []
+    # (label, pg_value, mongo_value, remark_hint)
+
+    # Total passengers
+    fields.append(("Total Passengers",
+                   str(pg_total) if pg_total else None,
+                   str(mongo_stats.get("totalPassengers", "")) if mongo_stats.get(
+                       "totalPassengers") is not None else None,
+                   None))
+
+    fields.append(("Total Souls (incl. infants)",
+                   None,  # PG doesn't have this
+                   str(mongo_stats.get("totalSouls", "")) if mongo_stats.get(
+                       "totalSouls") is not None else None,
+                   None))
+
+    # Cabin breakdown
+    all_cabins = set(pg_cabin.keys())
+    for cs in (mongo_doc or {}).get("cabinSummary", []):
+        all_cabins.add(cs.get("cabin", "?"))
+
+    cabin_labels = {"Y": "Economy", "J": "Business",
+                    "C": "Business (C)", "F": "First"}
+    for cabin in sorted(all_cabins):
+        label = cabin_labels.get(cabin, f"Cabin {cabin}")
+        pg_val = str(pg_cabin.get(cabin, "")) if cabin in pg_cabin else None
+        mongo_cabin_count = None
+        for cs in (mongo_doc or {}).get("cabinSummary", []):
+            if cs.get("cabin") == cabin:
+                mongo_cabin_count = str(cs.get("count", ""))
+                break
+        fields.append((f"{label} Count", pg_val, mongo_cabin_count, None))
+
+    # Cabin capacity (Mongo only)
+    for cs in (mongo_doc or {}).get("cabinSummary", []):
+        cabin = cs.get("cabin", "?")
+        label = cabin_labels.get(cabin, f"Cabin {cabin}")
+        auth = cs.get("authorized")
+        avail = cs.get("available")
+        if auth is not None:
+            fields.append((f"{label} Authorized", None, str(
+                auth), "Mongo only (cabin capacity)"))
+        if avail is not None:
+            fields.append((f"{label} Available", None, str(
+                avail), "Mongo only (remaining seats)"))
+
+    # Status breakdown (Mongo only — PG doesn't have individual pax records)
+    fields.append(("Booked (not checked-in)", None,
+                   str(mongo_stats.get("booked", "")) if mongo_stats.get(
+                       "booked") is not None else None,
+                   "Sabre manifest — not checked in"))
+    fields.append(("Checked In", None,
+                   str(mongo_stats.get("checkedIn", "")) if mongo_stats.get(
+                       "checkedIn") is not None else None,
+                   "Checked in but not boarded"))
+    fields.append(("Boarded", None,
+                   str(mongo_stats.get("boarded", "")) if mongo_stats.get(
+                       "boarded") is not None else None,
+                   None))
+
+    # Revenue / Non-revenue
+    fields.append(("Revenue Passengers", None,
+                   str(mongo_stats.get("revenue", "")) if mongo_stats.get(
+                       "revenue") is not None else None,
+                   "Fare-paying passengers"))
+    fields.append(("Non-Revenue / Staff", None,
+                   str(mongo_stats.get("nonRevenue", "")) if mongo_stats.get(
+                       "nonRevenue") is not None else None,
+                   "Staff, deadhead, employee travel"))
+    fields.append(("Standby Passengers", None,
+                   str(mongo_stats.get("standby", "")) if mongo_stats.get(
+                       "standby") is not None else None,
+                   None))
+
+    # Demographics
+    fields.append(("Adults", None,
+                   str(mongo_stats.get("adultCount", "")) if mongo_stats.get(
+                       "adultCount") is not None else None,
+                   None))
+    fields.append(("Children", None,
+                   str(mongo_stats.get("childCount") or mongo_stats.get(
+                       "childrenCount", "")) or None,
+                   None))
+    fields.append(("Infants", None,
+                   str(mongo_stats.get("infantCount", "")) if mongo_stats.get(
+                       "infantCount") is not None else None,
+                   "Lap infants (included in total souls)"))
+    fields.append(("Pax with Infant Attached", None,
+                   str(mongo_stats.get("infantsAttached", "")) if mongo_stats.get(
+                       "infantsAttached") is not None else None,
+                   None))
+
+    # Cabin pax from individual records
+    fields.append(("Economy Passengers (manifest)", None,
+                   str(mongo_stats.get("economyPax", "")) if mongo_stats.get(
+                       "economyPax") is not None else None,
+                   "Counted from individual passenger records"))
+    fields.append(("Business Passengers (manifest)", None,
+                   str(mongo_stats.get("businessPax", "")) if mongo_stats.get(
+                       "businessPax") is not None else None,
+                   "Counted from individual passenger records"))
+
+    # Group bookings
+    fields.append(("Group Bookings", None,
+                   str(mongo_stats.get("totalGroups", "")) if mongo_stats.get(
+                       "totalGroups") is not None else None,
+                   None))
+    fields.append(("Group Passengers", None,
+                   str(mongo_stats.get("totalGroupPax", "")) if mongo_stats.get(
+                       "totalGroupPax") is not None else None,
+                   None))
+
+    # Build rows
+    rows: list[PassengerComparisonRow] = []
+    for label, pg_val, m_val, hint in fields:
+        # Skip empty rows
+        if not pg_val and not m_val:
+            continue
+
+        if pg_val and m_val:
+            match = "match" if pg_val == m_val else "mismatch"
+        elif pg_val and not m_val:
+            match = "pg_only"
+        elif m_val and not pg_val:
+            match = "mongo_only"
+        else:
+            match = "match"
+
+        remark = hint
+        if match == "mismatch" and not remark:
+            remark = "Values differ between PostgreSQL and MongoDB"
+
+        rows.append(PassengerComparisonRow(
+            field=label,
+            pgValue=pg_val,
+            mongoValue=m_val,
+            match=match,
+            remark=remark,
+        ))
+
+    return rows
+
+
+# ── Passenger comparison endpoint ─────────────────────────────────────────
+
+@router.get("/{flight_number}/passengers", response_model=PassengerComparisonResult)
+def compare_passenger_data(
+    flight_number: str,
+    origin: str = Query(None, description="Departure airport code (e.g. BAH)"),
+    date: str = Query(None, description="Flight date YYYY-MM-DD"),
+    seq: int = Query(
+        None, description="Flight sequence number (for PG lookup)"),
+):
+    """Compare passenger data between PostgreSQL OTP and MongoDB Sabre."""
+    validate_flight_number(flight_number)
+    if date:
+        validate_date(date)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pg_future = pool.submit(_fetch_pg, flight_number, date, origin, seq)
+        mongo_future = pool.submit(
+            _fetch_mongo_pax, flight_number, date, origin)
+        pg_row = pg_future.result()
+        mongo_doc = mongo_future.result()
+
+    pg_found = pg_row is not None
+    mongo_found = mongo_doc is not None
+
+    if not pg_found and not mongo_found:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Passenger data for {flight_number} not found in either database",
+        )
+
+    rows = _compare_passengers(pg_row, mongo_doc)
+
+    counts = {"match": 0, "mismatch": 0, "pg_only": 0, "mongo_only": 0}
+    for r in rows:
+        counts[r.match] += 1
+
+    return PassengerComparisonResult(
+        flightNumber=flight_number,
+        date=date,
+        origin=origin,
         pgFound=pg_found,
         mongoFound=mongo_found,
         rows=rows,
