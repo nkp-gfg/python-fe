@@ -935,6 +935,9 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-bold text-sm text-primary">
                     {selectedFlight.airline}{selectedFlight.flightNumber}
+                    {selectedFlight.flightSequenceNumber != null && (
+                      <span className="ml-1.5 text-orange-500">#{selectedFlight.flightSequenceNumber}</span>
+                    )}
                   </span>
                   <Badge
                     variant="outline"
@@ -991,12 +994,13 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                     <button
                       onClick={() => selectFlight(flight)}
                       className={cn(
-                        "w-full flex flex-col gap-2 rounded-lg p-3 text-left transition-colors",
+                        "w-full flex flex-col gap-1.5 rounded-lg p-3 text-left transition-colors",
                         isActive
                           ? "bg-emerald-600 text-white shadow-md ring-1 ring-emerald-400/50"
                           : "hover:bg-accent hover:text-accent-foreground text-foreground"
                       )}
                     >
+                      {/* Row 1: Flight number + ingest button */}
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-base">
                           {flight.airline}{flight.flightNumber}
@@ -1005,7 +1009,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           <Badge 
                             variant="outline" 
                             className={cn(
-                              "text-[10px] px-1.5 font-medium border-transparent",
+                              "text-[10px] px-1.5 font-medium border-transparent max-w-[140px] truncate",
                               isActive 
                                 ? "bg-white/20 text-white" 
                                 : getStatusColor(flight.flightPhase?.phase || flight.status)
@@ -1019,7 +1023,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                             title={ingestingFlight === `${flight.flightNumber}-${flight.origin}-${flight.departureDate}` ? "Background ingest running" : "Re-ingest from Sabre"}
                             onClick={(e) => handleQuickIngest(flight, e)}
                             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleQuickIngest(flight, e as unknown as React.MouseEvent); } }}
-                            className={cn("rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer", isActive && "hover:bg-white/20")}
+                            className={cn("shrink-0 rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer", isActive && "hover:bg-white/20")}
                           >
                             {ingestingFlight === `${flight.flightNumber}-${flight.origin}-${flight.departureDate}` ? (
                               <span className="inline-flex items-center gap-1 text-[10px] font-medium">
@@ -1032,12 +1036,22 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                           </span>
                         </div>
                       </div>
+                      {/* Row 2: Route + date */}
                       <div className={cn("flex items-center gap-1.5 text-xs", isActive ? "text-white/80" : "text-muted-foreground")}>
                         <span>{flight.origin}</span>
                         <ArrowRight className="h-3 w-3" />
                         <span>{flight.destination || "Pending"}</span>
-                        <span className="mx-1">•</span>
+                        <span className="mx-0.5">·</span>
                         <span>{flight.departureDate}</span>
+                        {/* Sequence number */}
+                        {flight.flightSequenceNumber != null && (
+                          <>
+                            <span className="mx-0.5">·</span>
+                            <span className={cn("font-medium tabular-nums", isActive ? "text-orange-300" : "text-orange-500 dark:text-orange-400")} title="Seq #">
+                              {flight.flightSequenceNumber}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </button>
                     </div>

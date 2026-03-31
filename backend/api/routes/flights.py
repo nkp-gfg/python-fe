@@ -1722,14 +1722,26 @@ def list_flights(
             for d in db["flight_schedules"].aggregate(pipeline, allowDiskUse=True)
         }
 
-    # Run all 3 aggregations in parallel threads
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    def _agg_flight_meta():
+        """Fetch flightSequenceNumber from the flights collection."""
+        fq = {"departureDate": date} if date else {}
+        result = {}
+        for doc in db["flights"].find(fq, {"airline": 1, "flightNumber": 1, "origin": 1, "departureDate": 1, "flightSequenceNumber": 1}):
+            k = (doc.get("airline", "GF"), doc.get("flightNumber", ""),
+                 doc.get("origin", ""), doc.get("departureDate", ""))
+            result[k] = doc.get("flightSequenceNumber")
+        return result
+
+    # Run all 4 aggregations in parallel threads
+    with ThreadPoolExecutor(max_workers=4) as executor:
         fs_future = executor.submit(_agg_flight_status)
         pl_future = executor.submit(_agg_passenger_list)
         sc_future = executor.submit(_agg_schedules)
+        fm_future = executor.submit(_agg_flight_meta)
         fs_by_key = fs_future.result()
         passenger_by_key = pl_future.result()
         schedule_by_key = sc_future.result()
+        flight_meta_by_key = fm_future.result()
 
     # Sort by (departureDate, flightNumber)
     sorted_keys = sorted(fs_by_key.keys(), key=lambda k: (k[3], k[1]))
@@ -1771,6 +1783,7 @@ def list_flights(
             "operationalSummary": summary["operationalSummary"],
             "flightPhase": summary["flightPhase"],
             "publishedSchedule": sched_info,
+            "flightSequenceNumber": flight_meta_by_key.get(key),
             "fetchedAt": str(r.get("fetchedAt", "")),
         })
     return flights

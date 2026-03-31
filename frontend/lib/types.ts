@@ -64,6 +64,7 @@ export interface FlightListItem {
   };
   flightPhase?: FlightPhase;
   publishedSchedule?: PublishedScheduleSummary | null;
+  flightSequenceNumber?: number | null;
   fetchedAt: string;
 }
 
