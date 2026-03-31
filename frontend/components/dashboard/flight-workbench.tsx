@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   Activity,
   ArrowRight,
+  ArrowRightLeft,
   BarChart3,
   BookOpen,
   CalendarDays,
@@ -508,6 +509,13 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           >
             <CalendarDays className="h-3 w-3" />
             Today
+          </Link>
+          <Link
+            href="/data-audit"
+            className="hidden sm:flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 transition-colors"
+          >
+            <ArrowRightLeft className="h-3 w-3" />
+            Data Audit
           </Link>
           <div className="hidden items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 sm:flex">
             <span className="relative flex h-2 w-2">

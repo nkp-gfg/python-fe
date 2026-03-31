@@ -5,7 +5,7 @@ Run with:
     uvicorn backend.api.main:app --reload
 """
 
-from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, audit, otp, comparison, events
+from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, audit, otp, comparison, events, data_audit
 from backend.api.database import get_db, close_db
 from backend.api.postgres import close_pool as close_pg_pool
 from backend.api.redis_client import get_redis, close_redis
@@ -99,6 +99,7 @@ app.include_router(audit.router)
 app.include_router(otp.router)
 app.include_router(comparison.router)
 app.include_router(events.router)
+app.include_router(data_audit.router)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────

@@ -13,6 +13,7 @@ import type {
   GroupBookingsResponse,
   AuditResponse,
   OtpFlight,
+  ComparisonResult,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -407,4 +408,20 @@ export function fetchAudit(
   if (date) params.set("date", date);
   const qs = params.toString() ? `?${params}` : "";
   return get<AuditResponse>(`/flights/${flightNumber}/audit${qs}`);
+}
+
+// --- Data Audit (Cross-DB Comparison) ---
+
+export function fetchDataAuditCompare(
+  flightNumber: string,
+  origin?: string,
+  date?: string,
+  seq?: number,
+): Promise<ComparisonResult> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  if (seq) params.set("seq", String(seq));
+  const qs = params.toString() ? `?${params}` : "";
+  return get<ComparisonResult>(`/data-audit/${flightNumber}/compare${qs}`);
 }

@@ -300,6 +300,32 @@ export interface OtpFlight {
   source?: string | null;
 }
 
+// --- Data Audit (Cross-DB Comparison) ---
+
+export interface ComparisonRow {
+  field: string;
+  pgValue: string | null;
+  mongoValue: string | null;
+  match: "match" | "mismatch" | "pg_only" | "mongo_only";
+  remark: string | null;
+}
+
+export interface ComparisonResult {
+  flightNumber: string;
+  date: string | null;
+  origin: string | null;
+  sequenceNumber: number | null;
+  pgFound: boolean;
+  mongoFound: boolean;
+  rows: ComparisonRow[];
+  summary: {
+    match: number;
+    mismatch: number;
+    pg_only: number;
+    mongo_only: number;
+  };
+}
+
 // --- Flight Phase ---
 
 export type FlightPhaseCode = "SCHEDULED" | "CHECK_IN" | "BOARDING" | "CLOSED" | "DEPARTED";
