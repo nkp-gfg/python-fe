@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useDeferredValue, useMemo, useRef, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient, useIsMutating } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,7 +8,6 @@ import {
   Activity,
   ArrowRight,
   ArrowRightLeft,
-  BarChart3,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -78,7 +77,11 @@ import { StatusHistory } from "@/components/dashboard/status-history";
 import { ReservationView } from "@/components/dashboard/reservation-view";
 import { FlightTimeline } from "@/components/dashboard/flight-timeline";
 import { BoardingProgress } from "@/components/dashboard/boarding-progress";
-import { FlightInsightsPanel } from "@/components/dashboard/flight-insights";
+import {
+  CommercialInsightsTab,
+  ExceptionsInsightsTab,
+  ReadinessInsightsTab,
+} from "@/components/dashboard/flight-insight-tabs";
 import { AuditPanel } from "@/components/dashboard/audit-panel";
 
 type FlightSelection = {
@@ -114,7 +117,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [detailPnr, setDetailPnr] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [bottomView, setBottomView] = useState<DetailView | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "insights" | "audit">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit">("overview");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [snapshotSequence, setSnapshotSequence] = useState<number | null>(null);
   const [selectedGroupCode, setSelectedGroupCode] = useState<string | null>(null);
@@ -151,12 +154,13 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const deferredSelected = useDeferredValue(effectiveSelected);
 
   // Auto-select the first flight once the list arrives, but only if the user
-  // hasn't selected anything yet.  This runs as a one-shot effect so that
-  // dashboard/tree queries don't fire until flights are loaded.
-  const autoSelectedRef = useRef(false);
-  if (!autoSelectedRef.current && !selected && !initialSelection && flights && flights.length > 0) {
-    autoSelectedRef.current = true;
-    // Use startTransition so this doesn't block the flight list render
+  // hasn't selected anything yet. This delays dashboard/tree queries until
+  // flights are present without reading refs during render.
+  useEffect(() => {
+    if (selected || initialSelection || !flights || flights.length === 0) {
+      return;
+    }
+
     startTransition(() => {
       setSelected({
         flightNumber: flights[0].flightNumber,
@@ -164,7 +168,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         date: flights[0].departureDate,
       });
     });
-  }
+  }, [selected, initialSelection, flights]);
 
   const { data: dashboard, isLoading: dashboardLoading, error: dashboardError, refetch: refetchDashboard, isFetching: dashboardFetching } = useQuery({
     queryKey: [
@@ -268,8 +272,11 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         flight.departureDate === effectiveSelected?.date,
     ) ?? null;
 
-  const tabLabels: Record<"overview" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "insights" | "audit", string> = {
-    overview: "Overview",
+  const tabLabels: Record<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit", string> = {
+    overview: "Live Ops",
+    commercial: "Commercial",
+    readiness: "Readiness",
+    exceptions: "Exceptions",
     passengers: "Passengers",
     groups: "Group Bookings",
     standby: "Standby",
@@ -277,7 +284,6 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     history: "History",
     reservations: "Reservations",
     activity: "Activity",
-    insights: "Insights",
     audit: "Audit",
   };
 
@@ -1077,7 +1083,10 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           navCollapsed ? "w-12 items-center" : "w-36"
         )}>
           {([
-            { key: "overview", icon: LayoutDashboard, label: "Overview" },
+            { key: "overview", icon: LayoutDashboard, label: "Live Ops" },
+            { key: "commercial", icon: Briefcase, label: "Commercial" },
+            { key: "readiness", icon: CheckCircle2, label: "Readiness" },
+            { key: "exceptions", icon: ShieldAlert, label: "Exceptions" },
             { key: "passengers", icon: Users, label: "Passengers" },
             { key: "groups", icon: Users, label: "Groups" },
             { key: "standby", icon: Timer, label: "Standby" },
@@ -1085,7 +1094,6 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
             { key: "history", icon: History, label: "History" },
             { key: "reservations", icon: BookOpen, label: "Reservations" },
             { key: "activity", icon: Clock, label: "Activity" },
-            { key: "insights", icon: BarChart3, label: "Insights" },
             { key: "audit", icon: ShieldAlert, label: "Audit" },
           ] as const).map(({ key, icon: Icon, label }) => (
             <button
@@ -1289,8 +1297,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                               )}
                               {dashboard.codeshareInfo && dashboard.codeshareInfo.length > 0 && (
                                 <div className="flex items-center gap-1">
-                                  {dashboard.codeshareInfo.map((info, i) => (
-                                    <Badge key={i} variant="outline" className="text-[9px] px-1.5 border-indigo-300 text-indigo-600">
+                                  {dashboard.codeshareInfo.map((info) => (
+                                    <Badge key={info} variant="outline" className="text-[9px] px-1.5 border-indigo-300 text-indigo-600">
                                       {info}
                                     </Badge>
                                   ))}
@@ -1572,7 +1580,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       </div>
                     </div>
 
-                    {/* Overview Tab — compact executive dashboard */}
+                    {/* Overview Tab — live operations dashboard */}
                     {activeTab === "overview" && (
                       <ErrorBoundary compact label="Overview">
                       <div className="mt-1 space-y-3">
@@ -1764,6 +1772,19 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         </Card>
                       </div>
 
+                      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                        <BoardingProgress
+                          flightNumber={effectiveSelected.flightNumber}
+                          origin={effectiveSelected.origin}
+                          date={effectiveSelected.date}
+                        />
+                        <FlightTimeline
+                          flightNumber={effectiveSelected.flightNumber}
+                          origin={effectiveSelected.origin}
+                          date={effectiveSelected.date}
+                        />
+                      </div>
+
                       {/* Published Schedule (from VerifyFlightDetails) */}
                       {dashboard.schedule && dashboard.schedule.success && (
                         <Card className="shadow-sm">
@@ -1821,8 +1842,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                             {dashboard.schedule.segments && dashboard.schedule.segments.length > 1 && (
                               <div className="mt-2 pt-2 border-t space-y-1">
                                 <p className="text-[10px] font-semibold text-muted-foreground">{dashboard.schedule.segments.length} Segments</p>
-                                {dashboard.schedule.segments.map((seg, i) => (
-                                  <div key={i} className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                {dashboard.schedule.segments.map((seg) => (
+                                  <div key={`${seg.origin}-${seg.destination}-${seg.departureDateTime ?? seg.arrivalDateTime ?? seg.aircraftType ?? "segment"}`} className="flex items-center gap-2 text-[10px] text-muted-foreground">
                                     <span className="font-medium text-foreground">{seg.origin}</span>
                                     <ArrowRight className="h-2.5 w-2.5" />
                                     <span className="font-medium text-foreground">{seg.destination}</span>
@@ -1858,6 +1879,51 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       )}
                     </div>
                     </ErrorBoundary>
+                    )}
+
+                    {activeTab === "commercial" && dashboard.insights && (
+                      <ErrorBoundary compact label="Commercial">
+                        <CommercialInsightsTab
+                          insights={dashboard.insights}
+                          totalPassengers={dashboard.passengerSummary.totalPassengers}
+                          onOpenInfo={openInsightInfo}
+                        />
+                      </ErrorBoundary>
+                    )}
+                    {activeTab === "commercial" && !dashboard.insights && (
+                      <div className="flex items-center justify-center py-20 text-muted-foreground">
+                        <p>No commercial insights data available for this flight.</p>
+                      </div>
+                    )}
+
+                    {activeTab === "readiness" && dashboard.insights && (
+                      <ErrorBoundary compact label="Readiness">
+                        <ReadinessInsightsTab
+                          insights={dashboard.insights}
+                          totalPassengers={dashboard.passengerSummary.totalPassengers}
+                          onOpenInfo={openInsightInfo}
+                        />
+                      </ErrorBoundary>
+                    )}
+                    {activeTab === "readiness" && !dashboard.insights && (
+                      <div className="flex items-center justify-center py-20 text-muted-foreground">
+                        <p>No readiness insights data available for this flight.</p>
+                      </div>
+                    )}
+
+                    {activeTab === "exceptions" && dashboard.insights && (
+                      <ErrorBoundary compact label="Exceptions">
+                        <ExceptionsInsightsTab
+                          insights={dashboard.insights}
+                          totalPassengers={dashboard.passengerSummary.totalPassengers}
+                          onOpenInfo={openInsightInfo}
+                        />
+                      </ErrorBoundary>
+                    )}
+                    {activeTab === "exceptions" && !dashboard.insights && (
+                      <div className="flex items-center justify-center py-20 text-muted-foreground">
+                        <p>No exception insights data available for this flight.</p>
+                      </div>
                     )}
 
                     {/* Passengers Tab */}
@@ -2134,22 +2200,6 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                     </ErrorBoundary>
                     )}
 
-                    {/* Insights Tab */}
-                    {activeTab === "insights" && dashboard.insights && (
-                      <ErrorBoundary compact label="Insights">
-                        <FlightInsightsPanel
-                          insights={dashboard.insights}
-                          totalPassengers={dashboard.passengerSummary.totalPassengers}
-                          onOpenInfo={openInsightInfo}
-                        />
-                      </ErrorBoundary>
-                    )}
-                    {activeTab === "insights" && !dashboard.insights && (
-                      <div className="flex items-center justify-center py-20 text-muted-foreground">
-                        <p>No insights data available for this flight.</p>
-                      </div>
-                    )}
-
                     {/* Audit Tab */}
                     {activeTab === "audit" && (
                       <ErrorBoundary compact label="Audit">
@@ -2381,14 +2431,16 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       {/* Mobile Tab Bar — visible below lg breakpoint */}
       <nav className="md:hidden flex shrink-0 border-t bg-card overflow-x-auto scrollbar-none">
         {([
-          { key: "overview" as const, icon: LayoutDashboard, label: "Overview" },
+          { key: "overview" as const, icon: LayoutDashboard, label: "Ops" },
+          { key: "commercial" as const, icon: Briefcase, label: "Sales" },
+          { key: "readiness" as const, icon: CheckCircle2, label: "Ready" },
+          { key: "exceptions" as const, icon: ShieldAlert, label: "Risk" },
           { key: "passengers" as const, icon: Users, label: "Pax" },
           { key: "groups" as const, icon: Users, label: "Groups" },
           { key: "standby" as const, icon: Timer, label: "Standby" },
           { key: "changes" as const, icon: Activity, label: "Changes" },
           { key: "history" as const, icon: History, label: "History" },
           { key: "reservations" as const, icon: BookOpen, label: "Res" },
-          { key: "insights" as const, icon: BarChart3, label: "Insights" },
           { key: "audit" as const, icon: ShieldAlert, label: "Audit" },
         ]).map(({ key, icon: Icon, label }) => (
           <button

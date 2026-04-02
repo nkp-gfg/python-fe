@@ -21,6 +21,7 @@ import { compareSnapshot, fetchStatusHistory, fetchSnapshots, restoreSnapshotVer
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HistoryOverview } from "@/components/dashboard/history-overview";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -170,12 +171,63 @@ export function StatusHistory({
   const isLoading = loadingHistory || loadingSnaps;
 
   // Records arrive newest-first; compute diffs (each record compared to the NEXT in array = older)
-  const history = records ?? [];
+  const history = useMemo(() => records ?? [], [records]);
   const diffs = useMemo(() => {
     return history.map((rec, i) => diffRecords(rec, history[i + 1]));
   }, [history]);
 
-  const snaps = snapshots ?? [];
+  const snaps = useMemo(() => snapshots ?? [], [snapshots]);
+
+  const historySeries = useMemo(() => {
+    return [...history]
+      .reverse()
+      .map((rec, index) => {
+        const pax = totalPax(rec.passengerCounts);
+        return {
+          key: `${rec.fetchedAt}-${index}`,
+          label: `S${index + 1}`,
+          timestamp: formatTs(rec.fetchedAt),
+          booked: pax.booked,
+          onBoard: pax.onBoard,
+          boardingPasses: pax.bp,
+        };
+      });
+  }, [history]);
+
+  const changeHotspots = useMemo(() => {
+    const counters: Record<string, number> = {
+      Status: 0,
+      Gate: 0,
+      Terminal: 0,
+      Aircraft: 0,
+      STD: 0,
+      ETD: 0,
+      STA: 0,
+      ETA: 0,
+      Boarding: 0,
+      "Booked Pax": 0,
+      "On Board Pax": 0,
+    };
+
+    diffs.forEach((diff) => {
+      if (diff.status) counters.Status += 1;
+      if (diff.gate) counters.Gate += 1;
+      if (diff.terminal) counters.Terminal += 1;
+      if (diff.aircraft) counters.Aircraft += 1;
+      if (diff.std) counters.STD += 1;
+      if (diff.etd) counters.ETD += 1;
+      if (diff.sta) counters.STA += 1;
+      if (diff.eta) counters.ETA += 1;
+      if (diff.boarding) counters.Boarding += 1;
+      if (diff.paxBooked) counters["Booked Pax"] += 1;
+      if (diff.paxOnBoard) counters["On Board Pax"] += 1;
+    });
+
+    return Object.entries(counters)
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ label, count }));
+  }, [diffs]);
 
   if (isLoading) {
     return (
@@ -203,6 +255,16 @@ export function StatusHistory({
 
   return (
     <div className="space-y-6">
+      <HistoryOverview
+        historySeries={historySeries}
+        changeHotspots={changeHotspots}
+        snapshots={snaps}
+        selectedSnapshotSequence={selectedSnapshotSequence}
+        compareMode={compareMode}
+        compareLoading={compareLoading}
+        compareData={compareData}
+      />
+
       {/* ── Flight Status Evolution ────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
@@ -232,7 +294,7 @@ export function StatusHistory({
                 const hasChanges = Object.values(ch).some(Boolean);
 
                 return (
-                  <div key={i} className="relative flex gap-3 py-3 pl-0 group">
+                  <div key={`${rec.fetchedAt}-${rec.status}-${rec.gate || "gate"}-${rec.terminal || "terminal"}`} className="relative flex gap-3 py-3 pl-0 group">
                     {/* timeline dot */}
                     <div className="relative z-10 mt-1 flex h-9 w-9 shrink-0 items-center justify-center">
                       <div className={cn("h-3 w-3 rounded-full ring-4 ring-background", dotColor)} />
@@ -369,8 +431,8 @@ export function StatusHistory({
                       {/* row 6: codeshare */}
                       {rec.codeshareInfo && rec.codeshareInfo.length > 0 && (
                         <div className="flex flex-wrap gap-1">
-                          {rec.codeshareInfo.map((cs, ci) => (
-                            <Badge key={ci} variant="secondary" className="text-[9px]">
+                          {rec.codeshareInfo.map((cs) => (
+                            <Badge key={cs} variant="secondary" className="text-[9px]">
                               CS: {cs}
                             </Badge>
                           ))}
@@ -493,8 +555,8 @@ export function StatusHistory({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {snaps.map((s, i) => (
-                  <TableRow key={i}>
+                {snaps.map((s) => (
+                  <TableRow key={`${s.snapshotType}-${s.sequenceNumber}`}>
                     <TableCell className="font-mono text-xs">{s.sequenceNumber}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[10px]">{s.snapshotType}</Badge>

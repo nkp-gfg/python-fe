@@ -655,9 +655,9 @@ export function PassengerTable({
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((p, i) => (
+              filtered.map((p) => (
                 <TableRow
-                  key={`${p.pnr}-${p.lastName}-${i}`}
+                  key={`${p.pnr}-${p.lastName}-${p.firstName || ""}-${p.seat || "noseat"}`}
                   className={cn(
                     "cursor-pointer transition-colors",
                     onSelectPassenger && "hover:bg-primary/5"
@@ -683,10 +683,9 @@ export function PassengerTable({
                     <span className="flex items-center gap-1">
                       {p.pnr}
                       {auditData?.passengerAlerts?.[p.pnr] && (
-                        <AlertTriangle
-                          className="h-3 w-3 text-amber-500 shrink-0"
-                          title={`${auditData.passengerAlerts[p.pnr].length} audit alert(s)`}
-                        />
+                        <span title={`${auditData.passengerAlerts[p.pnr].length} audit alert(s)`}>
+                          <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+                        </span>
                       )}
                     </span>
                   </TableCell>
