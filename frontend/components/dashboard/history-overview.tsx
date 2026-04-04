@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Activity,
   BarChart3,
@@ -7,12 +8,12 @@ import {
   Hash,
   TrendingUp,
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from "recharts";
 
 import type { SnapshotCompareResponse, SnapshotMeta } from "@/lib/types";
+import { buildHistoryStackedAreaOption, buildHorizontalBarOption } from "@/components/dashboard/echarts-option-builders";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { EChart } from "@/components/ui/echarts";
 import { cn } from "@/lib/utils";
 
 type HistorySeriesPoint = {
@@ -38,14 +39,6 @@ interface HistoryOverviewProps {
   compareLoading: boolean;
   compareData?: SnapshotCompareResponse;
 }
-
-const barPalette = [
-  "var(--color-chart-1)",
-  "var(--color-chart-2)",
-  "var(--color-chart-3)",
-  "var(--color-chart-4)",
-  "var(--color-chart-5)",
-];
 
 function SummaryTile({
   label,
@@ -109,6 +102,16 @@ export function HistoryOverview({
   compareLoading,
   compareData,
 }: HistoryOverviewProps) {
+  const historyAreaOption = useMemo(() => buildHistoryStackedAreaOption({ data: historySeries }), [historySeries]);
+  const hotspotOption = useMemo(() => buildHorizontalBarOption({
+    data: changeHotspots.map((item, index) => ({
+      label: item.label,
+      shortLabel: item.label,
+      value: item.count,
+      fill: `var(--color-chart-${(index % 5) + 1})`,
+    })),
+    valueLabel: "Changes",
+  }), [changeHotspots]);
   const latest = historySeries[historySeries.length - 1];
   const earliest = historySeries[0];
   const bookedDelta = latest && earliest ? latest.booked - earliest.booked : 0;
@@ -147,30 +150,7 @@ export function HistoryOverview({
           {historySeries.length === 0 ? (
             <EmptyState label="No history points available." />
           ) : (
-            <ChartContainer
-              config={{
-                booked: { label: "Booked", color: "var(--color-chart-1)" },
-                onBoard: { label: "On board", color: "var(--color-chart-2)" },
-                boardingPasses: { label: "Boarding passes", color: "var(--color-chart-3)" },
-              }}
-              className="h-[260px] w-full aspect-auto"
-            >
-              <BarChart data={historySeries} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      labelFormatter={(_, payload) => payload?.[0]?.payload?.timestamp ?? ""}
-                    />
-                  }
-                />
-                <Bar dataKey="booked" fill="var(--color-chart-1)" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="onBoard" fill="var(--color-chart-2)" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="boardingPasses" fill="var(--color-chart-3)" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ChartContainer>
+            <EChart option={historyAreaOption} className="h-[260px]" ariaLabel="Passenger Progression" />
           )}
         </MetricCard>
 
@@ -178,23 +158,7 @@ export function HistoryOverview({
           {changeHotspots.length === 0 ? (
             <EmptyState label="No tracked status changes found." />
           ) : (
-            <ChartContainer
-              config={{ count: { label: "Changes", color: "var(--color-chart-4)" } }}
-              className="h-[260px] w-full aspect-auto"
-            >
-              <BarChart data={changeHotspots} layout="vertical" margin={{ top: 8, right: 22, left: 0, bottom: 0 }}>
-                <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="label" width={92} tickLine={false} axisLine={false} />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                <Bar dataKey="count" radius={8}>
-                  {changeHotspots.map((item, index) => (
-                    <Cell key={item.label} fill={barPalette[index % barPalette.length]} />
-                  ))}
-                  <LabelList dataKey="count" position="right" className="fill-foreground text-xs font-medium" />
-                </Bar>
-              </BarChart>
-            </ChartContainer>
+            <EChart option={hotspotOption} className="h-[260px]" ariaLabel="Change Hotspots" />
           )}
         </MetricCard>
       </div>

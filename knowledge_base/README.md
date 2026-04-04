@@ -8,6 +8,7 @@ learned by analyzing Gulf Air (GF) Sabre API responses across multiple flights.
 | File                   | Description                                                                |
 | ---------------------- | -------------------------------------------------------------------------- |
 | dashboard_blueprint.md | Recommended dashboard types, chart mappings, and single-flight page layout |
+| echarts_mongodb_chart_plan.md | MongoDB collection to ECharts mapping and ranked top-10 chart backlog |
 | flight_statuses.md     | Flight lifecycle statuses (OPENCI → FINAL → PDC)                           |
 | passenger_lifecycle.md | How passenger state changes through check-in, boarding, etc.               |
 | data_dictionary.md     | All field values: booking classes, passenger types, indicators, edit codes |

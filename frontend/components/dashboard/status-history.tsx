@@ -32,7 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { FlightStatusRecord, ClassCounts } from "@/lib/types";
+import type { FlightStatusRecord, ClassCounts, SnapshotMeta } from "@/lib/types";
 
 interface StatusHistoryProps {
   flightNumber: string;
@@ -140,6 +140,356 @@ function diffRecords(
 
 const changedCls = "text-amber-600 dark:text-amber-400 font-medium";
 
+function StatusHistoryLoadingState() {
+  return (
+    <div className="flex items-center justify-center py-20 text-muted-foreground">
+      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+      Loading flight history...
+    </div>
+  );
+}
+
+function StatusEvolutionCard({
+  history,
+  diffs,
+}: {
+  history: FlightStatusRecord[];
+  diffs: ChangedFields[];
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Plane className="h-4 w-4 text-muted-foreground" />
+          Flight Status Evolution
+          <Badge variant="secondary" className="ml-auto text-[10px]">
+            {history.length} record{history.length !== 1 ? "s" : ""}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {history.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-6">
+            No status records found.
+          </p>
+        ) : (
+          <div className="relative space-y-0">
+            <div className="absolute left-[18px] top-4 bottom-4 w-px bg-border" />
+
+            {history.map((rec, i) => {
+              const ch = diffs[i];
+              const colorClass = STATUS_COLORS[rec.status] ?? "bg-muted text-muted-foreground";
+              const dotColor = STATUS_DOT_COLORS[rec.status] ?? "bg-muted-foreground";
+              const pax = totalPax(rec.passengerCounts);
+              const hasChanges = Object.values(ch).some(Boolean);
+
+              return (
+                <div key={`${rec.fetchedAt}-${rec.status}-${rec.gate || "gate"}-${rec.terminal || "terminal"}`} className="relative flex gap-3 py-3 pl-0 group">
+                  <div className="relative z-10 mt-1 flex h-9 w-9 shrink-0 items-center justify-center">
+                    <div className={cn("h-3 w-3 rounded-full ring-4 ring-background", dotColor)} />
+                  </div>
+
+                  <div
+                    className={cn(
+                      "flex-1 min-w-0 rounded-lg border p-3 space-y-2 transition-colors",
+                      hasChanges ? "border-amber-300/50 bg-amber-500/5" : "bg-muted/20",
+                    )}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={cn("text-[10px] border-transparent", colorClass)}>
+                        {rec.status || "Unknown"}
+                      </Badge>
+                      {ch.status && (
+                        <span className="text-[9px] text-amber-600 font-medium">CHANGED</span>
+                      )}
+                      <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatTs(rec.fetchedAt)}
+                      </span>
+                    </div>
+
+                    {rec.schedule && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1">
+                        <div className="text-[11px]">
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <PlaneTakeoff className="h-3 w-3" /> STD
+                          </span>
+                          <span className={cn("font-mono", ch.std && changedCls)}>
+                            {fmtTime(rec.schedule.scheduledDeparture)}
+                          </span>
+                        </div>
+                        <div className="text-[11px]">
+                          <span className="text-muted-foreground">ETD</span>
+                          <span className={cn("font-mono ml-1", ch.etd && changedCls)}>
+                            {fmtTime(rec.schedule.estimatedDeparture)}
+                          </span>
+                        </div>
+                        <div className="text-[11px]">
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <PlaneLanding className="h-3 w-3" /> STA
+                          </span>
+                          <span className={cn("font-mono", ch.sta && changedCls)}>
+                            {fmtTime(rec.schedule.scheduledArrival)}
+                          </span>
+                        </div>
+                        <div className="text-[11px]">
+                          <span className="text-muted-foreground">ETA</span>
+                          <span className={cn("font-mono ml-1", ch.eta && changedCls)}>
+                            {fmtTime(rec.schedule.estimatedArrival)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                      {rec.gate && (
+                        <span className={cn("flex items-center gap-1", ch.gate && changedCls)}>
+                          <DoorOpen className="h-3 w-3" />
+                          Gate {rec.gate}
+                        </span>
+                      )}
+                      {rec.terminal && (
+                        <span className={cn("flex items-center gap-1", ch.terminal && changedCls)}>
+                          <TowerControl className="h-3 w-3" />
+                          Terminal {rec.terminal}
+                        </span>
+                      )}
+                      {rec.aircraft?.type && (
+                        <span className={cn("flex items-center gap-1", ch.aircraft && changedCls)}>
+                          <Plane className="h-3 w-3" />
+                          {rec.aircraft.type}
+                          {rec.aircraft.registration ? ` (${rec.aircraft.registration})` : ""}
+                        </span>
+                      )}
+                      {rec.boarding?.time && (
+                        <span className={cn("flex items-center gap-1", ch.boarding && changedCls)}>
+                          <Clock className="h-3 w-3" />
+                          Boarding {fmtTime(rec.boarding.time)}
+                        </span>
+                      )}
+                      {typeof rec.timeToDeparture === "number" && rec.timeToDeparture > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Timer className="h-3 w-3" />
+                          T-{rec.timeToDeparture}min
+                        </span>
+                      )}
+                      {rec.schedule?.durationMinutes ? (
+                        <span className="flex items-center gap-1">
+                          <ArrowRight className="h-3 w-3" />
+                          {Math.floor(rec.schedule.durationMinutes / 60)}h{String(rec.schedule.durationMinutes % 60).padStart(2, "0")}m
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {rec.passengerCounts && Object.keys(rec.passengerCounts).length > 0 && (
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <Users className="h-3 w-3 text-muted-foreground" />
+                        {Object.entries(rec.passengerCounts).map(([cabin, counts]) => (
+                          <Badge key={cabin} variant="outline" className="text-[9px] px-1.5 font-mono">
+                            <span className="font-semibold">{cabin}</span>
+                            <span className="mx-0.5">:</span>
+                            <span className={cn(ch.paxBooked && changedCls)}>{counts.booked}</span>
+                            <span className="text-muted-foreground mx-0.5">bkd</span>
+                            <span className={cn(ch.paxOnBoard && changedCls)}>{counts.onBoard}</span>
+                            <span className="text-muted-foreground mx-0.5">obd</span>
+                            <span>{counts.boardingPasses}</span>
+                            <span className="text-muted-foreground mx-0.5">bp</span>
+                          </Badge>
+                        ))}
+                        <span className="text-[9px] text-muted-foreground ml-1">
+                          Total: {pax.booked} booked / {pax.onBoard} on-board / {pax.bp} BP
+                        </span>
+                      </div>
+                    )}
+
+                    {rec.remarks && rec.remarks.length > 0 && (
+                      <div className="flex gap-1 items-start text-[10px] text-muted-foreground">
+                        <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+                        <span className="italic">
+                          {rec.remarks.map((r) => (typeof r === "string" ? r : r.text ?? "")).join(" · ")}
+                        </span>
+                      </div>
+                    )}
+
+                    {rec.codeshareInfo && rec.codeshareInfo.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {rec.codeshareInfo.map((cs) => (
+                          <Badge key={cs} variant="secondary" className="text-[9px]">
+                            CS: {cs}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SnapshotsCard({
+  snaps,
+  selectedSnapshotSequence,
+  onLoadSnapshot,
+  onClearSnapshot,
+  compareMode,
+  onToggleCompare,
+  restoring,
+  onRestore,
+  compareLoading,
+  compareData,
+}: {
+  snaps: SnapshotMeta[];
+  selectedSnapshotSequence?: number | null;
+  onLoadSnapshot?: (sequenceNumber: number) => void;
+  onClearSnapshot?: () => void;
+  compareMode: boolean;
+  onToggleCompare: () => void;
+  restoring: boolean;
+  onRestore: () => void;
+  compareLoading: boolean;
+  compareData?: Awaited<ReturnType<typeof compareSnapshot>>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Hash className="h-4 w-4 text-muted-foreground" />
+          Data Snapshots
+          {selectedSnapshotSequence && (
+            <Badge variant="outline" className="text-[10px]">
+              Viewing #{selectedSnapshotSequence}
+            </Badge>
+          )}
+          {selectedSnapshotSequence && onClearSnapshot && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={onClearSnapshot}
+            >
+              Back to latest
+            </Button>
+          )}
+          {selectedSnapshotSequence && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={onToggleCompare}
+            >
+              {compareMode ? "Hide Compare" : "Compare vs latest"}
+            </Button>
+          )}
+          {selectedSnapshotSequence && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              disabled={restoring}
+              onClick={onRestore}
+            >
+              {restoring ? "Restoring..." : "Restore this version"}
+            </Button>
+          )}
+          <Badge variant="secondary" className="ml-auto text-[10px]">
+            {snaps.length}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {compareMode && selectedSnapshotSequence && (
+          <div className="mb-4 rounded-md border p-3 space-y-2">
+            <div className="text-xs font-medium">Delta View: selected snapshot vs latest</div>
+            {compareLoading && (
+              <div className="text-xs text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Calculating deltas...
+              </div>
+            )}
+            {!compareLoading && compareData && (
+              <div className="space-y-2">
+                {Object.entries(compareData.types).map(([type, value]) => (
+                  <div key={type} className="rounded border p-2">
+                    <div className="text-xs font-medium mb-1">{type}</div>
+                    {!value.available && (
+                      <div className="text-[11px] text-muted-foreground">No comparable snapshots.</div>
+                    )}
+                    {value.available && value.deltas && (
+                      <div className="grid gap-1">
+                        {Object.entries(value.deltas)
+                          .filter(([, d]) => d.changed)
+                          .map(([field, d]) => (
+                            <div key={field} className="text-[11px] flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">{field}</span>
+                              <span>
+                                {String(d.selected)} <span className="text-muted-foreground">→</span> {String(d.latest)}
+                                {typeof d.diff === "number" && (
+                                  <span className="ml-1 text-muted-foreground">({d.diff > 0 ? `+${d.diff}` : d.diff})</span>
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        {Object.values(value.deltas).every((d) => !d.changed) && (
+                          <div className="text-[11px] text-muted-foreground">No changes.</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {snaps.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-6">No snapshots recorded.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30">
+                <TableHead>#</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Fetched At</TableHead>
+                <TableHead>Checksum</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {snaps.map((s) => (
+                <TableRow key={`${s.snapshotType}-${s.sequenceNumber}`}>
+                  <TableCell className="font-mono text-xs">{s.sequenceNumber}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-[10px]">{s.snapshotType}</Badge>
+                  </TableCell>
+                  <TableCell className="text-xs">{formatTs(s.fetchedAt)}</TableCell>
+                  <TableCell className="font-mono text-[10px] text-muted-foreground truncate max-w-[120px]">
+                    {s.checksum ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm"
+                      variant={selectedSnapshotSequence === s.sequenceNumber ? "secondary" : "outline"}
+                      className="h-7 text-[10px]"
+                      onClick={() => onLoadSnapshot?.(s.sequenceNumber)}
+                    >
+                      {selectedSnapshotSequence === s.sequenceNumber ? "Loaded" : "Load"}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function StatusHistory({
   flightNumber,
   origin,
@@ -176,7 +526,21 @@ export function StatusHistory({
     return history.map((rec, i) => diffRecords(rec, history[i + 1]));
   }, [history]);
 
-  const snaps = useMemo(() => snapshots ?? [], [snapshots]);
+  const snaps = useMemo(() => {
+    const seen = new Set<string>();
+    const unique: SnapshotMeta[] = [];
+
+    for (const snapshot of snapshots ?? []) {
+      const dedupeKey = `${snapshot.snapshotType}-${snapshot.sequenceNumber}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+      seen.add(dedupeKey);
+      unique.push(snapshot);
+    }
+
+    return unique;
+  }, [snapshots]);
 
   const historySeries = useMemo(() => {
     return [...history]
@@ -230,12 +594,7 @@ export function StatusHistory({
   }, [diffs]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Loading flight history...
-      </div>
-    );
+    return <StatusHistoryLoadingState />;
   }
 
   async function handleRestore() {
@@ -265,323 +624,22 @@ export function StatusHistory({
         compareData={compareData}
       />
 
-      {/* ── Flight Status Evolution ────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Plane className="h-4 w-4 text-muted-foreground" />
-            Flight Status Evolution
-            <Badge variant="secondary" className="ml-auto text-[10px]">
-              {history.length} record{history.length !== 1 ? "s" : ""}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {history.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-6">
-              No status records found.
-            </p>
-          ) : (
-            <div className="relative space-y-0">
-              {/* vertical timeline line */}
-              <div className="absolute left-[18px] top-4 bottom-4 w-px bg-border" />
-
-              {history.map((rec, i) => {
-                const ch = diffs[i];
-                const colorClass = STATUS_COLORS[rec.status] ?? "bg-muted text-muted-foreground";
-                const dotColor = STATUS_DOT_COLORS[rec.status] ?? "bg-muted-foreground";
-                const pax = totalPax(rec.passengerCounts);
-                const hasChanges = Object.values(ch).some(Boolean);
-
-                return (
-                  <div key={`${rec.fetchedAt}-${rec.status}-${rec.gate || "gate"}-${rec.terminal || "terminal"}`} className="relative flex gap-3 py-3 pl-0 group">
-                    {/* timeline dot */}
-                    <div className="relative z-10 mt-1 flex h-9 w-9 shrink-0 items-center justify-center">
-                      <div className={cn("h-3 w-3 rounded-full ring-4 ring-background", dotColor)} />
-                    </div>
-
-                    {/* content card */}
-                    <div
-                      className={cn(
-                        "flex-1 min-w-0 rounded-lg border p-3 space-y-2 transition-colors",
-                        hasChanges ? "border-amber-300/50 bg-amber-500/5" : "bg-muted/20",
-                      )}
-                    >
-                      {/* row 1: status + timestamp */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={cn("text-[10px] border-transparent", colorClass)}>
-                          {rec.status || "Unknown"}
-                        </Badge>
-                        {ch.status && (
-                          <span className="text-[9px] text-amber-600 font-medium">CHANGED</span>
-                        )}
-                        <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {formatTs(rec.fetchedAt)}
-                        </span>
-                      </div>
-
-                      {/* row 2: schedule times grid */}
-                      {rec.schedule && (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1">
-                          <div className="text-[11px]">
-                            <span className="text-muted-foreground flex items-center gap-1">
-                              <PlaneTakeoff className="h-3 w-3" /> STD
-                            </span>
-                            <span className={cn("font-mono", ch.std && changedCls)}>
-                              {fmtTime(rec.schedule.scheduledDeparture)}
-                            </span>
-                          </div>
-                          <div className="text-[11px]">
-                            <span className="text-muted-foreground">ETD</span>
-                            <span className={cn("font-mono ml-1", ch.etd && changedCls)}>
-                              {fmtTime(rec.schedule.estimatedDeparture)}
-                            </span>
-                          </div>
-                          <div className="text-[11px]">
-                            <span className="text-muted-foreground flex items-center gap-1">
-                              <PlaneLanding className="h-3 w-3" /> STA
-                            </span>
-                            <span className={cn("font-mono", ch.sta && changedCls)}>
-                              {fmtTime(rec.schedule.scheduledArrival)}
-                            </span>
-                          </div>
-                          <div className="text-[11px]">
-                            <span className="text-muted-foreground">ETA</span>
-                            <span className={cn("font-mono ml-1", ch.eta && changedCls)}>
-                              {fmtTime(rec.schedule.estimatedArrival)}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* row 3: operational details */}
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                        {rec.gate && (
-                          <span className={cn("flex items-center gap-1", ch.gate && changedCls)}>
-                            <DoorOpen className="h-3 w-3" />
-                            Gate {rec.gate}
-                          </span>
-                        )}
-                        {rec.terminal && (
-                          <span className={cn("flex items-center gap-1", ch.terminal && changedCls)}>
-                            <TowerControl className="h-3 w-3" />
-                            Terminal {rec.terminal}
-                          </span>
-                        )}
-                        {rec.aircraft?.type && (
-                          <span className={cn("flex items-center gap-1", ch.aircraft && changedCls)}>
-                            <Plane className="h-3 w-3" />
-                            {rec.aircraft.type}
-                            {rec.aircraft.registration ? ` (${rec.aircraft.registration})` : ""}
-                          </span>
-                        )}
-                        {rec.boarding?.time && (
-                          <span className={cn("flex items-center gap-1", ch.boarding && changedCls)}>
-                            <Clock className="h-3 w-3" />
-                            Boarding {fmtTime(rec.boarding.time)}
-                          </span>
-                        )}
-                        {typeof rec.timeToDeparture === "number" && rec.timeToDeparture > 0 && (
-                          <span className="flex items-center gap-1">
-                            <Timer className="h-3 w-3" />
-                            T-{rec.timeToDeparture}min
-                          </span>
-                        )}
-                        {rec.schedule?.durationMinutes ? (
-                          <span className="flex items-center gap-1">
-                            <ArrowRight className="h-3 w-3" />
-                            {Math.floor(rec.schedule.durationMinutes / 60)}h{String(rec.schedule.durationMinutes % 60).padStart(2, "0")}m
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {/* row 4: passenger counts per cabin */}
-                      {rec.passengerCounts && Object.keys(rec.passengerCounts).length > 0 && (
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <Users className="h-3 w-3 text-muted-foreground" />
-                          {Object.entries(rec.passengerCounts).map(([cabin, counts]) => (
-                            <Badge key={cabin} variant="outline" className="text-[9px] px-1.5 font-mono">
-                              <span className="font-semibold">{cabin}</span>
-                              <span className="mx-0.5">:</span>
-                              <span className={cn(ch.paxBooked && changedCls)}>{counts.booked}</span>
-                              <span className="text-muted-foreground mx-0.5">bkd</span>
-                              <span className={cn(ch.paxOnBoard && changedCls)}>{counts.onBoard}</span>
-                              <span className="text-muted-foreground mx-0.5">obd</span>
-                              <span>{counts.boardingPasses}</span>
-                              <span className="text-muted-foreground mx-0.5">bp</span>
-                            </Badge>
-                          ))}
-                          <span className="text-[9px] text-muted-foreground ml-1">
-                            Total: {pax.booked} booked / {pax.onBoard} on-board / {pax.bp} BP
-                          </span>
-                        </div>
-                      )}
-
-                      {/* row 5: remarks */}
-                      {rec.remarks && rec.remarks.length > 0 && (
-                        <div className="flex gap-1 items-start text-[10px] text-muted-foreground">
-                          <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
-                          <span className="italic">
-                            {rec.remarks.map((r) => (typeof r === "string" ? r : r.text ?? "")).join(" · ")}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* row 6: codeshare */}
-                      {rec.codeshareInfo && rec.codeshareInfo.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {rec.codeshareInfo.map((cs) => (
-                            <Badge key={cs} variant="secondary" className="text-[9px]">
-                              CS: {cs}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <StatusEvolutionCard history={history} diffs={diffs} />
 
       <Separator />
 
-      {/* ── Data Snapshots ─────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Hash className="h-4 w-4 text-muted-foreground" />
-            Data Snapshots
-            {selectedSnapshotSequence && (
-              <Badge variant="outline" className="text-[10px]">
-                Viewing #{selectedSnapshotSequence}
-              </Badge>
-            )}
-            {selectedSnapshotSequence && onClearSnapshot && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-[10px]"
-                onClick={onClearSnapshot}
-              >
-                Back to latest
-              </Button>
-            )}
-            {selectedSnapshotSequence && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 px-2 text-[10px]"
-                onClick={() => setCompareMode((v) => !v)}
-              >
-                {compareMode ? "Hide Compare" : "Compare vs latest"}
-              </Button>
-            )}
-            {selectedSnapshotSequence && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 px-2 text-[10px]"
-                disabled={restoring}
-                onClick={handleRestore}
-              >
-                {restoring ? "Restoring..." : "Restore this version"}
-              </Button>
-            )}
-            <Badge variant="secondary" className="ml-auto text-[10px]">
-              {snaps.length}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {compareMode && selectedSnapshotSequence && (
-            <div className="mb-4 rounded-md border p-3 space-y-2">
-              <div className="text-xs font-medium">Delta View: selected snapshot vs latest</div>
-              {compareLoading && (
-                <div className="text-xs text-muted-foreground flex items-center gap-2">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Calculating deltas...
-                </div>
-              )}
-              {!compareLoading && compareData && (
-                <div className="space-y-2">
-                  {Object.entries(compareData.types).map(([type, value]) => (
-                    <div key={type} className="rounded border p-2">
-                      <div className="text-xs font-medium mb-1">{type}</div>
-                      {!value.available && (
-                        <div className="text-[11px] text-muted-foreground">No comparable snapshots.</div>
-                      )}
-                      {value.available && value.deltas && (
-                        <div className="grid gap-1">
-                          {Object.entries(value.deltas)
-                            .filter(([, d]) => d.changed)
-                            .map(([field, d]) => (
-                              <div key={field} className="text-[11px] flex items-center justify-between gap-3">
-                                <span className="text-muted-foreground">{field}</span>
-                                <span>
-                                  {String(d.selected)} <span className="text-muted-foreground">→</span> {String(d.latest)}
-                                  {typeof d.diff === "number" && (
-                                    <span className="ml-1 text-muted-foreground">({d.diff > 0 ? `+${d.diff}` : d.diff})</span>
-                                  )}
-                                </span>
-                              </div>
-                            ))}
-                          {Object.values(value.deltas).every((d) => !d.changed) && (
-                            <div className="text-[11px] text-muted-foreground">No changes.</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {snaps.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-6">No snapshots recorded.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead>#</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Fetched At</TableHead>
-                  <TableHead>Checksum</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {snaps.map((s) => (
-                  <TableRow key={`${s.snapshotType}-${s.sequenceNumber}`}>
-                    <TableCell className="font-mono text-xs">{s.sequenceNumber}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px]">{s.snapshotType}</Badge>
-                    </TableCell>
-                    <TableCell className="text-xs">{formatTs(s.fetchedAt)}</TableCell>
-                    <TableCell className="font-mono text-[10px] text-muted-foreground truncate max-w-[120px]">
-                      {s.checksum ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant={selectedSnapshotSequence === s.sequenceNumber ? "secondary" : "outline"}
-                        className="h-7 text-[10px]"
-                        onClick={() => onLoadSnapshot?.(s.sequenceNumber)}
-                      >
-                        {selectedSnapshotSequence === s.sequenceNumber ? "Loaded" : "Load"}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <SnapshotsCard
+        snaps={snaps}
+        selectedSnapshotSequence={selectedSnapshotSequence}
+        onLoadSnapshot={onLoadSnapshot}
+        onClearSnapshot={onClearSnapshot}
+        compareMode={compareMode}
+        onToggleCompare={() => setCompareMode((value) => !value)}
+        restoring={restoring}
+        onRestore={handleRestore}
+        compareLoading={compareLoading}
+        compareData={compareData}
+      />
     </div>
   );
 }

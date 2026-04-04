@@ -53,3 +53,5 @@ yarn-error.log*
 
 # ===== Bruno cache =====
 .bruno/
+
+mm_data/

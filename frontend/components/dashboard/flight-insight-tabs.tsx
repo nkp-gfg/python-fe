@@ -18,13 +18,8 @@ import {
   Users,
 } from "lucide-react";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
-  CartesianGrid,
-  Cell,
-  LabelList,
   Pie,
   PieChart,
   XAxis,
@@ -33,8 +28,10 @@ import {
 
 import type { FlightInsights } from "@/lib/types";
 import type { InsightInfoKey } from "@/components/dashboard/insight-info-panel";
+import { buildCabinStackedBarOption, buildCheckInTimelineAreaOption, buildDonutChartOption, buildHorizontalBarOption, buildPassengerProgressFunnelOption, buildVerticalBarOption } from "@/components/dashboard/echarts-option-builders";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EChart } from "@/components/ui/echarts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +54,13 @@ type ChartDatum = {
   shortLabel: string;
   value: number;
   fill?: string;
+};
+
+type FunnelStageDatum = {
+  label: string;
+  value: number;
+  fill?: string;
+  helper?: string;
 };
 
 type CabinStackDatum = {
@@ -223,47 +227,14 @@ function RankedBarsCard({
   onInfo?: () => void;
   formatter?: (value: number) => string;
 }) {
+  const option = useMemo(() => buildHorizontalBarOption({ data, valueLabel: "Count", valueFormatter: formatter }), [data, formatter]);
+
   return (
     <PanelCard icon={icon} title={title} description={description} onInfo={onInfo}>
       {data.length === 0 ? (
         <EmptyState />
       ) : (
-        <ChartContainer
-          config={{ value: { label: "Count", color: "var(--color-chart-1)" } }}
-          className="h-[240px] w-full aspect-auto"
-        >
-          <BarChart data={data} layout="vertical" margin={{ top: 4, right: 18, left: 0, bottom: 4 }}>
-            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-            <XAxis type="number" hide />
-            <YAxis
-              type="category"
-              dataKey="shortLabel"
-              width={86}
-              tickLine={false}
-              axisLine={false}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
-                  formatter={(value) => [formatter ? formatter(Number(value)) : Number(value).toLocaleString(), "Count"]}
-                />
-              }
-            />
-            <Bar dataKey="value" radius={8}>
-              {data.map((entry) => (
-                <Cell key={entry.label} fill={entry.fill} />
-              ))}
-              <LabelList
-                dataKey="value"
-                position="right"
-                className="fill-foreground text-xs font-medium"
-                formatter={(value: number) => formatter ? formatter(value) : value.toLocaleString()}
-              />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+        <EChart option={option} className="h-[240px]" ariaLabel={title} />
       )}
     </PanelCard>
   );
@@ -285,6 +256,7 @@ function DonutChartCard({
   onInfo?: () => void;
 }) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
+  const option = useMemo(() => buildDonutChartOption({ title, centerLabel, data }), [centerLabel, data, title]);
 
   return (
     <PanelCard icon={icon} title={title} description={description} onInfo={onInfo}>
@@ -292,38 +264,7 @@ function DonutChartCard({
         <EmptyState />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-          <ChartContainer
-            config={Object.fromEntries(
-              data.map((item) => [item.label, { label: item.label, color: item.fill ?? "var(--color-chart-1)" }])
-            )}
-            className="h-[220px] w-full aspect-auto"
-          >
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent formatter={(value) => [Number(value).toLocaleString(), "Passengers"]} />}
-              />
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="label"
-                innerRadius={58}
-                outerRadius={82}
-                paddingAngle={2}
-                stroke="transparent"
-              >
-                {data.map((entry) => (
-                  <Cell key={entry.label} fill={entry.fill} />
-                ))}
-              </Pie>
-              <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[11px] uppercase tracking-[0.16em]">
-                {centerLabel}
-              </text>
-              <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" className="fill-foreground text-[26px] font-semibold">
-                {total}
-              </text>
-            </PieChart>
-          </ChartContainer>
+          <EChart option={option} className="h-[220px]" ariaLabel={title} />
 
           <div className="space-y-2.5">
             {data.map((item) => {
@@ -361,22 +302,13 @@ function CabinStackedBarsCard({
   onInfo?: () => void;
 }) {
   const hasData = data.some((item) => item.total > 0);
-  const chartData = data.map((item) => {
-    const row: Record<string, string | number> = {
-      cabin: item.cabin,
-      total: item.total,
-    };
-    item.segments.forEach((segment) => {
-      row[segment.bookingClass] = segment.value;
-    });
-    return row;
-  });
   const legendItems = data.flatMap((item) => item.segments.map((segment) => ({
     cabin: item.cabin,
     bookingClass: segment.bookingClass,
     value: segment.value,
     fill: segment.fill,
   })));
+  const option = useMemo(() => buildCabinStackedBarOption({ data, businessClasses: BUSINESS_CLASSES }), [data]);
 
   return (
     <PanelCard icon={icon} title={title} description={description} onInfo={onInfo}>
@@ -384,37 +316,7 @@ function CabinStackedBarsCard({
         <EmptyState />
       ) : (
         <div className="space-y-4">
-          <ChartContainer
-            config={Object.fromEntries(
-              legendItems.map((item) => [item.bookingClass, { label: `Class ${item.bookingClass}`, color: item.fill }])
-            )}
-            className="h-[220px] w-full aspect-auto"
-          >
-            <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-              <XAxis type="number" hide />
-              <YAxis type="category" dataKey="cabin" width={48} tickLine={false} axisLine={false} tickFormatter={(value) => value === "Y" ? "Y Class" : "J Class"} />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent formatter={(value) => [Number(value).toLocaleString(), "Passengers"]} />}
-              />
-              {data.map((item) =>
-                item.segments.map((segment, segmentIndex) => (
-                  <Bar
-                    key={`${item.cabin}-${segment.bookingClass}`}
-                    dataKey={segment.bookingClass}
-                    stackId={item.cabin}
-                    fill={segment.fill}
-                    radius={segmentIndex === item.segments.length - 1 ? [8, 8, 8, 8] : [0, 0, 0, 0]}
-                  >
-                    {segmentIndex === item.segments.length - 1 ? (
-                      <LabelList dataKey="total" position="right" className="fill-foreground text-xs font-medium" />
-                    ) : null}
-                  </Bar>
-                ))
-              )}
-            </BarChart>
-          </ChartContainer>
+          <EChart option={option} className="h-[220px]" ariaLabel={title} />
 
           <div className="grid gap-3 md:grid-cols-2">
             {data.map((item) => (
@@ -458,34 +360,14 @@ function ColumnChartCard({
   data: ChartDatum[];
   onInfo?: () => void;
 }) {
+  const option = useMemo(() => buildVerticalBarOption({ data, valueLabel: "Passengers" }), [data]);
+
   return (
     <PanelCard icon={icon} title={title} description={description} onInfo={onInfo}>
       {data.length === 0 ? (
         <EmptyState />
       ) : (
-        <ChartContainer
-          config={{ value: { label: "Passengers", color: "var(--color-chart-2)" } }}
-          className="h-[240px] w-full aspect-auto"
-        >
-          <BarChart data={data} margin={{ top: 8, right: 6, left: -12, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="shortLabel" tickLine={false} axisLine={false} />
-            <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
-                />
-              }
-            />
-            <Bar dataKey="value" radius={[10, 10, 0, 0]}>
-              {data.map((entry) => (
-                <Cell key={entry.label} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+        <EChart option={option} className="h-[240px]" ariaLabel={title} />
       )}
     </PanelCard>
   );
@@ -504,35 +386,14 @@ function AreaTimelineCard({
   data: Array<{ hour: string; value: number }>;
   onInfo?: () => void;
 }) {
+  const option = useMemo(() => buildCheckInTimelineAreaOption({ data }), [data]);
+
   return (
     <PanelCard icon={icon} title={title} description={description} onInfo={onInfo}>
       {data.length === 0 ? (
         <EmptyState />
       ) : (
-        <ChartContainer
-          config={{ value: { label: "Check-ins", color: "var(--color-chart-3)" } }}
-          className="h-[240px] w-full aspect-auto"
-        >
-          <AreaChart data={data} margin={{ top: 10, right: 8, left: -16, bottom: 0 }}>
-            <defs>
-              <linearGradient id="check-in-fill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-chart-3)" stopOpacity={0.45} />
-                <stop offset="100%" stopColor="var(--color-chart-3)" stopOpacity={0.04} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="hour" tickLine={false} axisLine={false} />
-            <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
-            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="var(--color-chart-3)"
-              fill="url(#check-in-fill)"
-              strokeWidth={2}
-            />
-          </AreaChart>
-        </ChartContainer>
+        <EChart option={option} className="h-[240px]" ariaLabel={title} />
       )}
     </PanelCard>
   );
@@ -574,6 +435,60 @@ function CompletionRowsCard({
           );
         })}
       </div>
+    </PanelCard>
+  );
+}
+
+function FunnelProgressCard({
+  icon,
+  title,
+  description,
+  stages,
+  onInfo,
+}: {
+  icon: ElementType;
+  title: string;
+  description?: string;
+  stages: FunnelStageDatum[];
+  onInfo?: () => void;
+}) {
+  const activeStages = stages.filter((stage) => stage.value > 0);
+  const option = useMemo(() => buildPassengerProgressFunnelOption({ title, data: activeStages }), [activeStages, title]);
+  const baseline = activeStages[0]?.value ?? 0;
+
+  return (
+    <PanelCard icon={icon} title={title} description={description} onInfo={onInfo}>
+      {activeStages.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <EChart option={option} className="h-[240px]" ariaLabel={title} />
+
+          <div className="space-y-2.5">
+            {activeStages.map((stage, index) => {
+              const pct = baseline > 0 ? Math.round((stage.value / baseline) * 100) : 0;
+              const previous = activeStages[index - 1]?.value ?? baseline;
+              const stagePct = previous > 0 ? Math.round((stage.value / previous) * 100) : 0;
+
+              return (
+                <div key={stage.label} className="rounded-lg border bg-muted/15 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: stage.fill }} />
+                      <span className="truncate font-medium">{stage.label}</span>
+                    </div>
+                    <span className="font-semibold tabular-nums">{stage.value.toLocaleString()}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {pct}% of sold inventory{index > 0 ? ` · ${stagePct}% of previous stage` : ""}
+                  </div>
+                  {stage.helper ? <div className="mt-1 text-xs text-muted-foreground">{stage.helper}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </PanelCard>
   );
 }
@@ -732,6 +647,13 @@ export function CommercialInsightsTab({ insights, totalPassengers, onOpenInfo }:
     ];
   }, [insights.bookingLeadTime]);
   const companyData = useMemo(() => toChartData(Object.entries(insights.corporateTravel.companies).sort((a, b) => b[1] - a[1]), 6), [insights.corporateTravel.companies]);
+  const progressStages = useMemo(() => [
+    { label: "Sold", value: totalPassengers, fill: palette[0], helper: "Current passenger base on this departure." },
+    { label: "Ticketed", value: insights.ticketStatus.withTicket, fill: palette[2], helper: `${insights.ticketStatus.ticketPct}% with ticket records.` },
+    { label: "Boarding Pass", value: insights.boardingPasses.issued, fill: palette[1], helper: `${insights.boardingPasses.issuedPct}% issued.` },
+    { label: "Checked In", value: insights.boardingRate.checkedIn, fill: palette[3], helper: `${insights.boardingRate.checkedInPct}% checked in.` },
+    { label: "Boarded", value: insights.boardingRate.boarded, fill: palette[4], helper: `${insights.boardingRate.boardedPct}% boarded.` },
+  ], [insights.boardingPasses.issued, insights.boardingPasses.issuedPct, insights.boardingRate.boarded, insights.boardingRate.boardedPct, insights.boardingRate.checkedIn, insights.boardingRate.checkedInPct, insights.ticketStatus.ticketPct, insights.ticketStatus.withTicket, totalPassengers]);
   const channelFamilySegments = useMemo(() => [
     { label: "Online", value: insights.bookingChannels.categories.online, fill: palette[0] },
     { label: "Agent", value: insights.bookingChannels.categories.agent, fill: palette[1] },
@@ -765,16 +687,12 @@ export function CommercialInsightsTab({ insights, totalPassengers, onOpenInfo }:
 
       <div className="grid gap-4 xl:grid-cols-2">
         <RankedBarsCard icon={Briefcase} title="Corporate Accounts" description="Largest corporate identifiers on this flight." data={companyData} onInfo={onOpenInfo ? () => onOpenInfo("corporateTravel") : undefined} />
-        <CompletionRowsCard
+        <FunnelProgressCard
           icon={TrendingUp}
-          title="Commercial Health"
-          description="High-level readiness of the sold inventory from a commercial perspective."
-          rows={[
-            { label: "Ticketed", value: insights.ticketStatus.withTicket, total: totalPassengers, color: palette[2], valueClassName: "text-emerald-500" },
-            { label: "Boarding passes issued", value: insights.boardingPasses.issued, total: totalPassengers, color: palette[1], valueClassName: "text-blue-500" },
-            { label: "Connecting traffic", value: insights.connectingPassengers.connecting, total: totalPassengers, color: palette[0], valueClassName: "text-violet-500" },
-            { label: "Corporate passengers", value: insights.corporateTravel.totalCorporate, total: totalPassengers, color: palette[4], valueClassName: "text-amber-500" },
-          ]}
+          title="Passenger Progress Funnel"
+          description="Progression from sold inventory to boarded passengers for this departure."
+          stages={progressStages}
+          onInfo={onOpenInfo ? () => onOpenInfo("boardingRate") : undefined}
         />
       </div>
     </div>

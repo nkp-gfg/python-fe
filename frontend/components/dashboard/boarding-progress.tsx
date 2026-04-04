@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Loader2,
@@ -11,10 +12,11 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { fetchBoardingProgress } from "@/lib/api";
+import { buildBoardingProgressAreaOption } from "@/components/dashboard/echarts-option-builders";
+import { EChart } from "@/components/ui/echarts";
 import type { BoardingProgressResponse, ProgressDataPoint, FlightMilestone } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 interface BoardingProgressProps {
@@ -60,6 +62,45 @@ function ProgressChart({
   // Simple timeline visualization
   const checkinPoints = checkinSeries.length;
   const boardingPoints = boardingSeries.length;
+  const timelineData = useMemo(() => {
+    const points = new Map<string, { timestamp: string; checkedIn: number; boarded: number }>();
+
+    checkinSeries.forEach((point) => {
+      const existing = points.get(point.timestamp);
+      points.set(point.timestamp, {
+        timestamp: point.timestamp,
+        checkedIn: point.cumulativeCount,
+        boarded: existing?.boarded ?? 0,
+      });
+    });
+
+    boardingSeries.forEach((point) => {
+      const existing = points.get(point.timestamp);
+      points.set(point.timestamp, {
+        timestamp: point.timestamp,
+        checkedIn: existing?.checkedIn ?? 0,
+        boarded: point.cumulativeCount,
+      });
+    });
+
+    let lastCheckedIn = 0;
+    let lastBoarded = 0;
+
+    return Array.from(points.values())
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .map((point) => {
+        lastCheckedIn = Math.max(lastCheckedIn, point.checkedIn);
+        lastBoarded = Math.max(lastBoarded, point.boarded);
+
+        return {
+          label: formatTime(point.timestamp),
+          timestamp: point.timestamp,
+          checkedIn: lastCheckedIn,
+          boarded: lastBoarded,
+        };
+      });
+  }, [boardingSeries, checkinSeries]);
+  const option = useMemo(() => buildBoardingProgressAreaOption({ data: timelineData }), [timelineData]);
 
   if (checkinPoints === 0 && boardingPoints === 0) {
     return (
@@ -78,48 +119,46 @@ function ProgressChart({
 
   return (
     <div className="space-y-4">
-      {/* Check-in progress */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <LogIn className="h-4 w-4 text-emerald-600" />
-            <span>Checked In</span>
-          </div>
-          <span className="font-mono font-medium">
-            {currentCheckins} / {totalPassengers}
-          </span>
-        </div>
-        <Progress value={checkinPct} className="h-2" />
-        {checkinSeries.length > 0 && (
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Started: {formatTime(checkinSeries[0].timestamp)}</span>
-            {checkinSeries.length > 1 && (
-              <span>Latest: {formatTime(checkinSeries[checkinSeries.length - 1].timestamp)}</span>
-            )}
-          </div>
-        )}
-      </div>
+      <EChart option={option} className="h-[260px]" ariaLabel="Boarding Progress Timeline" />
 
-      {/* Boarding progress */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <Plane className="h-4 w-4 text-purple-600" />
-            <span>Boarded</span>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-lg border bg-emerald-50/60 p-3 dark:bg-emerald-900/10">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <LogIn className="h-4 w-4 text-emerald-600" />
+              <span>Checked In</span>
+            </div>
+            <span className="font-mono font-medium">
+              {currentCheckins} / {totalPassengers}
+            </span>
           </div>
-          <span className="font-mono font-medium">
-            {currentBoarded} / {totalPassengers}
-          </span>
+          <div className="mt-1 text-xs text-muted-foreground">{Math.round(checkinPct)}% of total passengers</div>
+          {checkinSeries.length > 0 && (
+            <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+              <span>Started: {formatTime(checkinSeries[0].timestamp)}</span>
+              <span>Latest: {formatTime(checkinSeries[checkinSeries.length - 1].timestamp)}</span>
+            </div>
+          )}
         </div>
-        <Progress value={boardingPct} className="h-2 [&>div]:bg-purple-600" />
-        {boardingSeries.length > 0 && (
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Started: {formatTime(boardingSeries[0].timestamp)}</span>
-            {boardingSeries.length > 1 && (
-              <span>Latest: {formatTime(boardingSeries[boardingSeries.length - 1].timestamp)}</span>
-            )}
+
+        <div className="rounded-lg border bg-purple-50/60 p-3 dark:bg-purple-900/10">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <Plane className="h-4 w-4 text-purple-600" />
+              <span>Boarded</span>
+            </div>
+            <span className="font-mono font-medium">
+              {currentBoarded} / {totalPassengers}
+            </span>
           </div>
-        )}
+          <div className="mt-1 text-xs text-muted-foreground">{Math.round(boardingPct)}% of total passengers</div>
+          {boardingSeries.length > 0 && (
+            <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+              <span>Started: {formatTime(boardingSeries[0].timestamp)}</span>
+              <span>Latest: {formatTime(boardingSeries[boardingSeries.length - 1].timestamp)}</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
