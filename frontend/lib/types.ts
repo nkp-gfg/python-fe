@@ -388,6 +388,7 @@ export interface SabreFlightIngestResult {
     origin: string;
     departureDate: string;
     departureDateTime: string;
+    flightSequenceNumber?: number | null;
   };
   success: boolean;
   apis: {
@@ -417,7 +418,7 @@ export interface SabreBatchAccepted {
 
 export interface SabreJobStatus {
   jobId: string;
-  status: "accepted" | "running" | "completed" | "failed";
+  status: "accepted" | "running" | "completed" | "partial" | "failed";
   flightsQueued: number;
   flightsProcessed: number;
   submittedAt: string;

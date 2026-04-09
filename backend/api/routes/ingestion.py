@@ -30,6 +30,24 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _extract_ingest_error(flight_result: dict | None) -> str:
+    """Return the first API error from a feeder result."""
+    if not flight_result:
+        return "Ingestion failed"
+
+    apis = flight_result.get("apis") or {}
+    for api_name in ("flightStatus", "passengerList", "reservations", "tripReports", "schedule"):
+        api_result = apis.get(api_name) or {}
+        error = api_result.get("error")
+        if error:
+            return str(error)
+    flight = flight_result.get("flight") or {}
+    return (
+        f"Ingestion failed for {flight.get('airline', 'GF')}{flight.get('flightNumber', '')} "
+        f"{flight.get('origin', '')} {flight.get('departureDate', '')}"
+    ).strip()
+
+
 # ── Request / Response models ─────────────────────────────────────────────
 
 class SabreIngestRequest(BaseModel):
@@ -126,7 +144,7 @@ class SabreJobStatus(BaseModel):
     """Current state of a background ingestion job."""
 
     jobId: str
-    status: Literal["accepted", "running", "completed", "failed"]
+    status: Literal["accepted", "running", "completed", "partial", "failed"]
     flightsQueued: int
     flightsProcessed: int
     submittedAt: str
@@ -161,6 +179,12 @@ async def ingest_flight(payload: SabreIngestRequest):
     if flight_result is None:
         raise HTTPException(
             status_code=500, detail="Ingestion completed without a result")
+
+    if not flight_result.get("success", False):
+        raise HTTPException(
+            status_code=409,
+            detail=_extract_ingest_error(flight_result),
+        )
 
     return {
         "message": "Sabre ingestion completed",

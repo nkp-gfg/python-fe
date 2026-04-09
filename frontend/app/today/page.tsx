@@ -21,13 +21,14 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-import { fetchOtpFlights, ingestFlight, ingestBatch, fetchJobStatus } from "@/lib/api";
-import type { OtpFlight, SabreIngestRequest } from "@/lib/types";
+import { fetchOtpFlights, fetchJobStatus, getIngestFailureMessage, ingestBatch, ingestFlight } from "@/lib/api";
+import type { OtpFlight, SabreFlightIngestResult, SabreIngestRequest } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useToast } from "@/components/ui/toast";
 
 /* ─────────── STATUS HELPERS ─────────── */
 
@@ -87,9 +88,14 @@ function buildIngestPayload(f: OtpFlight): SabreIngestRequest {
   };
 }
 
+function buildFlightKey(flightNumber: string, origin: string, departureDate: string): string {
+  return `${flightNumber}:${origin}:${departureDate}`;
+}
+
 /* ─────────── TODAY'S FLIGHTS PAGE ─────────── */
 
 export default function TodayPage() {
+  const { pushToast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -100,6 +106,7 @@ export default function TodayPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   /* ── per-row ingest state: seq → "idle" | "loading" | "done" | "error" */
   const [rowIngestState, setRowIngestState] = useState<Record<number, "idle" | "loading" | "done" | "error">>({});
+  const [rowIngestError, setRowIngestError] = useState<Record<number, string | null>>({});
   /* ── batch ingest state ── */
   const [batchState, setBatchState] = useState<"idle" | "loading" | "polling" | "done" | "error">("idle");
   const [batchJobId, setBatchJobId] = useState<string | null>(null);
@@ -170,17 +177,122 @@ export default function TodayPage() {
 
   const clearSelection = useCallback(() => setSelected(new Set()), []);
 
+  const applyBatchResults = useCallback((results: SabreFlightIngestResult[], sourceFlights: OtpFlight[]) => {
+    const seqByKey = new Map(
+      sourceFlights.map((flight) => [
+        buildFlightKey(flight.flightNumber, flight.origin, flight.flightDate),
+        flight.flightSequenceNumber,
+      ])
+    );
+
+    setRowIngestState((prev) => {
+      const next = { ...prev };
+      for (const result of results) {
+        const seq = result.flight.flightSequenceNumber ?? seqByKey.get(
+          buildFlightKey(result.flight.flightNumber, result.flight.origin, result.flight.departureDate)
+        );
+        if (seq === undefined || seq === null) continue;
+        next[seq] = result.success ? "done" : "error";
+      }
+      return next;
+    });
+
+    setRowIngestError((prev) => {
+      const next = { ...prev };
+      for (const result of results) {
+        const seq = result.flight.flightSequenceNumber ?? seqByKey.get(
+          buildFlightKey(result.flight.flightNumber, result.flight.origin, result.flight.departureDate)
+        );
+        if (seq === undefined || seq === null) continue;
+        next[seq] = result.success ? null : getIngestFailureMessage(result);
+      }
+      return next;
+    });
+  }, []);
+
+  const runBatchIngest = useCallback(async (sourceFlights: OtpFlight[]) => {
+    if (!sourceFlights.length) return;
+
+    const payloads = sourceFlights.map(buildIngestPayload);
+    setBatchState("loading");
+    setBatchError(null);
+    try {
+      const accepted = await ingestBatch({ flights: payloads });
+      setBatchJobId(accepted.jobId);
+      setBatchProgress({ queued: accepted.flightsQueued, processed: 0 });
+      setBatchState("polling");
+
+      const deadline = Date.now() + INGEST_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        await sleep(INGEST_POLL_MS);
+        const job = await fetchJobStatus(accepted.jobId);
+        setBatchProgress({ queued: job.flightsQueued, processed: job.flightsProcessed });
+
+        if (job.status === "completed" || job.status === "partial") {
+          const results = job.results ?? [];
+          applyBatchResults(results, sourceFlights);
+
+          const failed = results.filter((result) => !result.success);
+          if (failed.length > 0) {
+            const firstError = getIngestFailureMessage(failed[0]);
+            const message = failed.length === 1
+              ? firstError
+              : `${failed.length} flights failed. First error: ${firstError}`;
+            setBatchState("error");
+            setBatchError(message);
+            pushToast({
+              variant: "error",
+              title: failed.length === 1
+                ? `Ingest failed for GF${failed[0].flight.flightNumber}`
+                : `${failed.length} ingests failed`,
+              description: message,
+            });
+            return;
+          }
+
+          setBatchState("done");
+          clearSelection();
+          return;
+        }
+        if (job.status === "failed") {
+          const message = job.error ?? "Batch job failed";
+          setBatchState("error");
+          setBatchError(message);
+          pushToast({ variant: "error", title: "Batch ingest failed", description: message });
+          return;
+        }
+      }
+
+      setBatchState("error");
+      setBatchError("Batch job timed out");
+      pushToast({ variant: "error", title: "Batch ingest timed out", description: "The background job did not complete before the timeout." });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Batch ingestion failed";
+      setBatchState("error");
+      setBatchError(message);
+      pushToast({ variant: "error", title: "Batch ingest failed", description: message });
+    }
+  }, [applyBatchResults, clearSelection, pushToast]);
+
   /* ── per-row ingest handler ── */
   const handleRowIngest = useCallback(async (flight: OtpFlight) => {
     const seq = flight.flightSequenceNumber;
     setRowIngestState((prev) => ({ ...prev, [seq]: "loading" }));
+    setRowIngestError((prev) => ({ ...prev, [seq]: null }));
     try {
       await ingestFlight(buildIngestPayload(flight));
       setRowIngestState((prev) => ({ ...prev, [seq]: "done" }));
-    } catch {
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Ingestion failed";
       setRowIngestState((prev) => ({ ...prev, [seq]: "error" }));
+      setRowIngestError((prev) => ({ ...prev, [seq]: message }));
+      pushToast({
+        variant: "error",
+        title: `Ingest failed for GF${flight.flightNumber}`,
+        description: message,
+      });
     }
-  }, []);
+  }, [pushToast]);
 
   /* ── batch ingest handler ── */
   const selectedFlights = useMemo(() => {
@@ -202,80 +314,13 @@ export default function TodayPage() {
       return;
     }
     setShowCancelledWarning(false);
-
-    const payloads = selectedFlights.map(buildIngestPayload);
-    setBatchState("loading");
-    setBatchError(null);
-    try {
-      const accepted = await ingestBatch({ flights: payloads });
-      setBatchJobId(accepted.jobId);
-      setBatchProgress({ queued: accepted.flightsQueued, processed: 0 });
-      setBatchState("polling");
-
-      // Poll until done
-      const deadline = Date.now() + INGEST_TIMEOUT_MS;
-      while (Date.now() < deadline) {
-        await sleep(INGEST_POLL_MS);
-        const job = await fetchJobStatus(accepted.jobId);
-        setBatchProgress({ queued: job.flightsQueued, processed: job.flightsProcessed });
-
-        if (job.status === "completed") {
-          setBatchState("done");
-          clearSelection();
-          return;
-        }
-        if (job.status === "failed") {
-          setBatchState("error");
-          setBatchError(job.error ?? "Batch job failed");
-          return;
-        }
-      }
-      setBatchState("error");
-      setBatchError("Batch job timed out");
-    } catch (e) {
-      setBatchState("error");
-      setBatchError(e instanceof Error ? e.message : "Batch ingestion failed");
-    }
-  }, [selectedFlights, selectedCancelledCount, showCancelledWarning, clearSelection]);
+    await runBatchIngest(selectedFlights);
+  }, [runBatchIngest, selectedFlights, selectedCancelledCount, showCancelledWarning]);
 
   const confirmBatchWithCancelled = useCallback(() => {
     setShowCancelledWarning(false);
-    // Re-trigger, this time without the cancelled check
-    const payloads = selectedFlights.map(buildIngestPayload);
-    setBatchState("loading");
-    setBatchError(null);
-    (async () => {
-      try {
-        const accepted = await ingestBatch({ flights: payloads });
-        setBatchJobId(accepted.jobId);
-        setBatchProgress({ queued: accepted.flightsQueued, processed: 0 });
-        setBatchState("polling");
-
-        const deadline = Date.now() + INGEST_TIMEOUT_MS;
-        while (Date.now() < deadline) {
-          await sleep(INGEST_POLL_MS);
-          const job = await fetchJobStatus(accepted.jobId);
-          setBatchProgress({ queued: job.flightsQueued, processed: job.flightsProcessed });
-
-          if (job.status === "completed") {
-            setBatchState("done");
-            clearSelection();
-            return;
-          }
-          if (job.status === "failed") {
-            setBatchState("error");
-            setBatchError(job.error ?? "Batch job failed");
-            return;
-          }
-        }
-        setBatchState("error");
-        setBatchError("Batch job timed out");
-      } catch (e) {
-        setBatchState("error");
-        setBatchError(e instanceof Error ? e.message : "Batch ingestion failed");
-      }
-    })();
-  }, [selectedFlights, clearSelection]);
+    void runBatchIngest(selectedFlights);
+  }, [runBatchIngest, selectedFlights]);
 
   return (
     <div className="flex-1 flex flex-col min-h-screen relative">
@@ -445,6 +490,16 @@ export default function TodayPage() {
           </div>
         ) : (
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-4">
+            {batchError && (
+              <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+                <div className="flex items-center gap-2 font-medium">
+                  <AlertCircle className="h-4 w-4" />
+                  Ingestion error
+                </div>
+                <div className="mt-1 text-xs leading-5 break-words">{batchError}</div>
+              </div>
+            )}
+
             <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
               {/* Header */}
               <div className="hidden sm:grid grid-cols-[28px_36px_minmax(110px,1fr)_110px_90px_minmax(130px,1fr)_70px_70px_50px_60px_70px] gap-x-2 px-4 py-2 bg-muted/50 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -477,6 +532,7 @@ export default function TodayPage() {
                   isSelected={selected.has(flight.flightSequenceNumber)}
                   onToggleSelect={() => toggleSelect(flight.flightSequenceNumber)}
                   ingestState={rowIngestState[flight.flightSequenceNumber] ?? "idle"}
+                  ingestError={rowIngestError[flight.flightSequenceNumber] ?? null}
                   onIngest={() => handleRowIngest(flight)}
                 />
               ))}
@@ -600,6 +656,7 @@ function FlightRow({
   isSelected,
   onToggleSelect,
   ingestState,
+  ingestError,
   onIngest,
 }: {
   flight: OtpFlight;
@@ -607,6 +664,7 @@ function FlightRow({
   isSelected: boolean;
   onToggleSelect: () => void;
   ingestState: "idle" | "loading" | "done" | "error";
+  ingestError: string | null;
   onIngest: () => void;
 }) {
   const status = flight.flightStatus;
@@ -622,125 +680,133 @@ function FlightRow({
     : 0;
 
   return (
-    <div
-      className={cn(
-        "transition-colors hover:bg-accent/50",
-        "sm:grid sm:grid-cols-[28px_36px_minmax(110px,1fr)_110px_90px_minmax(130px,1fr)_70px_70px_50px_60px_70px] sm:gap-x-2 sm:items-center",
-        "px-4 py-2.5",
-        flight.isCancelled && "opacity-50",
-        isSelected && "bg-blue-500/5 dark:bg-blue-500/10"
-      )}
-    >
-      {/* Checkbox */}
-      <div className="hidden sm:flex items-center">
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggleSelect}
-          className="h-3.5 w-3.5 rounded border-muted-foreground/50 cursor-pointer accent-blue-600"
-          aria-label={`Select flight GF${flight.flightNumber}`}
-        />
-      </div>
-
-      {/* Row Number */}
-      <div className="hidden sm:block text-xs tabular-nums text-muted-foreground">
-        {index}
-      </div>
-
-      {/* Flight Number + Aircraft */}
-      <div className="flex items-center gap-2">
-        <div className={cn("h-2 w-2 rounded-full border-2 shrink-0", getPhaseBorder(status))} />
-        <span className="font-bold text-sm tracking-tight">
-          GF{flight.flightNumber}
-        </span>
-        {flight.aircraftType && (
-          <span className="text-[10px] text-muted-foreground font-mono">{flight.aircraftType}</span>
+    <div>
+      <div
+        className={cn(
+          "transition-colors hover:bg-accent/50",
+          "sm:grid sm:grid-cols-[28px_36px_minmax(110px,1fr)_110px_90px_minmax(130px,1fr)_70px_70px_50px_60px_70px] sm:gap-x-2 sm:items-center",
+          "px-4 py-2.5",
+          flight.isCancelled && "opacity-50",
+          isSelected && "bg-blue-500/5 dark:bg-blue-500/10"
         )}
-        {flight.aircraftRegistration && (
-          <span className="text-[10px] text-muted-foreground">{flight.aircraftRegistration}</span>
-        )}
-      </div>
+      >
+        {/* Checkbox */}
+        <div className="hidden sm:flex items-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelect}
+            className="h-3.5 w-3.5 rounded border-muted-foreground/50 cursor-pointer accent-blue-600"
+            aria-label={`Select flight GF${flight.flightNumber}`}
+          />
+        </div>
 
-      {/* Sequence Number */}
-      <div className="hidden sm:block text-[10px] tabular-nums text-muted-foreground font-mono">
-        {flight.flightSequenceNumber}
-      </div>
+        {/* Row Number */}
+        <div className="hidden sm:block text-xs tabular-nums text-muted-foreground">
+          {index}
+        </div>
 
-      {/* Status */}
-      <div className="mt-1 sm:mt-0">
-        <Badge
-          variant="outline"
-          className={cn("text-[10px] px-1.5 font-medium border-transparent", getStatusColor(status))}
-        >
-          {status}
-        </Badge>
-      </div>
-
-      {/* Route */}
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5 sm:mt-0">
-        <span className="font-medium text-foreground">{flight.origin}</span>
-        <ArrowRight className="h-3 w-3 shrink-0" />
-        <span className="font-medium text-foreground">{flight.destination || "—"}</span>
-      </div>
-
-      {/* STD */}
-      <div className="text-xs tabular-nums mt-0.5 sm:mt-0">
-        <span>{std}</span>
-        {delayed && (
-          <span className="ml-1 text-[10px] font-semibold text-rose-500">{"\u2192"} {etd}</span>
-        )}
-      </div>
-
-      {/* STA */}
-      <div className="text-xs tabular-nums text-muted-foreground mt-0.5 sm:mt-0">
-        {sta}
-      </div>
-
-      {/* Pax */}
-      <div className="text-xs tabular-nums text-right mt-0.5 sm:mt-0">
-        <span className="font-semibold">{pax}</span>
-      </div>
-
-      {/* Delay */}
-      <div className="text-xs tabular-nums text-right mt-0.5 sm:mt-0">
-        {totalDelayMin > 0 ? (
-          <span className="font-semibold px-1.5 py-0.5 rounded text-[10px] text-rose-600 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-400">
-            +{totalDelayMin}m
+        {/* Flight Number + Aircraft */}
+        <div className="flex items-center gap-2">
+          <div className={cn("h-2 w-2 rounded-full border-2 shrink-0", getPhaseBorder(status))} />
+          <span className="font-bold text-sm tracking-tight">
+            GF{flight.flightNumber}
           </span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
+          {flight.aircraftType && (
+            <span className="text-[10px] text-muted-foreground font-mono">{flight.aircraftType}</span>
+          )}
+          {flight.aircraftRegistration && (
+            <span className="text-[10px] text-muted-foreground">{flight.aircraftRegistration}</span>
+          )}
+        </div>
+
+        {/* Sequence Number */}
+        <div className="hidden sm:block text-[10px] tabular-nums text-muted-foreground font-mono">
+          {flight.flightSequenceNumber}
+        </div>
+
+        {/* Status */}
+        <div className="mt-1 sm:mt-0">
+          <Badge
+            variant="outline"
+            className={cn("text-[10px] px-1.5 font-medium border-transparent", getStatusColor(status))}
+          >
+            {status}
+          </Badge>
+        </div>
+
+        {/* Route */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5 sm:mt-0">
+          <span className="font-medium text-foreground">{flight.origin}</span>
+          <ArrowRight className="h-3 w-3 shrink-0" />
+          <span className="font-medium text-foreground">{flight.destination || "—"}</span>
+        </div>
+
+        {/* STD */}
+        <div className="text-xs tabular-nums mt-0.5 sm:mt-0">
+          <span>{std}</span>
+          {delayed && (
+            <span className="ml-1 text-[10px] font-semibold text-rose-500">{"\u2192"} {etd}</span>
+          )}
+        </div>
+
+        {/* STA */}
+        <div className="text-xs tabular-nums text-muted-foreground mt-0.5 sm:mt-0">
+          {sta}
+        </div>
+
+        {/* Pax */}
+        <div className="text-xs tabular-nums text-right mt-0.5 sm:mt-0">
+          <span className="font-semibold">{pax}</span>
+        </div>
+
+        {/* Delay */}
+        <div className="text-xs tabular-nums text-right mt-0.5 sm:mt-0">
+          {totalDelayMin > 0 ? (
+            <span className="font-semibold px-1.5 py-0.5 rounded text-[10px] text-rose-600 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-400">
+              +{totalDelayMin}m
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </div>
+
+        {/* Ingest Button */}
+        <div className="hidden sm:flex justify-center mt-0.5 sm:mt-0">
+          <button
+            onClick={onIngest}
+            disabled={ingestState === "loading"}
+            className={cn(
+              "flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
+              ingestState === "idle" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25",
+              ingestState === "loading" && "bg-blue-500/15 text-blue-600 dark:text-blue-400 cursor-wait",
+              ingestState === "done" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+              ingestState === "error" && "bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/25"
+            )}
+            aria-label={`Ingest flight GF${flight.flightNumber}`}
+          >
+            {ingestState === "loading" ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : ingestState === "done" ? (
+              <Check className="h-3 w-3" />
+            ) : ingestState === "error" ? (
+              <AlertCircle className="h-3 w-3" />
+            ) : (
+              <Download className="h-3 w-3" />
+            )}
+            {ingestState === "idle" && "Ingest"}
+            {ingestState === "loading" && "..."}
+            {ingestState === "done" && "Done"}
+            {ingestState === "error" && "Retry"}
+          </button>
+        </div>
       </div>
 
-      {/* Ingest Button */}
-      <div className="hidden sm:flex justify-center mt-0.5 sm:mt-0">
-        <button
-          onClick={onIngest}
-          disabled={ingestState === "loading"}
-          className={cn(
-            "flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
-            ingestState === "idle" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25",
-            ingestState === "loading" && "bg-blue-500/15 text-blue-600 dark:text-blue-400 cursor-wait",
-            ingestState === "done" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-            ingestState === "error" && "bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/25"
-          )}
-          aria-label={`Ingest flight GF${flight.flightNumber}`}
-        >
-          {ingestState === "loading" ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : ingestState === "done" ? (
-            <Check className="h-3 w-3" />
-          ) : ingestState === "error" ? (
-            <AlertCircle className="h-3 w-3" />
-          ) : (
-            <Download className="h-3 w-3" />
-          )}
-          {ingestState === "idle" && "Ingest"}
-          {ingestState === "loading" && "..."}
-          {ingestState === "done" && "Done"}
-          {ingestState === "error" && "Retry"}
-        </button>
-      </div>
+      {ingestError && (
+        <div className="px-4 pb-2 text-[11px] leading-5 text-red-700 dark:text-red-300 sm:pl-[13.25rem] break-words">
+          {ingestError}
+        </div>
+      )}
     </div>
   );
 }

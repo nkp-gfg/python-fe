@@ -24,9 +24,10 @@ async def stream_job_events(job_id: str):
     The client connects once and receives events as they happen:
       - progress: {processed, total, message}
       - completed: {flightsProcessed}
+            - partial: {flightsProcessed, failedFlights, error}
       - failed: {error}
 
-    The stream closes automatically when the job completes or fails.
+        The stream closes automatically when the job completes, partially completes, or fails.
     """
     return EventSourceResponse(
         _job_event_generator(job_id),
@@ -41,7 +42,7 @@ async def _job_event_generator(job_id: str):
     if job is None:
         yield {"event": "error", "data": json.dumps({"error": "Job not found"})}
         return
-    if job["status"] in ("completed", "failed"):
+    if job["status"] in ("completed", "partial", "failed"):
         yield {"event": job["status"], "data": json.dumps(job)}
         return
 
@@ -75,7 +76,7 @@ async def _job_event_generator(job_id: str):
                 yield {"event": event_type, "data": json.dumps(payload.get("data", {}))}
 
                 # Close stream on terminal states
-                if event_type in ("completed", "failed"):
+                if event_type in ("completed", "partial", "failed"):
                     return
             else:
                 timeout_count += 1
@@ -85,7 +86,7 @@ async def _job_event_generator(job_id: str):
 
                     # Check if job finished between messages
                     current = get_job(job_id)
-                    if current and current["status"] in ("completed", "failed"):
+                    if current and current["status"] in ("completed", "partial", "failed"):
                         yield {"event": current["status"], "data": json.dumps(current)}
                         return
     finally:

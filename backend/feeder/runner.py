@@ -26,7 +26,7 @@ Input JSON format:
 
 import re as _re
 from backend.feeder import storage
-from backend.feeder.converter import convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports, convert_schedule
+from backend.feeder.converter import _strip_ns, convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports, convert_schedule
 from backend.feeder.differ import detect_changes
 from backend.sabre.client import SabreClient, SabreError
 from backend.sabre import templates
@@ -54,6 +54,103 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(__name__)
+
+
+class IngestionPayloadRejectedError(Exception):
+    """Raised when a supplied ingestion payload conflicts with live Sabre data."""
+
+
+def _flatten_sabre_messages(value):
+    """Return a flat list of message strings from a Sabre Result.Message payload."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if isinstance(value, dict):
+        messages = []
+        for inner in value.values():
+            messages.extend(_flatten_sabre_messages(inner))
+        return messages
+    if isinstance(value, list):
+        messages = []
+        for item in value:
+            messages.extend(_flatten_sabre_messages(item))
+        return messages
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _get_sabre_business_error(raw_data):
+    """Extract a Sabre business error from a parsed SOAP body, if present."""
+    data = _strip_ns(raw_data or {})
+    result = data.get("Result")
+    if not isinstance(result, dict):
+        return None
+
+    status = str(result.get("Status", "")).strip()
+    if not status or status.lower() in {"complete", "completed", "success"}:
+        return None
+
+    system_results = result.get("SystemSpecificResults") or {}
+    error_message = system_results.get(
+        "ErrorMessage") if isinstance(system_results, dict) else None
+    messages = _flatten_sabre_messages(result.get("Message"))
+    messages.extend(_flatten_sabre_messages(error_message))
+    code = str(result.get("ErrorCode", "")).strip()
+    if not code and isinstance(error_message, dict):
+        code = str(error_message.get("@code", "")).strip()
+
+    return {
+        "status": status,
+        "code": code,
+        "messages": messages,
+    }
+
+
+def _validate_live_flight_payload(flight_info, flight_sequence_number, raw_data):
+    """Reject payloads where live Sabre says the submitted flight is invalid."""
+    if flight_sequence_number is None:
+        return
+
+    business_error = _get_sabre_business_error(raw_data)
+    if not business_error:
+        return
+
+    combined_message = " | ".join(business_error["messages"]).upper()
+    invalid_markers = (
+        "FLIGHT NOT INITIALIZED",
+        "INVALID DATE OR CITY",
+    )
+    if business_error["code"] != "2566" and not any(marker in combined_message for marker in invalid_markers):
+        return
+
+    airline = flight_info["airline"]
+    fn = flight_info["flightNumber"]
+    origin = flight_info["origin"]
+    dep_date = flight_info["departureDate"]
+    message = " | ".join(
+        business_error["messages"]) or "unknown Sabre business error"
+    raise IngestionPayloadRejectedError(
+        "Rejected ingestion payload: "
+        f"live Sabre rejected {airline}{fn} {origin} {dep_date} while the request supplied "
+        f"flightSequenceNumber={flight_sequence_number}. "
+        f"Sabre status={business_error['status']}, code={business_error['code'] or 'n/a'}, "
+        f"message={message}"
+    )
+
+
+def _mark_skipped_api_results(flight_result, error_message):
+    """Fill remaining API slots when a flight is rejected before persistence."""
+    flight_result["apis"]["flightStatus"] = {
+        "status": "error",
+        "error": error_message,
+    }
+    for api_name in ("passengerList", "reservations", "tripReports", "schedule"):
+        flight_result["apis"][api_name] = {
+            "status": "error",
+            "error": "Skipped because the ingestion payload was rejected during live validation.",
+        }
 
 
 # ── Passenger list merge helpers ──────────────────────────────────────────
@@ -288,6 +385,7 @@ def run_feeder(flights, progress_callback=None):
             try:
                 raw, xml, meta = client.get_flight_status(
                     airline, fn, origin, dep_date)
+                _validate_live_flight_payload(flight_info, flight_seq, raw)
                 details = _process_api_call(
                     "FlightStatus", "flight_status", flight_info,
                     raw, xml, meta,
@@ -299,6 +397,21 @@ def run_feeder(flights, progress_callback=None):
                     "status": "success",
                     **details,
                 }
+            except IngestionPayloadRejectedError as e:
+                logger.error("flight_payload_rejected",
+                             flight=f"{airline}{fn}", origin=origin,
+                             departure_date=dep_date, seq=flight_seq,
+                             error=str(e))
+                flight_result["success"] = False
+                _mark_skipped_api_results(flight_result, str(e))
+                results.append(flight_result)
+
+                if progress_callback is not None:
+                    try:
+                        progress_callback(i, f"{airline}{fn}")
+                    except Exception:
+                        pass
+                continue
             except SabreError as e:
                 logger.error("flight_status_failed",
                              flight=f"{airline}{fn}", error=str(e))

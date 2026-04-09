@@ -4,7 +4,7 @@ import logging
 
 from backend.celery_app import app
 from backend.api.redis_client import (
-    set_job_running, set_job_progress, set_job_completed, set_job_failed,
+    set_job_running, set_job_progress, set_ingestion_job_finished, set_job_failed,
     cache_invalidate_pattern,
 )
 
@@ -32,7 +32,7 @@ def run_batch_ingestion(self, job_id: str, payloads: list[dict]) -> dict:
         result = run_feeder(
             payloads, progress_callback=_make_progress_cb(job_id, total))
 
-        set_job_completed(
+        set_ingestion_job_finished(
             job_id, result["processedFlights"], result["results"])
 
         # Invalidate cached flight lists so dashboard picks up new data

@@ -106,6 +106,64 @@ def set_job_progress(job_id: str, processed: int, total: int, message: str = "")
     })
 
 
+def _extract_ingestion_error(result: dict[str, Any] | None) -> str | None:
+    if not result:
+        return None
+
+    apis = result.get("apis") or {}
+    for api_name in ("flightStatus", "passengerList", "reservations", "tripReports", "schedule"):
+        api_result = apis.get(api_name) or {}
+        error = api_result.get("error")
+        if error:
+            return str(error)
+
+    flight = result.get("flight") or {}
+    flight_number = flight.get("flightNumber")
+    origin = flight.get("origin")
+    departure_date = flight.get("departureDate")
+    if flight_number and origin and departure_date:
+        return f"Ingestion failed for GF{flight_number} {origin} {departure_date}."
+    return None
+
+
+def set_ingestion_job_finished(job_id: str, processed: int, results: list[dict[str, Any]]) -> None:
+    total = len(results)
+    failed_results = [
+        result for result in results if not result.get("success", False)]
+    failed_count = len(failed_results)
+    succeeded_count = total - failed_count
+
+    if total == 0:
+        status = "failed"
+        error = "Ingestion batch produced no results"
+    elif failed_count == 0:
+        status = "completed"
+        error = None
+    else:
+        first_error = _extract_ingestion_error(
+            failed_results[0]) or "Ingestion failed"
+        if succeeded_count == 0:
+            status = "failed"
+            error = first_error if failed_count == 1 else f"All {failed_count} flights failed. First error: {first_error}"
+        else:
+            status = "partial"
+            error = f"{failed_count} of {total} flights failed. First error: {first_error}"
+
+    update_job(
+        job_id,
+        status=status,
+        flightsProcessed=processed,
+        results=results,
+        completedAt=_utc_now(),
+        error=error,
+    )
+    publish_event(job_id, status, {
+        "flightsProcessed": processed,
+        "failedFlights": failed_count,
+        "error": error,
+    })
+
+
 def set_job_completed(job_id: str, processed: int, results: Any) -> None:
     update_job(
         job_id,

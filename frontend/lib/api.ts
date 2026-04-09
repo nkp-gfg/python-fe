@@ -22,6 +22,10 @@ const REQUEST_TIMEOUT_MS = 30_000;
 const INGEST_POLL_INTERVAL_MS = 3_000;
 const INGEST_JOB_TIMEOUT_MS = 10 * 60_000;
 
+function isTerminalIngestJobStatus(status: SabreJobStatus["status"]): boolean {
+  return status === "completed" || status === "partial" || status === "failed";
+}
+
 function withTimeout(ms: number): AbortSignal {
   return AbortSignal.timeout(ms);
 }
@@ -75,6 +79,20 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export function getIngestFailureMessage(result: SabreFlightIngestResult): string {
+  const orderedApis = [
+    result.apis.flightStatus,
+    result.apis.passengerList,
+    result.apis.reservations,
+  ];
+  const apiError = orderedApis.find((apiResult) => apiResult?.error)?.error;
+  if (apiError) {
+    return apiError;
+  }
+  const flight = result.flight;
+  return `Ingestion failed for GF${flight.flightNumber} ${flight.origin} ${flight.departureDate}.`;
+}
+
 export function fetchFlights(date?: string): Promise<FlightListItem[]> {
   const qs = date ? `?date=${date}` : "";
   return get<FlightListItem[]>(`/flights${qs}`);
@@ -119,10 +137,13 @@ export async function ingestFlight(payload: SabreIngestRequest): Promise<SabreIn
   while (Date.now() < deadline) {
     const job = await fetchJobStatus(accepted.jobId);
 
-    if (job.status === "completed") {
+    if (job.status === "completed" || job.status === "partial") {
       const result = job.results?.[0];
       if (!result) {
         throw new Error("Ingestion completed without a flight result");
+      }
+      if (!result.success) {
+        throw new Error(getIngestFailureMessage(result));
       }
       return {
         message: "Sabre ingestion completed",
@@ -132,6 +153,10 @@ export async function ingestFlight(payload: SabreIngestRequest): Promise<SabreIn
     }
 
     if (job.status === "failed") {
+      throw new Error(job.error ?? "Ingestion job failed");
+    }
+
+    if (isTerminalIngestJobStatus(job.status)) {
       throw new Error(job.error ?? "Ingestion job failed");
     }
 

@@ -16,7 +16,7 @@ import {
   ServerCog,
 } from "lucide-react";
 
-import { ingestFlight, ingestBatch, fetchJobStatus } from "@/lib/api";
+import { fetchJobStatus, getIngestFailureMessage, ingestBatch, ingestFlight } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +60,7 @@ export function IngestionPanel() {
   const [batchQueue, setBatchQueue] = useState<SabreIngestRequest[]>([]);
   const [singleResult, setSingleResult] = useState<SabreFlightIngestResult | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [batchFailureSummary, setBatchFailureSummary] = useState<string | null>(null);
 
   const singleMutation = useMutation({
     mutationKey: ["ingest"],
@@ -82,6 +83,7 @@ export function IngestionPanel() {
     mutationFn: ingestBatch,
     onSuccess: (data) => {
       setActiveJobId(data.jobId);
+      setBatchFailureSummary(null);
       pushToast({
         variant: "info",
         title: "Batch submitted",
@@ -99,10 +101,22 @@ export function IngestionPanel() {
     enabled: Boolean(activeJobId),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      if (status === "completed" || status === "failed") return false;
+      if (status === "completed" || status === "partial" || status === "failed") return false;
       return 3000;
     },
   });
+
+  const failedBatchResults = jobStatus?.results?.filter((result) => !result.success) ?? [];
+
+  const completedBatchError = failedBatchResults.length > 0
+    ? failedBatchResults.length === 1
+      ? getIngestFailureMessage(failedBatchResults[0])
+      : `${failedBatchResults.length} flights failed. First error: ${getIngestFailureMessage(failedBatchResults[0])}`
+    : null;
+
+  const visibleBatchError = jobStatus?.status === "failed" || jobStatus?.status === "partial"
+    ? (jobStatus.error ?? batchFailureSummary)
+    : completedBatchError;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -178,6 +192,7 @@ export function IngestionPanel() {
 
   const handleRunBatch = () => {
     if (batchQueue.length === 0) return;
+    setBatchFailureSummary(null);
     batchMutation.mutate({ flights: batchQueue });
   };
 
@@ -369,6 +384,12 @@ export function IngestionPanel() {
             </div>
           )}
 
+          {visibleBatchError && (
+            <div className="mt-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive break-words">
+              {visibleBatchError}
+            </div>
+          )}
+
           {activeJobId && jobStatus && (
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between gap-2 text-sm">
@@ -377,8 +398,10 @@ export function IngestionPanel() {
                   <span className={cn(
                     "capitalize font-medium",
                     jobStatus.status === "completed" ? "text-emerald-500" :
-                    jobStatus.status === "failed" ? "text-destructive" : "text-blue-500"
-                  )}>{jobStatus.status}</span>
+                    jobStatus.status === "partial" || jobStatus.status === "failed" ? "text-destructive" : "text-blue-500"
+                  )}>
+                    {jobStatus.status}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -398,20 +421,14 @@ export function IngestionPanel() {
                 <div 
                   className={cn(
                     "h-full transition-all duration-300",
-                    jobStatus.status === "failed" ? "bg-destructive" :
+                    (jobStatus.status === "partial" || jobStatus.status === "failed") ? "bg-destructive" :
                     jobStatus.status === "completed" ? "bg-emerald-500" : "bg-blue-500"
                   )}
                   style={{ width: `${Math.max(5, (jobStatus.flightsProcessed / Math.max(1, jobStatus.flightsQueued)) * 100)}%` }}
                 />
               </div>
 
-              {jobStatus.error && (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                  {jobStatus.error}
-                </div>
-              )}
-
-              {jobStatus.status === "completed" && jobStatus.results && (
+              {(jobStatus.status === "completed" || jobStatus.status === "partial") && jobStatus.results && (
                 <div className="space-y-3 mt-6">
                   <h3 className="text-xs font-semibold uppercase text-muted-foreground">Results</h3>
                   {jobStatus.results.map((res, i) => (
