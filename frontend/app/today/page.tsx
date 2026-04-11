@@ -78,19 +78,41 @@ const INGEST_TIMEOUT_MS = 10 * 60_000;
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 function buildIngestPayload(f: OtpFlight): SabreIngestRequest {
+  // Use backend-computed sabreDepartureDate which resolves overnight/rollover
+  // date issues. Falls back: scheduledDepartureLocal → localFlightDate
+  // → legDepartureDate → flightDate (last resort).
+  const departureDate = f.sabreDepartureDate
+    ?? f.scheduledDepartureLocal?.split("T")[0]
+    ?? f.localFlightDate?.split("T")[0]
+    ?? f.flightDate;
+
+  if (departureDate !== f.flightDate) {
+    console.warn(
+      `[buildIngestPayload] Date rollover detected for ${f.carrierCode ?? "GF"}${f.flightNumber} ${f.origin}: ` +
+      `flightDate=${f.flightDate}, sabreDepartureDate=${departureDate}`
+    );
+  }
+
   return {
-    airline: "GF",
+    airline: f.carrierCode ?? "GF",
     flightNumber: f.flightNumber,
     origin: f.origin,
-    departureDate: f.flightDate,
-    departureDateTime: f.scheduledDepartureUtc ?? `${f.flightDate}T00:00:00`,
+    departureDate,
+    departureDateTime: f.scheduledDepartureUtc ?? `${departureDate}T00:00:00`,
     flightSequenceNumber: f.flightSequenceNumber,
+    serviceTypeCode: f.serviceTypeCode ?? undefined,
   };
 }
 
 function buildFlightKey(flightNumber: string, origin: string, departureDate: string): string {
   return `${flightNumber}:${origin}:${departureDate}`;
 }
+
+const SERVICE_TYPE_LABELS: Record<string, string> = {
+  J: "Scheduled",
+  P: "Positioning",
+  C: "Charter",
+};
 
 /* ─────────── TODAY'S FLIGHTS PAGE ─────────── */
 
@@ -243,7 +265,7 @@ export default function TodayPage() {
             pushToast({
               variant: "error",
               title: failed.length === 1
-                ? `Ingest failed for GF${failed[0].flight.flightNumber}`
+                ? `Ingest failed for ${failed[0].flight.airline || "GF"}${failed[0].flight.flightNumber}`
                 : `${failed.length} ingests failed`,
               description: message,
             });
@@ -288,7 +310,7 @@ export default function TodayPage() {
       setRowIngestError((prev) => ({ ...prev, [seq]: message }));
       pushToast({
         variant: "error",
-        title: `Ingest failed for GF${flight.flightNumber}`,
+        title: `Ingest failed for ${flight.carrierCode ?? "GF"}${flight.flightNumber}`,
         description: message,
       });
     }
@@ -697,7 +719,7 @@ function FlightRow({
             checked={isSelected}
             onChange={onToggleSelect}
             className="h-3.5 w-3.5 rounded border-muted-foreground/50 cursor-pointer accent-blue-600"
-            aria-label={`Select flight GF${flight.flightNumber}`}
+            aria-label={`Select flight ${flight.carrierCode ?? "GF"}${flight.flightNumber}`}
           />
         </div>
 
@@ -710,13 +732,18 @@ function FlightRow({
         <div className="flex items-center gap-2">
           <div className={cn("h-2 w-2 rounded-full border-2 shrink-0", getPhaseBorder(status))} />
           <span className="font-bold text-sm tracking-tight">
-            GF{flight.flightNumber}
+            {flight.carrierCode ?? "GF"}{flight.flightNumber}
           </span>
           {flight.aircraftType && (
             <span className="text-[10px] text-muted-foreground font-mono">{flight.aircraftType}</span>
           )}
           {flight.aircraftRegistration && (
             <span className="text-[10px] text-muted-foreground">{flight.aircraftRegistration}</span>
+          )}
+          {flight.serviceTypeCode && flight.serviceTypeCode !== "J" && (
+            <span className="text-[9px] px-1 py-0.5 rounded font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400" title={`Service type: ${SERVICE_TYPE_LABELS[flight.serviceTypeCode] ?? flight.serviceTypeCode}`}>
+              {SERVICE_TYPE_LABELS[flight.serviceTypeCode] ?? flight.serviceTypeCode}
+            </span>
           )}
         </div>
 
@@ -748,11 +775,21 @@ function FlightRow({
           {delayed && (
             <span className="ml-1 text-[10px] font-semibold text-rose-500">{"\u2192"} {etd}</span>
           )}
+          {flight.actualBlockOffUtc && (
+            <div className="text-[9px] text-emerald-600 dark:text-emerald-400">
+              ATD {fmtTime(flight.actualBlockOffUtc)}
+            </div>
+          )}
         </div>
 
         {/* STA */}
         <div className="text-xs tabular-nums text-muted-foreground mt-0.5 sm:mt-0">
           {sta}
+          {flight.actualBlockOnUtc && (
+            <div className="text-[9px] text-emerald-600 dark:text-emerald-400">
+              ATA {fmtTime(flight.actualBlockOnUtc)}
+            </div>
+          )}
         </div>
 
         {/* Pax */}
@@ -783,7 +820,7 @@ function FlightRow({
               ingestState === "done" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
               ingestState === "error" && "bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/25"
             )}
-            aria-label={`Ingest flight GF${flight.flightNumber}`}
+            aria-label={`Ingest flight ${flight.carrierCode ?? "GF"}${flight.flightNumber}`}
           >
             {ingestState === "loading" ? (
               <Loader2 className="h-3 w-3 animate-spin" />

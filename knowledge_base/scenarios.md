@@ -1,377 +1,564 @@
-# Airline Operations Scenarios
+# FalconEye Operational Scenarios & Edge Cases
 
-Real-world patterns observed in Gulf Air Sabre data and provided by domain expertise.
+This document catalogs operational scenarios and edge cases handled by the FalconEye system, based on actual code implementation.
 
----
+## 1. Passenger Classification & Special Cases
 
-## 1. Group Bookings
+### 1.1 Group Bookings
 
-**Pattern**: A single PNR with many passengers (10-200+), all passenger type "P" (prepaid).
+**Trigger:** Passengers share a `GroupCode` in Sabre passenger list.
 
-**Observations from GF2274**:
+**System Handling:**
+- Extracted in `backend/feeder/converter.py`
+- Creates a `groupBookings` summary array with:
+  - `groupCode`: unique identifier
+  - `totalMembers`, `namedMembers`, `unnamedMembers`: count breakdown
+  - `checkedIn`, `boarded`: progress tracking per group
+  - `cabin`, `bookingClass`: cabin assignment
 
-- 148 passengers in first snapshot, 192 in final (44 added later)
-- Very few unique PNRs (3 in our data) — massive group bookings
-- All passengers had type "P" (prepaid/group)
-- Cabin was Y (Economy) for groups
+**Unnamed Group Members:**
+- Detected when `GroupCode` exists AND `LastName == "PAX"` AND no `FirstName`
+- Indicates group members whose names haven't been assigned yet (placeholder from Sabre)
+- Tracked separately from named members for visibility into incomplete group manifests
+- `nameAssociationId` attribute preserved for later resolution
 
-**Behavior**:
-
-- Group names are initially placeholder-style (e.g., generic name patterns)
-- Individual names get assigned as passengers are confirmed
-- Seat assignments done in bulk, close to departure
-- Check-in often done together (entire group transitions at once)
-
----
-
-## 2. PDC Sync (Post-Departure Close)
-
-**What**: After a flight departs, Sabre marks it PDC. The API still returns data, but it's the final frozen state.
-
-**Observations**:
-
-- GF2056 (DMM, 2026-03-16): PDC — 196 passengers, all boarded
-- GF2057 (BOM, 2026-03-18): PDC — 19 passengers, all boarded
-- GF2130 (DMM, 2026-03-18): No status (estimated), 284 passengers
-- GF2754 (DMM, 2026-03-18): No status (estimated), 146 passengers
-
-**Key Insight**: PDC flights are historical. Their data won't change. But we still store them because:
-
-1. We need the final state for analytics
-2. Comparing how data evolved from OPENCI → FINAL → PDC tells the complete story
+**Known Limitations:**
+- If names are assigned after initial ingestion, no historical tracking of the name change
+- Group re-assignments (moving passengers between group codes) not tracked as a discrete change
 
 ---
 
-## 3. No-Shows
+### 1.2 Infant & Child Passengers
 
-**Pattern**: A passenger is booked (appears in reservation) and possibly checked-in, but never boards.
+**Trigger:** Edit codes `INF` (infant) or `CHD` (child) present in passenger record.
 
-**Detection**:
+**System Handling:**
+- Stored as `hasInfant`, `isChild` boolean flags
+- Counted separately: `infantCount`, `childCount`, `adultCount` in manifest
+- `totalSouls` calculation: `totalPassengers + infantCount` (infants not counted in pax count)
+- Both flags extracted from `EditCodeList → EditCode` array in Sabre response
 
-- In PassengerList: `ns3:Indicators` will show `CheckedIn="true"` but `Boarded="false"`
-- In the final (PDC) snapshot, if still not boarded → confirmed no-show
-- Revenue no-shows have financial implications (ticket revenue collected, no service delivered)
-- NonRevenue no-shows (staff/employee) have standy implications
+**Relationship:**
+- Infant parent: usually an adult passenger marked with `INF` edit code
+- Child: passenger with `CHD` edit code (seated pax)
+- Infants listed as separate passengers in GetPassengerListRS with parent PNR link
 
-**Our Data**:
-
-- GF2006 (2026-03-18): 48 passengers in manifest, check how many boarded vs checked-in only
-- This requires comparing `Boarded` indicator across snapshots
-
----
-
-## 4. Cabin Upgrades
-
-**Pattern**: A passenger originally booked in Y (Economy) moves to J (Business/Gulf).
-
-**Observations from Step 3 Analysis**:
-
-- **GF2006 (LHR, 2026-03-18)**: 4 passengers had `CABIN_CHANGE` from Y to J
-- Same 4 passengers also had `CLASS_CHANGE` (booking class reclassified)
-- Upgrades happen close to departure when premium seats are unsold
-
-**Types of Upgrades**:
-
-1. **Complimentary Upgrade**: Airline initiates (loyalty status, oversold economy)
-2. **Paid Upgrade**: Passenger purchases (would show in edit codes)
-3. **Operational Upgrade**: Overselling/weight balance requires moving passengers up
-
-**Tracking**: The `CABIN_CHANGE` + `CLASS_CHANGE` pair is the signature of an upgrade.
+**Edge Case — No PNR for Infants:**
+- Infants may not have a distinct PNR if traveling with parent
+- Fallback key for deduplication uses `lineNumber` instead
+- Prevents duplicates when same infant appears in multiple API calls
 
 ---
 
-## 5. Staff & Employee Travel
+### 1.3 Staff Travel & Non-Revenue Passengers
 
-**Passenger Types**:
+**Trigger:** `IsRevenue` indicator in passenger data, or `PassengerType == "E"`.
 
-- `E` = Employee (airline staff)
-- `S` = Staff (non-revenue, standby basis)
-- `F` = Fare-paying passenger (regular)
-- `P` = Prepaid/Group
+**System Handling:**
+- Stored as `isRevenue` boolean flag (presence of "Revenue" in Indicators list)
+- Non-revenue passengers flagged separately for capacity/manifest reporting
+- In flight analysis: staff = employee type (`PassengerType == "E"`) OR non-revenue
+- Jump seat occupancy tracked separately: `jumpSeat.cockpit`, `jumpSeat.cabin` counts
 
-**Observations**:
+**Data Structures:**
+- `passengerCounts` per cabin: includes `revenue` and `nonRevenue` subtotals
+- Gender/cabin breakdown analysis splits staff from regular passengers
 
-- Staff passengers (`S`, `E`) appear in passenger list but are `NonRevenue`
-- They may not have confirmed seats until close to departure
-- They can be offloaded if fare-paying passengers need seats
-- The `PASSENGER_REMOVED` changes we detected (3 cases) could be staff offloads
-
-**Detection of Standby Resolution**:
-
-- Staff appears in one snapshot with no seat
-- Next snapshot: either assigned a seat (confirmed) or removed (denied boarding)
+**Known Limitation:**
+- Staff travel on standby positions not consistently identified across all APIs
+- Employee discount passengers may appear as revenue in some Sabre contexts
 
 ---
 
-## 6. Nationality & Document Data
+## 2. Passenger State Transitions & No-Shows
 
-**What we see in Edit Codes**:
+### 2.1 Multi-Call Passenger List Merge
 
-- Edit codes like `CTCE`, `CTCM` → Contact info (email, mobile)
-- `DOCS` → Travel documents (passport)
-- `DOCO` → Visa/entry permits
-- `DOCA` → Destination/residence address
-- These contain nationality, passport number, visa details
+**Trigger:** Ingestion pipeline requires comprehensive manifest covering all passenger states.
 
-**Data Warehouse Value**:
+**Four Sequential API Calls** (runner.py):
+1. **Booked (RV, XRV):** Passengers with Booked status (reserved but not checked in)
+2. **CheckedIn (BP, BT):** Checked-in and boarded passengers
+3. **NoShowOFL (NS, OFL):** No-show and offloaded passengers
+4. **AllEdit (AE):** Catch-all for any edit codes not in above categories
 
-- Nationality distribution per route
-- Document compliance rates
-- Contact info completeness (important for IROP — irregular operations communication)
+**Merge Logic:**
+- First successful call becomes base
+- Subsequent calls append new passengers via de-duplication key: `PNRLocator | LastName | PassengerID`
+- No passengers duplicated across multiple responses
+- If all four calls fail: entire passenger list ingestion marked as error
 
----
+**Partial Failure Handling:**
+- If Call 1 succeeds, Call 2 fails, Call 3 succeeds: merge includes calls 1+3
+- Each call status logged separately in `passengerList.calls` array
+- Failures logged at WARNING level; pipeline continues unless merged_raw is None
 
-## 7. Meal & Special Service Requests
-
-**Edit Codes Observed**:
-
-- `MOML` — Muslim meal
-- `BBML` — Baby meal
-- `CHML` — Child meal
-- `HNML` — Hindu meal (non-vegetarian)
-- `VGML` — Vegetarian meal
-- `VLML` — Vegetarian lacto-ovo
-- `KSML`, `ORML`, `SFML`, `AVML`, `GFML`, `DBML` — Other dietary types
-
-**Operational Relevance**:
-
-- Meal counts must match catering orders
-- Changes in meal requests between snapshots = catering update needed
-- Missing meal codes for passengers who should have them = potential service failure
+**Known Limitation:**
+- Deduplication happens in memory; no database lookup
+- If passenger appears in two calls with conflicting data (e.g., different cabins), first occurrence wins
 
 ---
 
-## 8. Baggage Tracking
+### 2.2 No-Show & Offload Detection
 
-**Observations**:
+**Trigger:** Trip report APIs (MLX/MLC) called after passenger list.
 
-- `BagCount` field in passenger list tracks checked bags
-- Changes detected: 102 `BAG_COUNT_CHANGE` events
-- Most common: 0→1 or 0→2 (bags checked at counter)
+**Trip Report Types:**
+- **MLX (cancelled passengers):** Passengers booked but removed before flight
+- **MLC (ever-booked passengers):** All passengers ever on any version of the flight
 
-**Patterns**:
-
-- Bags go from 0 to N at check-in
-- Sometimes bags increase (additional bags at counter)
-- Rarely bags decrease (bag pulled for security or weight)
-
----
-
-## 9. Seat Changes
-
-**Observations**:
-
-- 157 `SEAT_CHANGE` events detected
-- Common patterns:
-  - Empty → assigned (check-in assigns seat)
-  - Original → moved (passenger requests change, or auto-reseating)
-  - Seat swap between passengers (detected as two changes)
-
-**Significance**:
-
-- Pre-assigned seat → changed at check-in: passenger preference
-- Seat change close to departure: operational (balance, upgrade, group seating)
-- Empty seat suddenly filled: late check-in or standby cleared
-
----
-
-## 10. Flight Timeline
-
-Typical flight lifecycle as seen from our data:
-
-```
-T-24h to T-1h:  OPENCI     Check-in open, passengers checking in
-                            Snapshot shows mix of checked-in and not-checked-in
-                            Bags being added, seats being assigned
-
-T-1h to T-0:    OPENCI     Gate opens, boarding begins
-                            Boarded indicators start appearing
-                            Last-minute upgrades, standby clearances
-
-T-0:            FINAL      All passengers processed
-                            Final boarding count known
-                            No-shows identified (checked-in but not boarded)
-
-T+0 to T+?:    PDC        Post-departure close
-                            Data frozen, no further changes
-                            Historical record for analytics
+**Storage & Merge** (converter.py):
+```python
+"cancelledPassengers": mlx_doc.get("passengers", []) if mlx_doc else [],
+"cancelledCount": mlx_doc.get("totalPassengers", 0) if mlx_doc else 0,
+"everBookedPassengers": mlc_doc.get("passengers", []) if mlc_doc else [],
+"everBookedCount": mlc_doc.get("totalPassengers", 0) if mlc_doc else 0,
 ```
 
-**Our 9 flight timeline**:
+**Edge Case — Partial Trip Report Failure:**
+- MLX fails, MLC succeeds: document stored with `cancelledCount=0`, `everBookedCount=n`
+- Both fail: `trip_reports` collection not updated
 
-- Future/Active flights: GF2006 (03-19, OPENCI), GF2057 (03-19, PDC), GF2274 (03-19, PDC)
-- Recent flights: GF2006 (03-18, OPENCI), GF2057 (03-18, PDC), GF2130 (03-18), GF2754 (03-18)
-- Past flights: GF2056 (03-16, PDC), GF2153 (03-17, PDC)
-
----
-
-## 11. Infant Counting Discrepancy (Lap Infants)
-
-**The Problem**: External dashboards (e.g., airline DCS/ops dashboards) report a different passenger total than Sabre's GetPassengerListRS API.
-
-**Root Cause**: Lap infants do NOT appear as separate passenger records in Sabre. They are associated with a parent's record via the `INF` edit code. External systems count `totalSouls` (all humans on aircraft), while Sabre counts only seated passengers.
-
-**Real-World Example — GF2274 DMM→HYD 2026-03-19**:
-
-| Source             | Total   | Economy | Business | Adults | Children | Infants         |
-| ------------------ | ------- | ------- | -------- | ------ | -------- | --------------- |
-| External Dashboard | **198** | **186** | 12       | 184    | 8        | 6               |
-| Sabre API          | **192** | **180** | 12       | 184    | 8        | 0 (not counted) |
-| Delta              | **+6**  | **+6**  | 0        | 0      | 0        | **+6**          |
-
-**Explanation**:
-
-- Sabre returns 192 individual passenger records (184 adults + 8 children)
-- 6 of those adults have the `INF` edit code → they are traveling with lap infants
-- External dashboard counts: 184 + 8 + 6 = 198 totalSouls
-- The 6 infants sit on parents' laps (no seat, no ticket, no individual record in Sabre)
-
-**How to detect infants in Sabre data**:
-
-- Look for `INF` in the `EditCodeList > EditCode[]` of a passenger
-- Count of `INF` edit codes = number of lap infants on the flight
-- Parent passenger record has the INF code, NOT the infant
-
-**How to detect children in Sabre data**:
-
-- Look for `CHD` in the `EditCodeList > EditCode[]`
-- Children HAVE their own seat and ARE counted in Sabre's passenger total
-- Children do NOT have M/F (male/female) gender edit codes
-
-**Our solution**:
-
-- `totalPassengers` = seated passenger records from Sabre (adults + children)
-- `infantCount` = count of passengers with INF edit code
-- `childCount` = count of passengers with CHD edit code
-- `adultCount` = totalPassengers - childCount
-- `totalSouls` = totalPassengers + infantCount (matches external dashboards)
+**Known Limitation:**
+- Trip reports reflect state at API call time; earlier cancellations not retroactively marked
+- No passenger-level tracking of *when* cancellation occurred
 
 ---
 
-## 12. Aircraft Type Code Mismatch
+### 2.3 Check-In & Boarding State Tracking
 
-**The Problem**: Different systems use different coding schemes for the same aircraft.
+**Trigger:** GetPassengerListRS includes `CheckIn_Info` and `Boarding_Info` per passenger.
 
-**Real-World Example — GF2274**:
+**Data Extraction** (converter.py):
+```python
+"isCheckedIn": str(checkin_info.get("CheckInStatus", "false")).lower() == "true",
+"isBoarded": str(boarding_info.get("BoardStatus", "false")).lower() == "true",
+"checkInSequence": _safe_int(checkin_info.get("CheckInNumber")),
+"checkInDate": checkin_info.get("CheckInDate", ""),
+"checkInTime": checkin_info.get("CheckInTime", ""),
+```
 
-| System                 | Aircraft Code   | Meaning                                   |
-| ---------------------- | --------------- | ----------------------------------------- |
-| Sabre FlightStatus API | `321`           | IATA aircraft type code                   |
-| External Dashboard     | `31D`           | IATA code with seat configuration variant |
-| Manufacturer           | Airbus A321-200 | Full designation                          |
-
-**Confirmation**: Registration number `A9CXA` matched exactly across both systems, confirming it's the same physical aircraft.
-
-**Naming conventions**:
-
-- **IATA equipment type**: 3-character code (e.g., `321` = Airbus A321, `789` = Boeing 787-9)
-- **Variant codes**: Add a suffix for seat configuration (e.g., `32A`, `32B`, `31D` are different A320-family configurations)
-- **ICAO code**: 4-character (e.g., `A321` = Airbus A321)
-- **Sabre config number**: Found in `AircraftConfigNumber` field alongside the type
-
-**Practical impact**: For matching/reconciliation, always use aircraft registration number as the unique identifier, never the type code alone.
+**Change Detection** (differ.py):
+- Transitions from `false → true` generate `CHECKED_IN` or `BOARDED` change records
+- Never detects reversal (checked-in → not checked-in); Sabre doesn't permit this state
+- Check-in sequence number preserved for seat assignment ordering
 
 ---
 
-## 13. Edit Code as Passenger DNA
+## 3. Seat Assignments & Upgrades
 
-**What**: The `EditCodeList > EditCode[]` array on each passenger is the richest data source for classification, far more informative than the `PassengerType` field.
+### 3.1 Seat Assignment Handling
 
-**Observed edit codes and their meaning (from GF2274 sample of 148 pax)**:
+**Trigger:** `Seat` field in passenger record.
 
-| Code | Count | Category   | Meaning                                                   |
-| ---- | ----- | ---------- | --------------------------------------------------------- |
-| APP  | 148   | Status     | Approved for travel (all checked-in passengers have this) |
-| DOCS | 148   | Document   | Passport/travel document on file                          |
-| TKT  | 148   | Ticket     | Ticket number associated                                  |
-| DOCV | 147   | Document   | Visa document verified (1 missing = potential alert)      |
-| F    | 80    | Gender     | Female passenger                                          |
-| M    | 62    | Gender     | Male passenger                                            |
-| LC   | 12    | Connection | Long-haul connection / business class marker              |
-| CHD  | 6     | Passenger  | Child passenger (partial check-in; 8 at final count)      |
-| INF  | 2     | Passenger  | Parent with lap infant (partial; 6 at final count)        |
-| DCVI | 2     | Document   | Document verification incomplete (alert!)                 |
+**Data Structures:**
+- In **Passenger List**: `seat` string (e.g., "12A", empty if unassigned)
+- In **Reservations**: pre-reserved seats via `PreReservedSeats` array
+  - `seatNumber`, `seatStatusCode`, `seatTypeCode`
+  - `seatBoardPoint`, `seatOffPoint`: routing info
 
-**Key classification logic**:
+**Change Tracking** (differ.py):
+- Detected when `seat` changes between snapshots
+- Generates `SEAT_CHANGE` record with old/new values
+- No distinction between initial assignment vs. reassignment
 
-- Has `M` or `F` → Adult (gender coded)
-- Has `CHD` → Child (no gender code)
-- Has `INF` → Parent traveling with infant (associated infant not in passenger list)
-- Has `DCVI` → **Alert**: Document verification incomplete, potential boarding issue
-- Missing `DOCV` when others have it → **Alert**: Visa not verified
-- Has `LC` → Connecting passenger, likely business class
-
-**Critical rule**: `M + F (80 + 62 = 142)` + `CHD (6)` = `148 total passengers`. The gender codes only apply to adults. This provides a cross-check for adult/child classification.
+**Edge Cases:**
+- Unassigned seats: `seat` field is empty string or null
+- Seat type codes: premium economy, bulkhead, exit row stored separately
 
 ---
 
-## 14. VCR Data Absence
+### 3.2 Cabin Changes & Upgrades
 
-**Expectation**: The `VCR_Info > VCR_Data` element should contain passenger voucher/coupon data with a `@type` attribute (adult/child/infant).
+**Trigger:** `Cabin` field changes between snapshots (e.g., "Y" → "J").
 
-**Reality**: Sabre's GetPassengerListRS does NOT return `VCR_Info` or `VCR_Data` in any of our observed responses. This entire XML node is absent from the response body.
+**Upgrade Type Classification** (differ.py):
+```python
+if upgrade_code == "LMU":                       return "LMU"           # Last Minute Upgrade
+elif upgrade_code in ("PU", "PAU", "PUP"):      return "PAID"          # Paid upgrade
+elif upgrade_code in ("CU", "CMP", "COMP"):     return "COMPLIMENTARY"
+elif upgrade_code in ("OP", "OPS", "OPER"):     return "OPERATIONAL"
+elif priority_code == "UPG" and upgrade_code:    return "LMU"           # Gate upgrade
+```
 
-**Impact**: Cannot rely on VCR type for passenger classification. Use edit codes (CHD, INF, M, F) instead (see Scenario 13).
+**Change Metadata** (differ.py):
+```python
+"CABIN_CHANGE": {
+    "direction": "UPGRADE" if (Y→J/F or J→F) else "DOWNGRADE",
+    "upgradeCode": a.get("upgradeCode"),
+    "upgradeType": _classify_upgrade_type(a),
+}
+```
 
-**Our handling**: The `vcrType` field in our converter returns empty string ("") for all passengers. This is correct behavior, not a bug.
+**Booking Class vs. Cabin:**
+- `bookingClass`: reserved fare basis (E, Y, J, F, etc.)
+- `cabin`: actual cabin assignment (Y, J, F)
+- Change in one or both triggers separate change records:
+  - `CLASS_CHANGE`: booking class changed
+  - `CABIN_CHANGE`: cabin changed (upgrade/downgrade)
 
----
+**Upgrade Confirmation** (differ.py):
+- Detects when `desiredBookingClass` is cleared AND `bookingClass` now matches original desire
+- Generates `UPGRADE_CONFIRMED` record
 
-## 15. Cross-System Data Reconciliation
-
-**Context**: When comparing data from different sources (Sabre API vs DCS dashboard vs boarding gate system), discrepancies are expected and tell a story.
-
-**Reconciliation checklist for passenger counts**:
-
-| Check             | Formula                                 | Expected                                  |
-| ----------------- | --------------------------------------- | ----------------------------------------- |
-| Sabre seated pax  | adults + children                       | = totalPassengers                         |
-| External total    | totalPassengers + infants               | = totalSouls                              |
-| Adult cross-check | male(M) + female(F)                     | = adultCount (when all have gender codes) |
-| Cabin split       | economy + business                      | = totalPassengers                         |
-| Boarding check    | boarded + checkedIn-only + notCheckedIn | = totalPassengers                         |
-
-**Reconciliation checklist for aircraft**:
-| Check | Compare | Notes |
-|-------|---------|-------|
-| Aircraft identity | Registration number | **Most reliable** — unique per physical aircraft |
-| Aircraft type | IATA code | Sabre uses base code (321), others may use variant (31D) |
-| Seat config | ConfigNumber | Sabre returns this, verify matches expected layout |
-
-**Red flags during reconciliation**:
-
-- Total pax differs by exactly N where N = infant count → Infant counting difference (expected, see Scenario 11)
-- Total pax differs by a number NOT equal to infant count → Genuine data discrepancy
-- Aircraft type differs but registration matches → Code system difference (expected, see Scenario 12)
-- Aircraft type AND registration differ → Wrong flight data or aircraft swap occurred
+**Edge Case:**
+- Booking class → cabin mismatch: passenger booked in Y but seated in J with no upgrade code
+- Repeated upgrades: Y→J→Y→J tracked as multiple changes
 
 ---
 
-## 16. Passenger State Matrix at PDC
+## 4. Passenger Data Enrichment & Travel Documents
 
-**What the final PDC snapshot reveals** (observed on GF2274):
+### 4.1 APIS Data (Gender, DOB, Nationality)
 
-| State                  | Count | Meaning                       |
-| ---------------------- | ----- | ----------------------------- |
-| Boarded                | 192   | All seated passengers boarded |
-| CheckedIn + NotBoarded | 0     | No-shows (in this case none)  |
-| NotCheckedIn           | 0     | Everyone checked in           |
-| Jump Seat Cockpit      | 0     | No one in cockpit jump seat   |
-| Jump Seat Cabin        | 0     | No one in cabin jump seat     |
+**Trigger:** Reservations API response contains `APISRequest` with `DOCSEntry`.
 
-**Typical PDC patterns across observed flights**:
+**Data Extraction** (converter.py):
+```python
+"gender": gender,                  # M/F/U from DOCSEntry
+"dateOfBirth": date_of_birth,     # DDMMMYY format
+"nationality": nationality,       # DocumentNationalityCountry
+"docaAddress": doca_address,      # Destination address (APIS requirement)
+```
 
-| Flight           | Total | Boarded | No-Shows | Notes                                 |
-| ---------------- | ----- | ------- | -------- | ------------------------------------- |
-| GF2274 DMM 03-19 | 192   | 192     | 0        | Full boarding, 6 infants not in count |
-| GF2056 DMM 03-16 | 196   | 196     | 0        | Full boarding                         |
-| GF2057 BOM 03-18 | 19    | 19      | 0        | Small flight, full boarding           |
-| GF2057 BOM 03-19 | 20    | 20      | 0        | Small flight, full boarding           |
+**Enrichment Pipeline** (passengers.py):
+- Build lookup from latest reservations snapshot: `(PNR, lastName) → {nationality, specialMeal, wheelchairCode, ffTier, ffStatus}`
+- Merge into passenger list at query time
+- Falls back to empty strings if reservation data missing
 
-**Insight**: All observed PDC flights had 100% boarding rates (no-shows = 0). This is likely because:
+**Known Limitation:**
+- Gender/DOB only available from reservations; passenger list doesn't include APIS data
+- Updates to APIS data not tracked as discrete changes (only current state preserved)
 
-1. These are post-departure snapshots — anyone who didn't board was already removed
-2. Gulf Air may clean up no-shows before PDC, removing them from the passenger list
-3. Or these specific flights genuinely had zero no-shows
+---
 
-**To properly track no-shows**: Compare the OPENCI/FINAL snapshot (where checked-in-but-not-boarded passengers exist) against the PDC snapshot.
+### 4.2 SSR (Special Service Requests)
+
+**Trigger:** Reservations `SpecialServices → SpecialService` array.
+
+**Data Extraction** (converter.py):
+```python
+"ssr_requests": [
+    {
+        "code": ssr.get("Code", ssr.get("@code", "")),
+        "text": ssr.get("Text", ssr.get("FreeText", "")),
+        "status": ssr.get("ActionCode", ssr.get("Status", "")),
+        "airline": ssr.get("AirlineCode", ""),
+        "type": ssr.get("@type", ""),
+    }
+]
+```
+
+**Common SSR Codes:**
+- Meals: VGML (vegetarian), LFML (low-fat), CHML (child meal)
+- Mobility: WCHR (wheelchair), WCHC (wheelchair + companion req'd)
+- Medical: DEAF, BLND
+- Baggage: SFOXT (surfboard), PETC (pet in cabin)
+
+**Edge Case — SSR Conflicts:**
+- Multiple meal requests for same passenger: all stored as list
+- Conflicting statuses (one WCHR confirmed, another cancelled): both preserved
+
+---
+
+### 4.3 Frequent Flyer & Loyalty Tier Mapping
+
+**Trigger:** Reservations `FrequentFlyer` array in passenger section.
+
+**Data Extraction** (converter.py):
+```python
+"frequentFlyerNumber": frequent_flyer,
+"frequentFlyerAirline": ff_airline,     # Carrier code (GF, BA, etc.)
+"ffTierLevel": ff_tier_level,           # Numeric tier
+"ffTierName": ff_tier_name,             # E.g., "GOLD"
+"ffStatus": ff_status,                  # Status code
+```
+
+**Dashboard Analysis** (flights.py):
+```python
+"loyaltyCounts": {"FF": 0, "BLU": 0, "SLV": 0, "GLD": 0, "BLK": 0}
+```
+
+**Known Limitation:**
+- Only first frequent flyer record extracted per passenger (if multiple loyalty programs)
+- Tier name not standardized across airlines
+
+---
+
+### 4.4 Baggage Routing & Baggage Count
+
+**Passenger List Baggage Routing** (converter.py):
+```python
+"baggageRoutes": [
+    {
+        "airline": br.get("Airline", ""),
+        "flight": br.get("Flight", ""),
+        "origin": br.get("Origin", ""),
+        "destination": br.get("Destination", ""),
+        "segmentStatus": br.get("SegmentStatus", ""),
+    }
+]
+```
+
+**Bag Count** (converter.py):
+- Simple integer count, not detailed contents
+- Change tracking for bag count variances (differ.py)
+
+**Known Limitation:**
+- Baggage routing doesn't show actual handling (e.g., if bag transferred to connecting flight)
+- Baggage allowance (FREE vs. PAID) not captured
+
+---
+
+## 5. Edit Codes & Operational Flags
+
+**Trigger:** `EditCodeList → EditCode` array in GetPassengerListRS.
+
+**Common Edit Codes** (converter.py):
+- `CHD`: Child passenger
+- `INF`: Parent carrying infant
+- `NS`: No-show
+- `OFL`: Offloaded (removed after checkin)
+- Airline-specific codes vary
+
+**Storage:**
+- Full array stored as-is: `editCodes: ["CHD", "INF", ...]`
+- No attempt to normalize or classify
+- Used upstream for passenger type logic
+
+**DCS Integration Edge Case:**
+- Edit codes may not sync immediately if passenger added/removed in DCS between manifest calls
+
+---
+
+## 6. Flight Status Changes & Gate/Terminal Updates
+
+### 6.1 Flight Status Monitoring
+
+**Trigger:** ACS_FlightDetailRQ response.
+
+**Tracked Fields** (flights.py):
+- `status`: gate status (ON TIME, BOARDING, DEPARTED, etc.)
+- `gate`: departure gate (may be unassigned, 0, or "TBD")
+- `terminal`: departure terminal
+- `boarding.time`: boarding start time
+
+**Change Detection** (differ.py):
+```
+if before.get("status") != after.get("status"): → STATUS_CHANGE
+if before.get("gate") != after.get("gate"): → GATE_CHANGE
+if before.get("terminal") != after.get("terminal"): → TERMINAL_CHANGE
+```
+
+---
+
+### 6.2 Flight Schedule & Aircraft Assignment
+
+**Trigger:** VerifyFlightDetailsRQ response.
+
+**Data Extraction** (converter.py):
+```python
+"origin": origin_loc.get("@LocationCode", ""),
+"originTerminal": origin_loc.get("@Terminal", ""),
+"destination": dest_loc.get("@LocationCode", ""),
+"aircraftType": equip.get("AircraftCode", ""),
+"departureDateTime": dep_dt,
+"arrivalDateTime": arr_dt,
+```
+
+**Edge Case — Aircraft Changes:**
+- If aircraft type changes post-scheduling, new schedule call reflects it
+- Previous snapshots retain old aircraft; no change tracking across schedule docs
+
+---
+
+## 7. API & Data Collection Edge Cases
+
+### 7.1 Rate Limiting & Retry Logic
+
+**Enforced by SabreClient** (sabre/client.py):
+```python
+API_CALL_DELAY = float(os.environ.get("SABRE_API_DELAY_SECONDS", "0.5"))
+
+def _rate_limit(self):
+    now = time.monotonic()
+    elapsed = now - self._last_call_time
+    if elapsed < self.API_CALL_DELAY:
+        time.sleep(self.API_CALL_DELAY - elapsed)
+    self._last_call_time = time.monotonic()
+```
+
+**Connection Retries:**
+- 3 attempts max on `ConnectionError` or `Timeout`
+- Exponential backoff: wait 2s, 4s, 8s... max 15s
+- Non-transient errors (HTTP 400, 403) not retried
+
+**Request Timeouts:**
+- Most API calls: 30 seconds
+- Trip_SearchRQ (Reservations): 60 seconds
+
+---
+
+### 7.2 Session Management
+
+**Life Cycle** (sabre/client.py):
+```python
+def __enter__(self):
+    self.create_session()    # Authenticate, get BinarySecurityToken
+    return self
+
+def __exit__(self, exc_type, exc_val, exc_tb):
+    self.close_session()     # Clean close (safe if no session)
+    return False
+```
+
+**Token Reuse:**
+- Single session per feeder run
+- All 5 API calls use same token
+- On failure: token stale; session closes and new one created on next run
+
+**Known Limitation:**
+- Long-running feeder (>2 hours) may hit session timeouts
+- No automatic session refresh mid-run
+
+---
+
+### 7.3 Flight Validation & Payload Rejection
+
+**Trigger:** Sabre business error during FlightStatus call.
+
+**Rejection Markers** (runner.py):
+```python
+invalid_markers = (
+    "FLIGHT NOT INITIALIZED",
+    "INVALID DATE OR CITY",
+)
+```
+
+**Consequences of Rejection:**
+- Entire flight skipped
+- All remaining API calls marked as "skipped" status
+- Error message stored in response
+
+**Known Scenario:**
+- User supplies `departureDate=2026-03-19` but flight departs 2026-03-20 02:30
+- Sabre rejects with "Invalid date or city"
+- Entire ingestion for that flight aborted
+
+---
+
+## 8. Data Preservation & Audit Trail
+
+### 8.1 Four-Layer Storage
+
+| Layer | Collection | Content | Purpose |
+|-------|-----------|---------|---------|
+| 1 | `sabre_requests` | Raw XML request + response | Complete Sabre preservation |
+| 2 | `snapshots` | Normalized JSON + checksum | Temporal ordering, dedup |
+| 3 | `changes` | Diffs between snapshots | Change audit trail |
+| 4 | `flight_status`/`passenger_list`/`reservations` | Latest document | Query-optimized current state |
+
+**Known Risk:**
+- If Layer 2 insert fails, Layer 3 changes are not computed
+- Checksum collision (unlikely with MD5) would falsely mark real changes as duplicates
+
+---
+
+### 8.2 Snapshot Versioning & Restore
+
+**Snapshot Comparison** (changes.py):
+```python
+@router.get("/{flight_number}/snapshots/compare")
+def compare_snapshot_against_latest(flight_number, snapshot_sequence):
+    # Compare historical snapshot vs. latest snapshot
+    # Return deltas: selected.value, latest.value, diff (if numeric)
+```
+
+**Restore Operation:**
+- Restore a historical snapshot to current state by re-inserting into legacy collections
+- Updates `fetchedAt` timestamp to current time
+- No recomputation of changes; just copies snapshot data
+
+**Known Limitation:**
+- Restore does NOT revert to raw data
+- Restore does NOT update changes collection
+- Multiple restores can create duplicate documents
+
+---
+
+## 9. Change Categorization & Timeline Events
+
+**Change Event Categories** (changes.py):
+```python
+"PASSENGER_ADDED": "booking",
+"CHECKED_IN": "checkin",
+"BOARDED": "boarding",
+"CABIN_CHANGE": "upgrade",
+"SEAT_CHANGE": "seat",
+"BAG_COUNT_CHANGE": "baggage",
+"PRIORITY_CHANGE": "standby",
+"STATUS_CHANGE": "flight",
+"GATE_CHANGE": "flight",
+"TERMINAL_CHANGE": "flight",
+```
+
+**Per-Passenger Timeline:**
+```python
+@router.get("/{flight_number}/passenger-timeline")
+def get_passenger_timeline(flight_number, pnr, ...):
+    # Return all changes affecting this PNR
+    # Track original booking, current state, events in sequence
+```
+
+**Event Descriptions:**
+- Human-readable summaries: "Upgraded (LMU) Y → J"
+- Cabin direction indicator: UPGRADE vs. DOWNGRADE
+- Upgrade type classification included in description
+
+---
+
+## 10. Known Limitations & Constraints
+
+### Sabre API Constraints
+1. **No write-back:** FalconEye is read-only; cannot modify reservations
+2. **Latency:** Sabre responses may lag live operations by 5–30 seconds
+3. **Session timeout:** Tokens expire after ~2 hours of inactivity
+4. **Throttling:** Rate limit 0.5s per call is self-imposed (Sabre allows ~5–10 req/s)
+
+### Data Completeness
+1. **Interim data:** If passenger removed between API calls, removal not captured as change
+2. **State reversals:** System does NOT track check-in → not checked-in (Sabre doesn't permit)
+3. **Cascading changes:** Downgrade → seat reassignment appears as two separate changes, not linked
+4. **Infant parents:** If parent carries multiple infants, link between them not stored
+
+### Temporal Issues
+1. **Clock skew:** If Sabre server time drifts, timestamps may appear out-of-order
+2. **No backfill:** Historical API calls cannot be re-requested; only forward-looking calls work
+3. **Duplicate detection:** Only checks current snapshot; doesn't look back across time
+
+### Frontend Limitations
+1. **Infinite snapshots:** No pagination on snapshot history (potential performance risk for long-running flights)
+2. **Real-time:** No WebSocket support; updates require polling
+3. **Conflict resolution:** If user restores old snapshot and new data arrives, last write wins
+
+---
+
+## 11. Summary: Key Scenarios at a Glance
+
+| Scenario | Trigger | Data Source | Tracking Method | Known Issues |
+|----------|---------|-------------|-----------------|--------------|
+| Group Booking | GroupCode present | PassengerList API | Named/unnamed breakdown | No historical name assignments |
+| Infants | INF edit code | PassengerList API | infant count + parent link | May lack distinct PNR |
+| No-Show | MLX trip report | Trip_ReportsRQ | cancelledPassengers list | No timestamp of cancellation |
+| Upgrade (LMU) | Cabin Y→J, UPG priority | PassengerList API | CABIN_CHANGE + upgradeType | Multiple upgrades not linked |
+| Paid Upgrade | Upgrade code PU/PAU | PassengerList API | CABIN_CHANGE metadata | No cost tracking |
+| Staff Travel | Non-revenue flag | PassengerList API | isRevenue=false | Standby staff ambiguous |
+| Standby Clearance | priorityCode cleared | Passenger diffs | PRIORITY_CHANGE + metadata | No queue position tracking |
+| Seat Reassignment | seat field changed | PassengerList API | SEAT_CHANGE record | No swap relationships |
+| APIS Docs | APISRequest DOCSEntry | Reservations API | gender, nationality, DOB | Not tracked as changes |
+| Special Meals | MealType in SSR | Reservations API | specialMeal field | No per-segment tracking |
+| Frequent Flyer | FrequentFlyer array | Reservations API | ffTierLevel, ffStatus | Only first tier stored |
+| Gate Change | Gate field changed | Flight Status diffs | GATE_CHANGE record | No gate assignment reason |
+| Aircraft Change | AircraftType changed | Schedule verify | New schedule_doc | Previous docs not invalidated |
+| Partial Merge Fail | Some pax list calls fail | PassengerList merge | Calls logged, manifest merged | Missing passengers possible |
+| Flight Validation Fail | "FLIGHT NOT INITIALIZED" | FlightStatus validation | IngestionPayloadRejectedError | Entire flight skipped |

@@ -258,6 +258,7 @@ export interface FlightDashboard {
   groupBookingSummary: GroupBookingSummary | null;
   specialRequestsSummary: SpecialRequestsSummary | null;
   codeshareInfo: string[];
+  freeTextRemarks: string[];
   departureGate: string;
   insights: FlightInsights | null;
   flightSequenceNumber?: number;
@@ -273,12 +274,15 @@ export interface OtpDelayDetail {
 
 export interface OtpFlight {
   flightSequenceNumber: number;
+  carrierCode: string;
   flightNumber: string;
   origin: string;
   destination: string;
   actualOrigin?: string | null;
   actualDestination?: string | null;
   flightDate: string;
+  localFlightDate?: string | null;
+  legDepartureDate?: string | null;
   scheduledDepartureUtc?: string | null;
   estimatedBlockOffUtc?: string | null;
   scheduledArrivalUtc?: string | null;
@@ -289,6 +293,8 @@ export interface OtpFlight {
   actualTouchdownUtc?: string | null;
   scheduledDepartureLocal?: string | null;
   scheduledArrivalLocal?: string | null;
+  publishedDepartureLocal?: string | null;
+  publishedArrivalLocal?: string | null;
   flightStatus: string;
   isCancelled: boolean;
   aircraftType?: string | null;
@@ -298,6 +304,7 @@ export interface OtpFlight {
   totalPax?: number | null;
   delayDetails?: OtpDelayDetail[] | null;
   source?: string | null;
+  sabreDepartureDate?: string | null;
 }
 
 // --- Data Audit (Cross-DB Comparison) ---
@@ -363,6 +370,7 @@ export interface SabreIngestRequest {
   departureDate: string;
   departureDateTime: string;
   flightSequenceNumber?: number;
+  serviceTypeCode?: string;
 }
 
 export interface SabreApiResult {
@@ -818,6 +826,7 @@ export interface FlightStatusRecord {
   jumpSeat: JumpSeat;
   remarks?: RemarkEntry[];
   codeshareInfo?: string[];
+  freeTextRemarks?: string[];
 }
 
 // --- Reservation Types ---
@@ -1428,4 +1437,92 @@ export interface AuditResponse {
   summary: Record<AuditSeverity, number>;
   totalAlerts: number;
   passengerAlerts: Record<string, string[]>;
+}
+
+// ─── Phase Journey types ──────────────────────────────────────────
+
+export interface PhaseStateBucket {
+  totalPassengers: number;
+  totalSouls: number;
+  economy: number;
+  business: number;
+  economySouls: number;
+  businessSouls: number;
+  adults: number;
+  children: number;
+  infants: number;
+  economyDetail: { adults: number; children: number; infants: number; staff: number };
+  businessDetail: { adults: number; children: number; infants: number; staff: number };
+}
+
+export interface PhaseSummary {
+  totalPassengers: number;
+  adultCount: number;
+  childCount: number;
+  infantCount: number;
+  totalSouls: number;
+  booked: PhaseStateBucket;
+  checkedIn: PhaseStateBucket;
+  boarded: PhaseStateBucket;
+  economy: {
+    total: number;
+    passengers: { total: number; male: number; female: number; children: number; infants: number };
+    staff: { total: number; male: number; female: number; children: number; infants: number };
+  };
+  business: {
+    total: number;
+    passengers: { total: number; male: number; female: number; children: number; infants: number };
+    staff: { total: number; male: number; female: number; children: number; infants: number };
+  };
+  cabinTotals: {
+    economy: { passengers: number; souls: number };
+    business: { passengers: number; souls: number };
+  };
+  totalMale: number;
+  totalFemale: number;
+  totalChildren: number;
+  totalInfants: number;
+  revenue: number;
+  nonRevenue: number;
+  loyaltyCounts: Record<string, number>;
+  nationalityCounts: Record<string, number>;
+}
+
+export interface PhaseSnapshot {
+  phase: string;
+  label: string;
+  sequenceNumber: number;
+  capturedAt: string;
+  summary: PhaseSummary;
+  passengerSummary: {
+    totalPassengers: number;
+    adultCount: number;
+    childCount: number;
+    infantCount: number;
+    totalSouls: number;
+  };
+}
+
+export interface TransitionFlow {
+  fromState: string;
+  toState: string;
+  count: number;
+}
+
+export interface PhaseTransition {
+  fromPhase: string;
+  toPhase: string;
+  fromLabel: string;
+  toLabel: string;
+  flows: TransitionFlow[];
+  addedCount: number;
+  removedCount: number;
+}
+
+export interface PhaseJourneyResponse {
+  flightNumber: string;
+  origin: string;
+  date: string;
+  phases: PhaseSnapshot[];
+  transitions: PhaseTransition[];
 }

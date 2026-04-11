@@ -83,6 +83,7 @@ import {
   ReadinessInsightsTab,
 } from "@/components/dashboard/flight-insight-tabs";
 import { AuditPanel } from "@/components/dashboard/audit-panel";
+import { PhaseJourney } from "@/components/dashboard/phase-journey";
 
 type FlightSelection = {
   flightNumber: string;
@@ -117,7 +118,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [detailPnr, setDetailPnr] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [bottomView, setBottomView] = useState<DetailView | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit" | "journey">("overview");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [snapshotSequence, setSnapshotSequence] = useState<number | null>(null);
   const [selectedGroupCode, setSelectedGroupCode] = useState<string | null>(null);
@@ -1092,6 +1093,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
             { key: "standby", icon: Timer, label: "Standby" },
             { key: "changes", icon: Activity, label: "Changes" },
             { key: "history", icon: History, label: "History" },
+            { key: "journey", icon: ArrowRightLeft, label: "Journey" },
             { key: "reservations", icon: BookOpen, label: "Reservations" },
             { key: "activity", icon: Clock, label: "Activity" },
             { key: "audit", icon: ShieldAlert, label: "Audit" },
@@ -1861,6 +1863,29 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         </Card>
                       )}
 
+                      {/* Free Text Remarks (from Sabre FreeTextInfoList) */}
+                      {dashboard.freeTextRemarks && dashboard.freeTextRemarks.length > 0 && (
+                        <Card className="shadow-sm">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Info className="h-3.5 w-3.5 text-sky-500" />
+                              <h3 className="text-xs font-semibold">Remarks</h3>
+                              <Badge variant="secondary" className="text-[9px] h-4 px-1.5 ml-auto">
+                                {dashboard.freeTextRemarks.length}
+                              </Badge>
+                            </div>
+                            <div className="space-y-1">
+                              {dashboard.freeTextRemarks.map((remark, idx) => (
+                                <div key={idx} className="flex items-start gap-2 text-xs font-mono bg-muted/50 rounded px-2 py-1">
+                                  <span className="text-muted-foreground shrink-0 w-4 text-right">{idx + 1}.</span>
+                                  <span className="break-all">{remark}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
                       {/* Bottom Detail Panel */}
                       {bottomView && effectiveSelected && (
                         <BottomDetailPanel
@@ -2212,6 +2237,19 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                             setDetailOpen(true);
                           }}
                         />
+                      </ErrorBoundary>
+                    )}
+
+                    {/* Journey Tab */}
+                    {activeTab === "journey" && (
+                      <ErrorBoundary compact label="Journey">
+                        <div className="mt-1">
+                          <PhaseJourney
+                            flightNumber={effectiveSelected.flightNumber}
+                            origin={effectiveSelected.origin}
+                            date={effectiveSelected.date}
+                          />
+                        </div>
                       </ErrorBoundary>
                     )}
                   </div>

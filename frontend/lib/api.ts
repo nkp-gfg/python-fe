@@ -15,6 +15,7 @@ import type {
   OtpFlight,
   ComparisonResult,
   PassengerComparisonResult,
+  PhaseJourneyResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -90,7 +91,7 @@ export function getIngestFailureMessage(result: SabreFlightIngestResult): string
     return apiError;
   }
   const flight = result.flight;
-  return `Ingestion failed for GF${flight.flightNumber} ${flight.origin} ${flight.departureDate}.`;
+  return `Ingestion failed for ${flight.airline ?? "GF"}${flight.flightNumber} ${flight.origin} ${flight.departureDate}.`;
 }
 
 export function fetchFlights(date?: string): Promise<FlightListItem[]> {
@@ -464,4 +465,16 @@ export function fetchDataAuditPassengers(
   if (seq) params.set("seq", String(seq));
   const qs = params.toString() ? `?${params}` : "";
   return get<PassengerComparisonResult>(`/data-audit/${flightNumber}/passengers${qs}`);
+}
+
+export function fetchPhaseJourney(
+  flightNumber: string,
+  origin?: string,
+  date?: string,
+): Promise<PhaseJourneyResponse> {
+  const params = new URLSearchParams();
+  if (origin) params.set("origin", origin);
+  if (date) params.set("date", date);
+  const qs = params.toString() ? `?${params}` : "";
+  return get<PhaseJourneyResponse>(`/flights/${flightNumber}/phase-journey${qs}`);
 }

@@ -1,65 +1,73 @@
-# Flight Status Lifecycle
+# Flight Statuses
 
-## Observed Statuses
+## Sabre Status Values
 
-| Status   | Meaning                 | When                                                 |
-| -------- | ----------------------- | ---------------------------------------------------- |
-| `OPENCI` | Open Check-In           | Check-in counters are open; passengers can check in  |
-| `FINAL`  | Final                   | Boarding is complete; doors closed or about to close |
-| `PDC`    | Post-Departure Checkout | Flight has departed; final reconciliation phase      |
+| Status | Meaning | Description |
+|--------|---------|-------------|
+| `OPENCI` | Open Check-In | Flight is open for check-in. Active passenger processing. |
+| `FINAL` | Finalized | Boarding complete, manifest locked. No further check-ins. |
+| `PDC` | Post-Departure Close | Flight has departed. Final passenger counts frozen. |
 
-## Lifecycle Flow
+## Lifecycle
 
 ```
 OPENCI → FINAL → PDC
 ```
 
-### OPENCI (Open Check-In)
+Each transition is detected as a `STATUS_CHANGE` in the differ and stored in the `changes` collection.
 
-- Check-in counters are open
-- Passengers are checking in (isCheckedIn transitions false→true)
-- Seats are being assigned
-- Boarding passes are being issued
-- Bag counts are updating
-- Passenger counts (Booked/Local) are still changing
-- Gate and terminal are assigned
-- New passengers can still be added (late bookings)
-- Passengers can be removed (cancellations)
+## Flight Phases (Derived)
 
-### FINAL (Final Boarding)
+The backend derives a more granular phase from Sabre status + passenger data in `_derive_flight_phase()` (flights.py):
 
-- Boarding is complete
-- TotalOnBoard = actual boarded count
-- TotalBoardingPassIssued = final count
-- Passenger list reflects final state
-- No-shows can be identified (CheckedIn=true but Boarded=false, or not on list at all)
+| Phase | Code | Derivation |
+|-------|------|-----------|
+| `SCHEDULED` | `SCHEDULED` | Before check-in opens |
+| `CHECK_IN` | `CHECK_IN` | OPENCI status, passengers checking in |
+| `BOARDING` | `BOARDING` | OPENCI status, passengers boarding |
+| `CLOSED` | `CLOSED` | FINAL status |
+| `DEPARTED` | `DEPARTED` | PDC status |
 
-### PDC (Post-Departure Checkout)
+Each phase includes: `label`, `focusCard`, `alertColor`, `alertIcon`, `description`.
 
-- Flight has departed
-- Final reconciliation of all passenger data
-- OnBoard counts are finalized
-- This is the "ground truth" for who actually flew
-- Offloaded passengers can be detected (were checked in but not in final PDC list)
-- Late additions (staff, standbys) are finalized
+## Tracked Field Changes
 
-## Key Observations from Live Data
+Beyond the status itself, the differ tracks these flight-level fields:
 
-1. **GF2006 LHR 2026-03-18**: Sample was PDC, but live data shows OPENCI for next day
-   - The API returns data for the _current_ flight on that route, not historical
-   - Gate changed 408→B41, Terminal changed 4→2 (different day = different gate assignment)
+| Field | Change Type |
+|-------|------------|
+| `status` | `STATUS_CHANGE` |
+| `gate` | `GATE_CHANGE` |
+| `terminal` | `TERMINAL_CHANGE` |
+| `boardingTime` | `BOARDING_TIME_CHANGE` |
+| `jumpSeat.cockpit`, `jumpSeat.cabin` | `JUMPSEAT_CHANGE` |
+| Per-class booked/onBoard/boardingPasses | `COUNT_CHANGE` |
 
-2. **GF2057 BOM 2026-03-19**: FINAL → PDC transition observed
-   - Booked count dropped 56→55 (offloaded passenger?)
-   - OnBoard stayed at 56 (all boarded passengers remained)
+## Phase Journey
 
-3. **GF2274 DMM 2026-03-19**: FINAL → PDC
-   - Full flight: 180/180 Y class, 12/12 J class
-   - No changes in counts between FINAL and PDC
+The frontend tracks phase progression over time via `GET /flights/{fn}/phase-journey`, showing:
+- Phase snapshots at each capture point
+- Passenger state buckets per phase (booked, checkedIn, boarded, new, removed)
+- Transitions between phases with flow counts
+- Demographic and cabin breakdowns per phase
 
-## Important Notes
+Visualized as Sankey diagrams, stacked bars, demographic bars, and cabin bars in the Phase Journey tab.
 
-- **Flight Status API returns TODAY's data** — it does not return historical flights
-- **Multiple calls same day will show progression**: OPENCI → FINAL → PDC
-- **Passenger counts change at each stage** — must snapshot and compare
-- **Gate/Terminal may change** even during OPENCI (operational reassignment)
+## OTP Integration
+
+PostgreSQL `otp.flight_xml_current` table provides external flight data:
+
+| Field | Description |
+|-------|-------------|
+| `flightSequenceNumber` | Used for Sabre API calls |
+| `scheduled_departure_utc/local` | Official schedule |
+| `estimated_departure_utc/local` | Updated estimate |
+| `actual_departure_utc/local` | Actual times |
+| `flightStatus` | OTP system status |
+| `isCancelled` | Cancellation flag |
+| `aircraftType`, `aircraftRegistration` | Aircraft info |
+| `totalPax` | Passenger count from OTP |
+| `delayDetails` | Parsed delay codes/reasons |
+| `sabreDepartureDate` | Resolved via priority chain (scheduled → local → leg → flight date) |
+
+Endpoint: `GET /otp/flights?date=YYYY-MM-DD`

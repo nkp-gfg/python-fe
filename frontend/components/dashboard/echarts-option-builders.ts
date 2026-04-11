@@ -671,3 +671,307 @@ export function buildVerticalBarOption({
     ],
   }
 }
+
+// ─── Phase Journey chart builders ──────────────────────────────────
+
+type SankeyNode = {
+  name: string
+  itemStyle?: { color: string }
+}
+
+type SankeyLink = {
+  source: string
+  target: string
+  value: number
+  lineStyle?: { color: string; opacity: number }
+}
+
+const SANKEY_STATE_COLORS: Record<string, string> = {
+  booked: "#f59e0b",
+  checkedIn: "#38bdf8",
+  boarded: "#34d399",
+  new: "#a78bfa",
+  removed: "#fb7185",
+}
+
+export function buildPhaseTransitionSankeyOption({
+  nodes,
+  links,
+}: {
+  nodes: SankeyNode[]
+  links: SankeyLink[]
+}): EChartsOption {
+  return {
+    animationDuration: 600,
+    tooltip: {
+      trigger: "item",
+      backgroundColor: "rgba(15, 23, 42, 0.95)",
+      borderColor: "rgba(148, 163, 184, 0.18)",
+      textStyle: { color: ECHARTS_TEXT_COLOR },
+      formatter: (params) => {
+        const item = Array.isArray(params) ? params[0] : params
+        if (item?.dataType === "edge") {
+          const d = item.data as { source?: string; target?: string; value?: number }
+          return `${d.source ?? ""} → ${d.target ?? ""}<br/>${(d.value ?? 0).toLocaleString()} passengers`
+        }
+        const d = item?.data as { name?: string; value?: number }
+        return `${d?.name ?? ""}`
+      },
+    },
+    series: [
+      {
+        type: "sankey",
+        layout: "none",
+        left: 20,
+        right: 160,
+        top: 20,
+        bottom: 20,
+        nodeWidth: 18,
+        nodeGap: 10,
+        draggable: true,
+        emphasis: {
+          focus: "adjacency",
+        },
+        label: {
+          show: true,
+          color: ECHARTS_TEXT_COLOR,
+          fontSize: 10,
+          fontWeight: 600,
+          overflow: "truncate",
+          ellipsis: "…",
+          width: 140,
+        },
+        lineStyle: {
+          color: "gradient",
+          opacity: 0.4,
+          curveness: 0.5,
+        },
+        itemStyle: {
+          borderWidth: 0,
+        },
+        data: nodes,
+        links: links,
+      },
+    ],
+  }
+}
+
+type PhaseStackedDatum = {
+  phase: string
+  booked: number
+  checkedIn: number
+  boarded: number
+}
+
+export function buildPhaseStackedBarOption({
+  data,
+}: {
+  data: PhaseStackedDatum[]
+}): EChartsOption {
+  const stateColors = ["#f59e0b", "#38bdf8", "#34d399"]
+  const stateNames = ["Booked", "Checked-In", "Boarded"]
+  const stateKeys: Array<keyof PhaseStackedDatum> = ["booked", "checkedIn", "boarded"]
+
+  return {
+    animationDuration: 450,
+    color: stateColors,
+    legend: {
+      top: 0,
+      textStyle: { color: ECHARTS_AXIS_COLOR },
+      data: stateNames,
+    },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      backgroundColor: "rgba(15, 23, 42, 0.95)",
+      borderColor: "rgba(148, 163, 184, 0.18)",
+      textStyle: { color: ECHARTS_TEXT_COLOR },
+      formatter: (params) => {
+        const rows = (Array.isArray(params) ? params : [params])
+          .map((item) => ({
+            name: item.seriesName,
+            value: normalizeNumericValue(item.value),
+            marker: item.marker,
+          }))
+          .filter((r) => r.value > 0)
+        const total = rows.reduce((sum, r) => sum + r.value, 0)
+        const header = (Array.isArray(params) ? params[0] : params)?.name ?? ""
+        const lines = rows.map((r) => `${r.marker}${r.name}: ${r.value.toLocaleString()}`).join("<br/>")
+        return `<strong>${header}</strong><br/>Total: ${total.toLocaleString()}<br/>${lines}`
+      },
+    },
+    grid: {
+      left: 8,
+      right: 8,
+      top: 40,
+      bottom: 8,
+      containLabel: true,
+    },
+    xAxis: {
+      type: "category",
+      data: data.map((d) => d.phase),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: ECHARTS_SPLIT_LINE } },
+      axisLabel: { color: ECHARTS_TEXT_COLOR, fontWeight: 600 },
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: { color: ECHARTS_AXIS_COLOR },
+      splitLine: { lineStyle: { color: ECHARTS_SPLIT_LINE } },
+    },
+    series: stateKeys.map((key, i) => ({
+      name: stateNames[i],
+      type: "bar" as const,
+      stack: "total",
+      barWidth: 40,
+      emphasis: { focus: "series" as const },
+      itemStyle: {
+        color: stateColors[i],
+        borderRadius: i === stateKeys.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0],
+      },
+      data: data.map((d) => Number(d[key] ?? 0)),
+    })),
+  }
+}
+
+type PhaseDemographicDatum = {
+  phase: string
+  male: number
+  female: number
+  children: number
+  infants: number
+}
+
+export function buildPhaseDemographicBarOption({
+  data,
+}: {
+  data: PhaseDemographicDatum[]
+}): EChartsOption {
+  const colors = ["#3b82f6", "#ec4899", "#f59e0b", "#34d399"]
+  const names = ["Male", "Female", "Children", "Infants"]
+  const keys: Array<keyof PhaseDemographicDatum> = ["male", "female", "children", "infants"]
+
+  return {
+    animationDuration: 450,
+    color: colors,
+    legend: {
+      top: 0,
+      textStyle: { color: ECHARTS_AXIS_COLOR },
+      data: names,
+    },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      backgroundColor: "rgba(15, 23, 42, 0.95)",
+      borderColor: "rgba(148, 163, 184, 0.18)",
+      textStyle: { color: ECHARTS_TEXT_COLOR },
+      formatter: (params) => {
+        const rows = (Array.isArray(params) ? params : [params])
+          .map((item) => ({
+            name: item.seriesName,
+            value: normalizeNumericValue(item.value),
+            marker: item.marker,
+          }))
+          .filter((r) => r.value > 0)
+        const header = (Array.isArray(params) ? params[0] : params)?.name ?? ""
+        const lines = rows.map((r) => `${r.marker}${r.name}: ${r.value.toLocaleString()}`).join("<br/>")
+        return `<strong>${header}</strong><br/>${lines}`
+      },
+    },
+    grid: {
+      left: 8,
+      right: 8,
+      top: 40,
+      bottom: 8,
+      containLabel: true,
+    },
+    xAxis: {
+      type: "category",
+      data: data.map((d) => d.phase),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: ECHARTS_SPLIT_LINE } },
+      axisLabel: { color: ECHARTS_TEXT_COLOR, fontWeight: 600 },
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: { color: ECHARTS_AXIS_COLOR },
+      splitLine: { lineStyle: { color: ECHARTS_SPLIT_LINE } },
+    },
+    series: keys.map((key, i) => ({
+      name: names[i],
+      type: "bar" as const,
+      stack: "demo",
+      barWidth: 40,
+      emphasis: { focus: "series" as const },
+      itemStyle: {
+        color: colors[i],
+        borderRadius: i === keys.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0],
+      },
+      data: data.map((d) => Number(d[key] ?? 0)),
+    })),
+  }
+}
+
+type PhaseCabinDatum = {
+  phase: string
+  economy: number
+  business: number
+}
+
+export function buildPhaseCabinBarOption({
+  data,
+}: {
+  data: PhaseCabinDatum[]
+}): EChartsOption {
+  const colors = ["#2ec27e", "#c9a43a"]
+  const names = ["Economy", "Business"]
+  const keys: Array<keyof PhaseCabinDatum> = ["economy", "business"]
+
+  return {
+    animationDuration: 450,
+    color: colors,
+    legend: {
+      top: 0,
+      textStyle: { color: ECHARTS_AXIS_COLOR },
+      data: names,
+    },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      backgroundColor: "rgba(15, 23, 42, 0.95)",
+      borderColor: "rgba(148, 163, 184, 0.18)",
+      textStyle: { color: ECHARTS_TEXT_COLOR },
+    },
+    grid: {
+      left: 8,
+      right: 8,
+      top: 40,
+      bottom: 8,
+      containLabel: true,
+    },
+    xAxis: {
+      type: "category",
+      data: data.map((d) => d.phase),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: ECHARTS_SPLIT_LINE } },
+      axisLabel: { color: ECHARTS_TEXT_COLOR, fontWeight: 600 },
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: { color: ECHARTS_AXIS_COLOR },
+      splitLine: { lineStyle: { color: ECHARTS_SPLIT_LINE } },
+    },
+    series: keys.map((key, i) => ({
+      name: names[i],
+      type: "bar" as const,
+      stack: "cabin",
+      barWidth: 40,
+      emphasis: { focus: "series" as const },
+      itemStyle: {
+        color: colors[i],
+        borderRadius: i === keys.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0],
+      },
+      data: data.map((d) => Number(d[key] ?? 0)),
+    })),
+  }
+}

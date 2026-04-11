@@ -1,407 +1,219 @@
-# Data Dictionary — All Known Field Values
+# Data Dictionary
 
-## Flight Status Fields
+## MongoDB Collections
 
-### FlightStatus
+### `sabre_requests` — Raw API Archive (Layer 1)
 
-| Value  | Meaning                                   |
-| ------ | ----------------------------------------- |
-| OPENCI | Open Check-In — counters active           |
-| FINAL  | Final — boarding complete                 |
-| PDC    | Post-Departure Checkout — flight departed |
+| Field | Type | Description |
+|-------|------|-------------|
+| `requestId` | string (UUID) | Unique request ID |
+| `apiType` | string | `flight_status`, `passenger_list`, `reservations`, `trip_reports`, `flight_schedule` |
+| `airline` | string | 2-char IATA (e.g. "GF") |
+| `flightNumber` | string | 1–5 digits |
+| `origin` | string | 3-letter IATA |
+| `departureDate` | string | YYYY-MM-DD |
+| `requestedAt` | string | ISO timestamp |
+| `rawXml` | string | Original XML response |
+| `parsedData` | object | `xmltodict`-parsed dict |
+| `httpStatus` | int | HTTP response code |
+| `durationMs` | float | Response time |
 
-## Passenger List Fields
+### `snapshots` — Normalized Snapshots (Layer 2)
 
-### PassengerType
+| Field | Type | Description |
+|-------|------|-------------|
+| `snapshotId` | string (UUID) | Unique snapshot ID |
+| `requestId` | string | Links to `sabre_requests` |
+| `snapshotType` | string | Same as `apiType` |
+| `airline`, `flightNumber`, `origin`, `departureDate` | string | Flight key |
+| `sequenceNumber` | int | Auto-increment per flight+type |
+| `checksum` | string | SHA-256 of normalized data |
+| `capturedAt` | string | ISO timestamp |
+| `data` | object | Normalized document (varies by type) |
 
-| Code | Meaning                             |
-| ---- | ----------------------------------- |
-| F    | Fare-paying (revenue) passenger     |
-| P    | Prepaid / Group / Package passenger |
-| E    | Employee / Staff (non-revenue)      |
-| S    | Standby — can be revenue or non-revenue (determined by Indicators array) |
+### `changes` — Detected Changes (Layer 3)
 
-### Cabin
+See `change_tracking.md` for full schema and all 22 change types.
 
-| Code | Meaning                            |
-| ---- | ---------------------------------- |
-| Y    | Economy                            |
-| J    | Business (Falcon Gold on Gulf Air) |
+### `flights` — Current State Materialized View (Layer 4)
 
-### DisplayCode (Request Filter)
+Unique key: `(airline, flightNumber, origin, departureDate)`
 
-Controls which subset of passengers is returned by GetPassengerListRQ.
+Upserted after each API call via `$set/$inc/$setOnInsert`.
 
-| Code | Meaning                                                     |
-| ---- | ----------------------------------------------------------- |
-| RV   | Revenue passengers                                          |
-| XRV  | Non-Revenue passengers (staff, deadhead, etc.)              |
-| BP   | Passengers with Boarding Pass issued                        |
-| PALL | Pending ALL — full upgrade/standby list including checked-in |
-| P    | Pending only — upgrade/standby candidates NOT yet checked-in |
+### `flight_status` — Latest Flight Status (Legacy)
 
-Our current request uses `RV + XRV + BP` (condition="OR") to get the complete manifest.
-`P` and `PALL` are used for dedicated standby/upgrade list views.
+Normalized output of `convert_flight_status()`:
 
-### PriorityCode
+| Field | Type | Description |
+|-------|------|-------------|
+| `airline`, `flightNumber`, `origin`, `departureDate` | string | Flight key |
+| `status` | string | `OPENCI`, `FINAL`, `PDC` |
+| `aircraft` | object | `{type, registration, owner}` |
+| `schedule` | object | Scheduled/estimated departure & arrival datetimes |
+| `gate`, `terminal` | string | Gate/terminal assignment |
+| `boarding` | object | Boarding time info |
+| `legs` | array | Route legs |
+| `passengerCounts` | object | Per-class: authorized, booked, available, thru, local, onBoard, boardingPasses, meals, revenue, nonRevenue |
+| `jumpSeat` | object | `{cockpit, cabin}` counts |
+| `remarks`, `freeTextRemarks` | array | Flight remarks |
+| `codeshareInfo` | array | Codeshare details |
+| `fetchedAt` | string | ISO timestamp |
+| `_raw` | object | Original parsed data |
 
-| Code | Meaning                                        |
-| ---- | ---------------------------------------------- |
-| UPG  | Upgrade list — revenue passenger awaiting cabin upgrade |
-| B01  | Standby priority 1 — highest non-revenue standby |
-| B02  | Standby priority 2                             |
-| B03+ | Lower standby priority levels                  |
+### `passenger_list` — Latest Passenger Manifest (Legacy)
 
-Used in the standby/upgrade queue ordering. UPG passengers are sorted by LineNumber.
-Standby (B01, B02, ...) passengers are sorted by SeniorityDate then LineNumber.
+Normalized output of `convert_passenger_list()`:
 
-### DesiredBookingClass
+#### Passenger Record Fields
 
-Target cabin class for upgrade candidates. Present only when `PriorityCode` = UPG.
+| Field | Type | Description |
+|-------|------|-------------|
+| `lastName`, `firstName` | string | Passenger name |
+| `pnr` | string | PNR locator (may be dict with `#text`) |
+| `passengerId` | string | Sabre internal ID |
+| `lineNumber` | int | Line number in manifest |
+| `priorityCode` | string | Standby priority |
+| `bookingClass` | string | Current booking class |
+| `desiredBookingClass` | string | Upgrade request class |
+| `cabin` | string | `Y` (economy) or `J` (business) |
+| `seat` | string | Seat assignment |
+| `destination` | string | Arrival airport |
+| `passengerType` | string | `F` (full), `P` (positive space), `E` (employee), `S` (standby) |
+| `isStandby` | bool | On standby queue |
+| `corpId` | string | Corporate ID (`T` = staff) |
+| `seniorityDate` | string | Staff seniority |
+| `bagCount` | int | Checked bags |
+| `isCheckedIn` | bool | Check-in status |
+| `isBoarded` | bool | Boarding status |
+| `boardingPassIssued` | bool | BP issued flag |
+| `checkInSequence` | string | Sequence number |
+| `checkInDate`, `checkInTime` | string | Check-in timestamp |
+| `isRevenue` | bool | Revenue passenger |
+| `isThru` | bool | Thru traffic (ThruIndicator) |
+| `isChild` | bool | `CHD` edit code present |
+| `hasInfant` | bool | `INF` edit code present |
+| `vcrType` | string | VCR (ticket) type |
+| `ticketNumber` | string | Ticket number |
+| `upgradeCode` | string | Upgrade code if present |
+| `editCodes` | array | All edit codes from `EditCodeList` |
+| `groupCode` | string | Group booking code |
+| `isGroup` | bool | Part of group |
+| `isUnnamedGroup` | bool | `groupCode` present + lastName=="PAX" + no firstName |
+| `nameAssociationId` | string | Name association ID |
+| `baggageRoutes` | array | Per-passenger baggage routing |
+| `_raw` | object | Original parsed data |
 
-| Example | Meaning                                   |
-| ------- | ----------------------------------------- |
-| F       | Desires First Class / Business full fare  |
-| J       | Desires Business class                    |
+#### Summary Fields (Document Level)
 
-### CorpID
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalPassengers` | int | Total count |
+| `adultCount` | int | `totalPassengers - childCount` |
+| `childCount` | int | Passengers with `CHD` edit code |
+| `infantCount` | int | Passengers with `INF` edit code (parent counted once) |
+| `totalSouls` | int | `totalPassengers + infantCount` |
+| `cabinSummary` | object | Per-cabin passenger counts |
+| `groupBookings` | array | Group code summaries |
 
-Corporate traveler indicator. Present on passengers with a corporate travel profile.
+### `reservations` — Latest Reservations (Legacy)
 
-| Value | Meaning            |
-| ----- | ------------------ |
-| T     | Corporate traveler |
+Normalized output of `convert_reservations()`:
 
-### SeniorityDate
+#### Per-Reservation Fields
 
-Seniority date for non-revenue/staff passengers (format: `YYYY-MM-DD`).
-Determines priority ordering in the standby queue — earlier date = higher priority.
-Example: `1977-06-21` (employee hire date or seniority effective date).
+| Field | Type |
+|-------|------|
+| `pnr` | string |
+| `numberInParty`, `numberOfInfants` | int |
+| `createdAt`, `updatedAt` | string |
+| `bookingHeader`, `creationAgent` | string |
+| `pnrSequence`, `pointOfSale` | string |
+| `formOfPayment` | string |
+| `passengers[]` | array of reservation passengers |
+| `segments[]` | array (codeshare, marriageGroup, eTicket) |
+| `ssrs[]`, `emails[]`, `phones[]` | arrays |
+| `remarks[]`, `ancillaryServices[]` | arrays |
+| `receivedFrom` | string |
 
-### BookingClass (Fare Buckets — observed)
+#### Reservation Passenger Fields
 
-| Class | Cabin | Typical Fare Level                   |
-| ----- | ----- | ------------------------------------ |
-| J     | J     | Business full fare                   |
-| C     | J     | Business discounted                  |
-| D     | J     | Business deeply discounted / upgrade |
-| Z     | J     | Business lowest / codeshare          |
-| Y     | Y     | Economy full fare                    |
-| B     | Y     | Economy high                         |
-| H     | Y     | Economy mid                          |
-| K     | Y     | Economy mid                          |
-| W     | Y     | Economy mid-low                      |
-| V     | Y     | Economy low                          |
-| S     | Y     | Economy low                          |
-| Q     | Y     | Economy discounted                   |
-| N     | Y     | Economy deeply discounted            |
-| O     | Y     | Economy special/group                |
-| X     | Y     | Economy lowest                       |
-| G     | Y     | Economy group                        |
-| I     | Y     | Economy special                      |
+| Field | Type | Source |
+|-------|------|--------|
+| `gender` | string | DOCSEntry (`P/{country}/{number}/{nationality}/{DOB}/{gender}/...`) |
+| `dateOfBirth` | string | DOCSEntry |
+| `nationality` | string | DOCSEntry |
+| `seatNumber` | string | Direct field |
+| `frequentFlyer` | object | `{tier, status, supplier}` |
+| `specialMeal` | string | SSR meal code |
+| `wheelchairCode` | string | SSR wheelchair |
+| `hasEmergencyContact` | bool | Contact info present |
+| `docaAddress` | string | DOCA entry |
 
-### Indicators (from Indicators > Indicator[])
-
-| Value      | Meaning                            |
-| ---------- | ---------------------------------- |
-| Revenue    | Paying passenger                   |
-| NonRevenue | Non-paying (staff, deadhead, etc.) |
-| CheckedIn  | Has completed check-in             |
-| NotBoarded | Has not boarded yet                |
-| Boarded    | Has boarded the aircraft           |
-
-### CabinInfo (from ItineraryInfo > CabinInfoList > CabinInfo[])
-
-Per-cabin seat capacity and availability for each destination on the flight.
-
-| Field       | Type | Description                                 |
-| ----------- | ---- | ------------------------------------------- |
-| Cabin       | str  | Cabin code (J = Business, Y = Economy)      |
-| Destination | str  | Destination airport code for this cabin leg  |
-| Authorized  | int  | Total authorized seats in the cabin          |
-| Available   | int  | Remaining empty seats available for sale     |
-| Count       | int  | Number of passengers currently in the cabin  |
-
-Example from sample: `J cabin AUH→BLR: 16 authorized, 16 available` (empty business cabin).
-
-### Edit Codes (from EditCodeList > EditCode[])
-
-Critical codes for passenger classification:
-
-- **CHD**: Child — passenger is a child (has own seat, counted in passenger list)
-- **INF**: Infant — parent of a lap infant (infant does NOT appear as a separate passenger record)
-- **M/F**: Meal/Fare codes — **NOT gender indicators** (see Gender Sources below)
-
-| Code | Category   | Meaning                            |
-| ---- | ---------- | ---------------------------------- |
-| M    | Meal       | Standard meal requested            |
-| AVML | Meal       | Asian Vegetarian Meal              |
-| VJML | Meal       | Vegetarian Jain Meal               |
-| CHML | Meal       | Child Meal                         |
-| SM   | Meal       | Special Meal (generic)             |
-| FF   | Loyalty    | Frequent Flyer                     |
-| GLD  | Loyalty    | Gold tier member                   |
-| SLV  | Loyalty    | Silver tier member                 |
-| BLU  | Loyalty    | Blue tier member                   |
-| DOCS | Document   | Travel document (passport) on file |
-| DOCA | Document   | Address document on file           |
-| DOCV | Document   | Visa document on file              |
-| DCVI | Document   | Document verification incomplete   |
-| ET   | Ticket     | Electronic ticket                  |
-| ETI  | Ticket     | Electronic ticket issued           |
-| TKT  | Ticket     | Ticket number                      |
-| AE   | Ticket     | Additional e-ticket                |
-| CKIN | Check-In   | Checked in                         |
-| PRCH | Check-In   | Pre-checked in                     |
-| PSTC | Check-In   | Post check-in                      |
-| CHD  | Passenger  | Child passenger                    |
-| INF  | Passenger  | Infant                             |
-| WCHC | Assistance | Wheelchair (cabin seat)            |
-| WCHR | Assistance | Wheelchair (ramp)                  |
-| WCHS | Assistance | Wheelchair (steps)                 |
-| APP  | Status     | Approved                           |
-| OFL  | Status     | Offloaded                          |
-| IFET | Service    | In-flight entertainment/tech       |
-| IB   | Bag        | Interline bag                      |
-| OB   | Bag        | Oversized bag                      |
-| WB   | Bag        | Weight bag                         |
-| EIB  | Bag        | Electronic interline bag           |
-| LC   | Status     | Last connection                    |
-| CM   | Status     | Crew member                        |
-| MPR  | Status     | Missing passenger record           |
-| F    | Fare       | Fare related                       |
-| JF   | Service    | Jump seat forward                  |
-| JS   | Service    | Jump seat                          |
-| YF   | Service    | Economy fare                       |
-| YL   | Service    | Economy low                        |
-| YS   | Service    | Economy standard                   |
-
-### VCR Types
-
-Note: VCR_Info/VCR_Data is NOT present in GetPassengerListRS responses from Sabre.
-The VCR type field in our converter returns empty string ("") for all passengers.
-Passenger classification (adult/child/infant) is derived from **Edit Codes** instead.
-
-### Passenger Counting — Critical Business Rule
-
-| Count Field     | Description                                                   |
-| --------------- | ------------------------------------------------------------- |
-| totalPassengers | Number of passenger records from Sabre (excludes lap infants) |
-| adultCount      | Passengers without CHD edit code (includes teens)             |
-| childCount      | Passengers with CHD edit code (have own seat)                 |
-| infantCount     | Count of INF edit codes (lap infants, no seat, no own record) |
-| totalSouls      | totalPassengers + infantCount (all humans on aircraft)        |
-
-**Why external dashboards show a higher total**: They count `totalSouls` (including infants).
-Sabre's GetPassengerList returns only seated passengers as individual records.
-Infants are associated with parent records via the INF edit code.
-
-## Trip_SearchRS (Reservations) Fields
-
-### Gender — Authoritative Source
-
-Gender is **NOT available** from GetPassengerListRS (the M/F edit codes are meal/fare codes).
-
-Gender IS available from Trip_SearchRS via the APIS `DOCSEntry` (passport data):
-
-| Field | Source | Example |
-| ----- | ------ | ------- |
-| `Gender` | `Passenger.SpecialRequests.APISRequest.DOCSEntry.Gender` | `M`, `F`, `MI` (Male Infant), `FI` (Female Infant) |
-| `DateOfBirth` | `Passenger.SpecialRequests.APISRequest.DOCSEntry.DateOfBirth` | `1994-01-20` |
-| `DocumentNationalityCountry` | `DOCSEntry.DocumentNationalityCountry` | `IN`, `BH`, `GB` |
-
-Coverage: ~98% of passengers have DOCS entries with gender (passport data required for international flights).
-
-The converter enriches each reservation passenger with `gender`, `dateOfBirth`, and `nationality` from DOCSEntry.
-The dashboard cross-references reservation gender data with passenger list records (matched by PNR + lastName).
-
-### ActionCode (Segment Status)
-
-| Code | Meaning                      |
-| ---- | ---------------------------- |
-| HK   | Confirmed                    |
-| HL   | Confirmed (waitlist cleared) |
-| GK   | Passive (ghost) segment      |
-| SS   | Sold                         |
-| TK   | Ticketed                     |
-| XX   | Cancelled                    |
-
-### numberInParty
-
-- Ranges from 1 to 94 (observed)
-- Large values (94) indicate group bookings
-
-### numberOfInfants
-
-- 0-6 observed per reservation
-- Infants travel on parent's lap (no separate seat)
-
-## Sabre API Response Keys (with namespaces)
-
-| API                | Response Key                           | Namespace                                               |
-| ------------------ | -------------------------------------- | ------------------------------------------------------- |
-| ACS_FlightDetailRQ | `ns3:ACS_FlightDetailRS`               | `http://services.sabre.com/ACS/BSO/flightDetail/v3`     |
-| GetPassengerListRQ | `GetPassengerListRS`                   | `http://services.sabre.com/checkin/getPassengerList/v4` |
-| GetPassengerDataRQ | `ns3:GetPassengerDataRS`               | `http://services.sabre.com/checkin/getPassengerData/v4` |
-| Trip_SearchRQ      | `Trip_SearchRS`                        | `http://webservices.sabre.com/triprecord`               |
-| SessionCreateRQ    | (in Header) `wsse:BinarySecurityToken` |                                                         |
-| SessionCloseRQ     | `SessionCloseRS`                       |                                                         |
-
-## Reservation Inner Namespaces
-
-- `stl19:` — STL v19 namespace for reservation details
-- `or114:` — Sabre reservation format
-- `raw:` — Raw itinerary data
-
-## Trip_ReportsRS Fields
-
-### Report Types
-
-| Code | Purpose | Sabre Name |
-| ---- | ------- | ---------- |
-| MLX  | List of CANCELLED passengers (offloaded, removed from flight) | Cancelled Passenger List |
-| MLC  | List of ALL passengers ever booked on the flight (including cancelled) | Complete Historical Passenger List |
-
-### Cancelled Passenger Entry (MLX)
+### `trip_reports` — Merged MLX/MLC Reports (Legacy)
 
 | Field | Description |
-| ----- | ----------- |
-| `lastName` | Passenger last name |
-| `firstName` | Passenger first name |
-| `pnr` | PNR locator |
-| `cancelReason` | Reason text if available |
+|-------|-------------|
+| `mlxPassengers` | Cancelled passenger list (from MLX report) |
+| `mlcPassengers` | Ever-booked passenger list (from MLC report) |
 
-### Offloaded & No-Show Detection
+Merged by `converter.merge_trip_reports()`.
 
-| Metric | Source | Logic |
-| ------ | ------ | ----- |
-| **Offloaded** | MLX report | Count of passengers in the cancelled list for this flight |
-| **No-Show** | MLC vs passenger_list | Passengers in MLC (ever-booked) that are NOT in the current passenger_list AND flight status is FINAL or PDC |
+### `flight_schedules` — Schedule Data (Legacy)
 
-## GetPassengerDataRQ Fields
+Output of `convert_schedule()` from `VerifyFlightDetailsLLSRQ`.
 
-### Overview
+## Sabre API Templates (`backend/sabre/templates.py`)
 
-GetPassengerDataRQ is a **per-passenger detail API** — unlike GetPassengerListRQ which returns the full flight manifest, this API provides deep detail for one or more specific passengers identified by LastName + optional PNR within a flight itinerary.
+| Template | Sabre API | Version |
+|----------|-----------|---------|
+| `SESSION_CREATE` | SessionCreateRQ | — |
+| `SESSION_CLOSE` | SessionCloseRQ | — |
+| `FLIGHT_STATUS` | ACS_FlightDetailRQ | v3.2.0 |
+| `PASSENGER_LIST` | GetPassengerListRQ | v4.0.0 |
+| `RESERVATION` | Trip_SearchRQ | v4.5.0 (MaxItems=800, 27 SubjectAreas) |
+| `PASSENGER_DATA` | GetPassengerDataRQ | v4.0.4 (timatic + checkInRequirements) |
+| `TRIP_REPORT` | Trip_ReportsRQ | v1.3.0 |
+| `VERIFY_FLIGHT_DETAILS` | VerifyFlightDetailsRQ | v2.0.1 |
 
-**Namespace**: `http://services.sabre.com/checkin/getPassengerData/v4`
-**Current version**: 4.0.4
-**SOAPAction**: `GetPassengerDataRQ`
+## Passenger Display Codes
 
-### Lookup Methods
+| Constant | Codes | Purpose |
+|----------|-------|---------|
+| `DISPLAY_CODES_BOOKED` | `RV`, `XRV` | Booked passengers |
+| `DISPLAY_CODES_CHECKEDIN` | `BP`, `BT` | Checked-in with boarding pass |
+| `DISPLAY_CODES_NOSHOW_OFL` | `NS`, `OFL` | No-shows and offloaded |
+| `DISPLAY_CODES_ALL` | `AE` | All edit codes (enrichment) |
 
-| Method | Required Fields | Notes |
-| ------ | -------------- | ----- |
-| LastName only | Itinerary + PassengerList > LastName | May return `similarNameFound="true"` if ambiguous |
-| LastName + PNR | Itinerary + PassengerList > LastName + PNRLocator | Most precise lookup |
-| BagTagNumber | BagTagNumber (no itinerary needed) | v4.0.3+ only |
-| GroupCode | Itinerary + GroupCode | Group booking lookup |
+## Edit Codes (Passenger DNA)
 
-### Request Attributes
+Edit codes from `EditCodeList > EditCode[]` on each passenger. Key codes:
 
-| Attribute | Values | Description |
-| --------- | ------ | ----------- |
-| `validateCheckInRequirements` | `true`/`false` | Include check-in requirement validation |
-| `includeTimaticInfo` | `true`/`false` | Include Timatic travel document validation (v4.0.2+) |
-| `version` | `4.0.0` – `4.0.4` | API version |
-| `Client` | `KIOSK`, `WEB` | Client type indicator (v4.0.2+) |
+| Code | Meaning |
+|------|---------|
+| `CHD` | Child passenger |
+| `INF` | Infant accompanying parent |
+| `FF`, `GLD`, `SLV`, `BLU`, `PLT`, `DIA` | Loyalty tiers |
+| `DOCS`, `DOCA`, `DOCV`, `DCVI` | Travel document types |
+| `M` | Meal: standard meal (NOT gender) |
+| `F` | Fare: fare-related (NOT gender) |
 
-### Response Status
+**Gender is derived only from reservation DOCSEntry**, never from edit codes.
 
-| Status | CompletionStatus | Meaning |
-| ------ | ---------------- | ------- |
-| (empty) | Complete | Success — full data returned |
-| BusinessLogicError | Incomplete | Partial failure (data may still be returned) |
+## Passenger Counting Logic
 
-### Error Codes
+```
+totalPassengers  = count(PassengerInfoList)
+childCount       = count(passengers with CHD edit code)
+adultCount       = totalPassengers - childCount
+infantCount      = count(passengers with INF edit code)  # parent counted once
+totalSouls       = totalPassengers + infantCount
+```
 
-| Code | Message | Notes |
-| ---- | ------- | ----- |
-| 1211 | One or More Passengers Data Not Found | Passenger not on flight |
-| 41007 | Did not find any ancillary data | Non-fatal — passenger data still returned |
+## Aggregation Pipelines (`backend/feeder/aggregations.py`)
 
-### RequiredInfoSumList Codes (Check-In Requirements)
-
-| Code | Meaning | Notes |
-| ---- | ------- | ----- |
-| GENDER | Gender validation required | Passenger gender not on file |
-| DOCV | Visa document verification needed | Travel visa not validated |
-| TIM | Timatic check required | Travel document validation (adult) |
-| TIM/INF | Timatic check for infant | Travel docs for infant |
-| DOCS_VAL | DOCS validation | Passport data validation |
-| ESTA | ESTA authorization required | US Electronic Travel Authorization |
-| DHS | DHS clearance required | US Dept. of Homeland Security |
-| DOCA/R | Address documentation required | Residential address |
-| BTP | Bag tag payment required | Excess baggage payment needed |
-
-### DetailStatus Values
-
-| Value | Meaning |
-| ----- | ------- |
-| ValidationRequired | Requirement pending — agent action needed |
-| ValidationFailed | Validation attempted but failed |
-
-### FreeTextInfo Edit Codes
-
-| EditCode | Category | Content |
-| -------- | -------- | ------- |
-| DOCS | Passport | DOCS string: `P/{country}/{docNum}/{nationality}/{DOB}/{gender}/{expiry}/{lastName}/{firstName}` |
-| DOCO | Visa | Visa document details |
-| PCTC | Contact | Passenger contact information |
-| APP | Approval | Clearance/approval status |
-| INF | Infant | Infant details (e.g., `BABY BOY,6MO`) |
-| BT | Bag Tag | Bag tag number(s) |
-| TIM | Timatic | Timatic result (e.g., `OK TO BOARD`) |
-| AE | Ancillary | Ancillary/EMD details |
-| UK | Clearance | UK/immigration clearance |
-
-### DOCS String Format
-
-Format: `P/{docCountry}/{docNumber}/{nationality}/{DOB_ddMMMYY}/{gender}/{expiry_ddMMMYY}/{lastName}/{firstName}`
-
-Example: `P/US/123456789/US/01JAN70/F/01JAN20/ALPHA/PAX`
-
-Gender codes in DOCS string: `M` (male), `F` (female), `MI` (male infant), `FI` (female infant)
-
-### AEDetails (Ancillary/EMD)
-
-| Field | Description |
-| ----- | ----------- |
-| ATPCOGroupCode | `BG` = baggage, `SA` = seat assignment, `0B5` = seat (alternative) |
-| StatusCode | EMD status |
-| UsedEMD | Whether EMD has been used |
-| Quantity | Number of items |
-| PriceDetails | Amount + Currency |
-
-### PassengerEditList (Edit Attributes)
-
-The `PassengerEditList > Edit` elements contain detailed attributes for specific edit codes:
-
-**TIM (Timatic) edit attributes:**
-- `StayType`: VACATION, BUSINESS, etc.
-- `DocumentType`: PASSPORT NORMAL, PASSPORT DIPLOMATIC, etc.
-- `ResidencyDocumentType`: Document type for residency
-- `VisaVerified`: Whether visa has been verified
-
-### BaggageRoute Fields
-
-| Field | Description |
-| ----- | ----------- |
-| LateCheckin | `true`/`false` — passenger checked in after cutoff |
-| HomePrintedBagTag | Home-printed bag tag restriction |
-| BagEmbargo | `true`/`false` — baggage embargo on this route |
-| SegmentStatus | Status of the baggage routing segment |
-
-### Codeshare Fields
-
-On codeshare flights, the itinerary shows distinct operating vs marketing info:
-
-| Field | Example | Description |
-| ----- | ------- | ----------- |
-| Airline / Flight | EY / 6418 | Ticketing airline/flight |
-| OperatingAirline / OperatingFlight | VA / 880 | Actual operating carrier |
-| MarketingAirline / MarketingFlight | EY / 6418 | Marketing carrier |
-| BookingClass | I | Ticketed class |
-| OperatingBookingClass | S | Class on operating carrier |
-| MarketingBookingClass | I | Class on marketing carrier |
-| ThirdPartyGroundHandled | true/false | Ground handling by third party |
+| Function | Purpose |
+|----------|---------|
+| `find_missing_pnrs(date)` | PNRs in passenger_list but not reservations (and vice versa) via `$lookup` + `$setDifference` |
+| `passenger_status_distribution(date)` | Status aggregation (total, checkedIn, boarded, revenue) by cabin class |
+| `change_type_summary(date)` | Change type counts + affected flights per type |

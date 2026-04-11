@@ -16,6 +16,8 @@ htmlcov/
 .coverage
 .coverage.*
 
+graphify-out/
+
 # ===== Node / Next.js =====
 node_modules/
 .next/

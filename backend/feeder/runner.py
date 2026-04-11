@@ -136,7 +136,9 @@ def _validate_live_flight_payload(flight_info, flight_sequence_number, raw_data)
         f"live Sabre rejected {airline}{fn} {origin} {dep_date} while the request supplied "
         f"flightSequenceNumber={flight_sequence_number}. "
         f"Sabre status={business_error['status']}, code={business_error['code'] or 'n/a'}, "
-        f"message={message}"
+        f"message={message}. "
+        f"HINT: If the flight departs around midnight, the departureDate may not match "
+        f"the operational flightDate — verify the date sent matches the actual local departure date."
     )
 
 
@@ -367,10 +369,21 @@ def run_feeder(flights, progress_callback=None):
                 "apis": {},
             }
 
+            service_type = flight.get("serviceTypeCode")
+
             logger.info("processing_flight",
                         index=i, total=len(flights),
                         flight=f"{airline}{fn}", origin=origin,
-                        departure_date=dep_date)
+                        departure_date=dep_date,
+                        service_type=service_type)
+
+            # Log non-scheduled flights but still attempt ingestion
+            if service_type and service_type != "J":
+                svc_label = {"P": "positioning/ferry", "C": "charter"}.get(
+                    service_type, f"non-scheduled ({service_type})")
+                logger.info("non_scheduled_flight",
+                            flight=f"{airline}{fn}", service_type=service_type,
+                            label=svc_label)
 
             # Resolve flight_sequence_number: use provided value or fallback to PG lookup
             if flight_seq is None:

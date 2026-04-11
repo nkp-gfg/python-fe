@@ -1,98 +1,100 @@
-# Data Preservation Strategy
+# Data Preservation
 
-## Principle: Never Lose Data
+## 4-Layer Storage Architecture
 
-Every byte from Sabre is preserved. We may transform it, normalize it, index it — but the raw original is always kept unchanged in an append-only collection.
+All data flows through `backend/feeder/storage.py` in append-only fashion.
 
-## Three-Layer Architecture
+### Layer 1: Raw Archive (`sabre_requests`)
 
-### Layer 1: Raw Archive (sabre_requests)
+Immutable record of every Sabre API call. `store_raw_request()` inserts:
 
-- **What**: Complete raw XML request + response for every API call
-- **Why**: If our parser misses a field, we can re-parse from raw XML later
-- **How**: Store as plain strings, no transformation
-- **Retention**: Forever (data warehouse source of truth)
+| Field | Description |
+|-------|------------|
+| `requestId` | UUID (via `_new_id()`) |
+| `apiType` | e.g. `flight_status`, `passenger_list` |
+| `airline`, `flightNumber`, `origin`, `departureDate` | Flight key |
+| `requestedAt` | ISO timestamp |
+| `rawXml` | Original XML response |
+| `parsedData` | `xmltodict`-parsed dict |
+| `httpStatus`, `durationMs` | Response metadata |
 
-### Layer 2: Parsed Snapshots (snapshots)
+**Indexes:** `req_id` (unique), `req_flight_lookup` (fn + date + apiType + requestedAt)
 
-- **What**: Normalized JSON extracted from the XML
-- **Why**: Fast querying, indexing, and comparison
-- **How**: Parse on ingest, store as structured documents
-- **Retention**: Forever (queryable layer)
+### Layer 2: Snapshots (`snapshots`)
 
-### Layer 3: Computed Changes (changes)
+Normalized JSON with checksum-based deduplication. `store_snapshot()`:
 
-- **What**: Diffs between consecutive snapshots
-- **Why**: Audit trail, event stream, analytics
-- **How**: Computed when new snapshot arrives, stored for fast access
-- **Retention**: Forever (can be recomputed from Layer 2)
+1. Takes converter output (normalized JSON)
+2. Computes SHA-256 of `json.dumps(data, sort_keys=True, default=str)`
+3. Fetches previous snapshot for same flight + type
+4. Always stores the snapshot (append-only)
+5. Returns `(snapshotId, checksum, is_duplicate)` — `is_duplicate=True` if checksum matches previous
 
-## What NOT to Do
+**Auto-incrementing `sequenceNumber`:** `_next_sequence()` queries max sequence for the flight+type combination and increments.
 
-- ❌ Don't update documents in place (overwriting previous values)
-- ❌ Don't strip namespace prefixes before storing raw XML
-- ❌ Don't discard SOAP envelope — store the complete response
-- ❌ Don't throw away "empty" or "duplicate" responses
-- ❌ Don't skip storing a snapshot if it looks the same (store it, mark as no-change)
+| Field | Description |
+|-------|------------|
+| `snapshotId` | UUID |
+| `requestId` | Links to Layer 1 |
+| `snapshotType` | `flight_status`, `passenger_list`, `reservations`, `trip_reports`, `flight_schedule` |
+| `airline`, `flightNumber`, `origin`, `departureDate` | Flight key |
+| `sequenceNumber` | Auto-increment per flight+type |
+| `checksum` | SHA-256 of normalized data |
+| `capturedAt` | ISO timestamp |
+| `data` | Normalized JSON document |
 
-## Data Flow
+**Indexes:** `snap_id` (unique), `snap_flight_lookup` (fn + origin + date + type + seq desc), `snap_request`
 
-```
-Sabre API Call
-    │
-    ├──► sabre_requests.insert({raw_xml, raw_response, timestamp})
-    │
-    ├──► Parse XML → normalized JSON
-    │
-    ├──► snapshots.insert({normalized_data, checksum, sequence})
-    │
-    ├──► Load previous snapshot (same flight + type)
-    │
-    ├──► If checksums differ → run diff algorithm
-    │       │
-    │       └──► changes.insert_many([...detected changes...])
-    │
-    └──► Update flights collection (current state)
-```
+### Layer 3: Changes (`changes`)
 
-## Namespace Handling
+Diffs between consecutive snapshots. `store_changes()` bulk inserts change documents produced by `differ.detect_changes()`.
 
-Sabre XML uses multiple namespace prefixes:
+| Field | Description |
+|-------|------------|
+| `flightNumber`, `origin`, `departureDate` | Flight key |
+| `changeType` | One of 22 types (see `change_tracking.md`) |
+| `beforeSnapshotId`, `afterSnapshotId` | Snapshot pair |
+| `detectedAt` | ISO timestamp |
+| `passenger` | `{pnr, lastName, firstName}` (if applicable) |
+| `field` | Changed field name |
+| `oldValue`, `newValue` | Before/after values |
+| `metadata` | Rich context (upgrade direction, codes, tier, etc.) |
 
-- `soap-env:` — SOAP envelope elements
-- `ns3:`, `ns4:`, etc. — API-specific elements (numbers vary between calls!)
-- `ns2:` — Often used for cabin info, edit codes
-- `stl19:` — Sabre STL framework elements
+**Indexes:** `chg_flight_lookup` (fn + origin + date + detectedAt), `chg_snapshot`, `chg_pnr`, `chg_type`
 
-**Strategy**:
+### Layer 4: Current State (`flights`)
 
-1. Store raw XML with all namespaces intact (Layer 1)
-2. In the parser, use a namespace-aware approach:
-   - `xmltodict.parse()` preserves prefixes as-is
-   - Navigate using the prefixed keys found at runtime
-   - For output JSON, strip prefixes for clean field names
-   - Always store the mapping of prefix→namespace URI used in that response
+Materialized view updated via `update_flight_state()` after each API call. Uses `$set`, `$inc`, `$setOnInsert` upsert.
 
-## Request Tracking
+**Unique key:** `(airline, flightNumber, origin, departureDate)`
 
-Every API call is assigned a UUID `requestId`. This links:
+Contains latest dashboard data (status, passenger counts, last ingested timestamp, snapshot count, change count).
 
-- The raw request/response in `sabre_requests`
-- The parsed snapshot(s) produced from it
-- Any changes detected from comparing it to the previous snapshot
+**Index:** `flight_key` (unique)
 
-This enables full traceability:
+### Legacy Collections (backward compatibility)
 
-```
-"Why did this passenger's seat change?"
-→ changes collection: SEAT_CHANGE detected in snapshot #47
-→ snapshot #47 was produced from request abc-123
-→ sabre_requests abc-123 has the raw XML showing the actual Sabre data
-```
+In addition to the 4 layers, raw normalized data is written to standalone collections for direct querying:
 
-## Idempotency & Replay
+| Collection | Function | Indexes |
+|------------|----------|---------|
+| `flight_status` | `store_flight_status()` | `flight_lookup` (airline+fn+origin+date+fetchedAt desc) |
+| `passenger_list` | `store_passenger_list()` | `pax_lookup`, `pax_pnr_lookup` |
+| `reservations` | `store_reservations()` | `res_lookup`, `res_pnr_lookup` |
+| `trip_reports` | `store_trip_reports()` | `trip_report_lookup` |
+| `flight_schedules` | `store_flight_schedule()` | `schedule_lookup` |
 
-- Even if we call the same API twice in a row and get identical data, we store both requests
-- The `checksum` field on snapshots makes it trivial to identify duplicates
-- Snapshot `sequenceNumber` provides deterministic ordering
-- We can replay the entire history from `sabre_requests` alone
+## Key Guarantees
+
+- **Append-only raw storage**: `sabre_requests` is never modified after insert
+- **Snapshot always stored first**: Checksum comparison happens after write — "don't skip storing even if it seems the same"
+- **Namespace stripping**: XML namespaces stripped via regex in `converter._strip_ns()`, original preserved in `_raw`
+- **`_raw` preservation**: Every converter output includes `_raw: raw_data` for full traceability
+
+## Snapshot Versioning (`backend/api/snapshot_versioning.py`)
+
+`get_snapshot_data_as_of(db, flight_number, snapshot_type, snapshot_sequence, origin, departure_date)` enables time-travel queries by returning the snapshot data for sequence ≤ requested. Injects `snapshotSequenceNumber` and `snapshotCapturedAt` into the returned data.
+
+## Connection Management
+
+`storage.init_db(db)` receives the FastAPI layer's `MongoClient` instance — avoids creating a second connection that could cause DNS timeouts. The `_owns_connection` flag prevents `close()` from shutting down the shared connection.

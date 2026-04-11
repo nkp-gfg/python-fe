@@ -1,132 +1,134 @@
-# Passenger Lifecycle — State Transitions
+# Passenger Lifecycle
 
-## States (from Indicators field)
+## Identification
 
-A passenger can have these indicator combinations:
+**Primary key:** `PNR|lastName|firstName` (via `_pax_key()` in `differ.py`)
 
-| Indicators                            | Meaning                               |
-| ------------------------------------- | ------------------------------------- |
-| `[Revenue, NotBoarded]`               | Booked, not checked in                |
-| `[Revenue, CheckedIn, NotBoarded]`    | Checked in, not yet boarded           |
-| `[Revenue, CheckedIn, Boarded]`       | Checked in and boarded                |
-| `[NonRevenue, NotBoarded]`            | Non-revenue passenger, not checked in |
-| `[NonRevenue, CheckedIn, NotBoarded]` | Non-rev checked in, not boarded       |
-| `[NonRevenue, CheckedIn, Boarded]`    | Non-rev checked in and boarded        |
+**Staff fallback:** When PNR is missing (common for staff travel), falls back to `LINE:{lineNumber}|lastName|firstName`.
 
-## Lifecycle Flow
+**Cross-enrichment:** Passenger list data is enriched with reservation data via `_build_nationality_lookup()` in `passengers.py`, which builds a `(PNR, lastName) → {nationality, specialMeal, wheelchairCode, ffTier...}` map.
 
-```
-BOOKED → CHECKED_IN → BOARDED → (PDC confirmed)
-   ↓         ↓            ↓
-CANCELLED  NO_SHOW    OFFLOADED
-```
+## Passenger Types
 
-### Offloaded Detection (via Trip_ReportsRQ MLX)
+| Code | Meaning | `isRevenue` | Notes |
+|------|---------|-------------|-------|
+| `F` | Full fare | true | Standard revenue passenger |
+| `P` | Positive space (non-revenue) | varies | Company travel |
+| `E` | Employee | false | Staff (`corpId='T'`) |
+| `S` | Standby | varies | May be revenue standby |
 
-Offloaded passengers are detected from the Sabre Trip_ReportsRQ MLX (cancelled passenger list):
-- MLX returns all passengers whose booking was removed from the flight
-- Count of MLX passengers = offloaded count shown in dashboard
-- Available as soon as trip report data is ingested
-
-### No-Show Detection (via Trip_ReportsRQ MLC + passenger_list)
-
-No-show passengers are detected by comparing two data sources:
-1. **MLC report** (Trip_ReportsRQ) = all passengers EVER booked on the flight
-2. **Current manifest** (passenger_list) = passengers currently on the flight
+## State Machine
 
 ```
-no_show = (MLC ever-booked set) - (current manifest set)
-Match key: (PNR, lastName.upper())
-Condition: flight status must be FINAL or PDC
+BOOKED → CHECKED_IN → BOARDED
+  │          │
+  │          └→ OFFLOADED (detected via MLX trip report)
+  │
+  └→ NO_SHOW (detected via MLC — booked in MLC but absent from final manifest)
+  └→ CANCELLED (appeared in MLX report)
 ```
 
-This is more reliable than snapshot-based detection because MLC captures ALL historical bookings, not just what was present in our last snapshot.
+### State Fields
 
-### State Transitions Observed
+| Field | Type | Transition |
+|-------|------|-----------|
+| `isCheckedIn` | bool | False→True triggers `CHECKED_IN` change |
+| `isBoarded` | bool | False→True triggers `BOARDED` change |
+| `boardingPassIssued` | bool | BP issuance |
+| `isStandby` | bool | On standby queue |
 
-From analysis of GF2006 LHR 2026-03-18 (sample=early check-in → live=PDC):
+## Cabin and Class
 
-1. **Booked → Checked-In** (39 passengers)
-   - `isCheckedIn`: false → true
-   - Seat assigned (empty → "21A")
-   - BagCount may increase (0 → 2)
+| Field | Values | Description |
+|-------|--------|-------------|
+| `cabin` | `Y` (economy), `J` (business) | Physical cabin |
+| `bookingClass` | A–Z | Fare class |
+| `desiredBookingClass` | A–Z or null | Upgrade request target |
+| `seat` | e.g. "14A" | Assigned seat |
 
-2. **Checked-In → Boarded** (42 passengers)
-   - `isBoarded`: false → true
-   - All previously checked-in passengers boarded
+## Upgrade Tracking
 
-3. **Passenger Added** (3 passengers post-booking)
-   - New passengers appear in later snapshot
-   - Late bookings, standbys accepted, or staff added
+Upgrades are detected when `cabin` changes between snapshots. The differ classifies:
 
-4. **Passenger Removed** (1 passenger — AL JAMEA/MOHAMED MR)
-   - Disappeared between snapshots
-   - Possible: cancellation, name change, no-show cleanup, offload
+| Upgrade Type | Detection | upgradeCode prefix |
+|-------------|-----------|-------------------|
+| `LMU` | Last Minute Upgrade | `LMU*` |
+| `PAID` | Paid upgrade | `PU*`, `UP*` |
+| `COMPLIMENTARY` | Free upgrade | `CU*`, `CP*` |
+| `OPERATIONAL` | Operational move | `OP*` |
+| `UNKNOWN` | No matching code | — |
 
-5. **Cabin Change / Upgrade** (4 passengers on GF2006)
-   - Cabin changed Y → J (upgrade to business)
-   - Booking class also changed (e.g., V → D, Q → D)
-   - Happens at check-in or during boarding
+**Direction:** `UPGRADE` (Y→J) or `DOWNGRADE` (J→Y), stored in change `metadata.direction`.
 
-6. **Seat Change** (36 passengers)
-   - Most: empty → assigned seat (during check-in)
-   - Some: seat A → seat B (reassignment/upgrade)
+**Confirmation:** When `desiredBookingClass` is cleared (passenger got their desired class), an `UPGRADE_CONFIRMED` change is emitted.
 
-7. **Bag Count Change** (36 passengers)
-   - 0 → 1, 0 → 2, etc. (bags checked in during check-in)
+## Priority and Standby
 
-## GF2274 DMM 2026-03-19 — Full Timeline
+`priorityCode` changes trigger `PRIORITY_CHANGE` with metadata:
+- `STANDBY_CLEARED`: had priority code, now cleared
+- `ADDED_TO_QUEUE`: new priority code assigned
 
-This flight had TWO sample snapshots plus a live fetch, showing the complete lifecycle:
-
-### Snapshot 1 (148 pax, all CheckedIn, 0 Boarded)
-
-- Check-in complete, boarding not started
-- All 148 passengers had seats and check-in status
-
-### Snapshot 2 (192 pax, all CheckedIn, all Boarded)
-
-- 44 new passengers added (late check-ins, standby, groups)
-- All 148 original passengers now Boarded
-- All 44 new passengers also Boarded
-- Full flight: 180Y + 12J = 192 total (matching 180+12 authorized)
-
-### Changes Detected
-
-- **44 PASSENGER_ADDED**: Late arrivals added between check-in close and boarding
-- **148 BOARDED**: All checked-in passengers boarded
-- **1 BAG_COUNT_CHANGE**: BANDA/VIJAYA BHASKAR changed 1 → 2 bags
+Standby list endpoint (`GET /flights/{fn}/passengers/standby-list`) returns two sorted lists:
+- **Upgrade queue:** sorted by `lineNumber`
+- **Standby queue:** sorted by `seniorityDate` then `lineNumber`
+- Includes cabin availability from flight status
 
 ## Group Bookings
 
-Observed PNR patterns:
+| Field | Detection |
+|-------|-----------|
+| `groupCode` | Present on group passengers |
+| `isGroup` | `groupCode` is truthy |
+| `isUnnamedGroup` | `groupCode` present + `lastName == "PAX"` + no `firstName` |
+| `nameAssociationId` | Links passengers within a group |
 
-- `IQOWOH`, `LACREE` — large group PNRs on GF2274 (94 and 12+ passengers)
-- Group bookings have `GroupCode` field set (e.g., "AB3")
-- Individuals within groups share the same PNR but have unique `PassengerID`
-- Party size from Trip_SearchRS: min=1, max=94 on GF2274
+Group summary aggregated per group code at document level in `groupBookings` array.
 
-## Non-Revenue Passengers
+## No-Show and Offload Detection
 
-- **Type E**: Staff/employee — always non-revenue
-- **Type S**: Standby — can be revenue OR non-revenue (determined by Indicators array)
-- Indicator includes `NonRevenue`
-- May not have seat assigned (`noSeat` count)
-- Can be standby or confirmed
+**Offloaded passengers:** Detected via MLX (cancelled) trip report. If a passenger appears in MLX but not in the current manifest, they were offloaded.
 
-## Identification Keys
+**No-show passengers:** Detected via MLC (ever-booked) trip report cross-referenced against the final manifest. If a passenger was in MLC (ever booked on this flight) but not in the final OPENCI→PDC passenger list, they are a no-show.
 
-To uniquely track a passenger across snapshots:
+Both detected in `runner.py` during the trip report processing phase.
 
-- **Primary**: `PNR + LastName + FirstName` (composite key)
-- **Secondary**: `PassengerID` (Sabre-assigned, but may change)
-- **PNR alone is NOT unique** — group bookings share PNR
+## Document and Loyalty Tracking
 
-## No-Show Detection
+The differ tracks when new edit codes appear between snapshots:
 
-Compare FINAL/PDC passenger list against OPENCI passenger list:
+- **Loyalty codes** (`FF`, `GLD`, `SLV`, `BLU`, `PLT`, `DIA`): triggers `LOYALTY_STATUS_ADDED`
+- **Document codes** (`DOCS`, `DOCA`, `DOCV`, `DCVI`): triggers `DOCUMENT_ADDED`
 
-- Present in OPENCI but NOT in PDC → No-Show or Offloaded
-- Present in OPENCI, CheckedIn=true but Boarded=false in PDC → No-Show (checked in but didn't board)
-- Present in OPENCI, CheckedIn=false in PDC → No-Show (never checked in)
-- **Important**: Passengers without tickets should NOT be flagged as no-show (they're "Booked" only)
+## Gender Resolution
+
+Gender is resolved from reservation DOCSEntry, **not from edit codes**. The DOCS free text format:
+```
+P/{country}/{number}/{nationality}/{DOB}/{gender}/{expiry}/{last}/{first}
+```
+
+Parsed by `_parse_docs_string()` in `converter.py`. Gender lookup built by `_build_gender_lookup()` in `flights.py` as `(PNR, lastName) → gender` map.
+
+**Important:** Edit codes `M` and `F` are Meal and Fare codes respectively — they are NOT gender indicators.
+
+## Passenger Detail (`GetPassengerDataRQ`)
+
+Per-passenger deep detail via `convert_passenger_data()`:
+- Itinerary segments with bag tags
+- VCR (ticket) info
+- AE (ancillary) details
+- Required info (check-in requirements)
+- Free text entries: DOCS, DOCA, PCTC, INF, BT, TIM, APP, AE, UK
+- Timatic regulatory info
+
+Accessed via `GET /flights/{fn}/passengers/{pnr}/detail`.
+
+## API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /flights/{fn}/passengers` | Latest passenger list with reservation enrichment. Supports `snapshot_sequence` for historical view |
+| `GET /flights/{fn}/passengers/summary` | Counts: checked-in, boarded, revenue, non-revenue, per-cabin |
+| `GET /flights/{fn}/passengers/standby-list` | Prioritized standby/upgrade queues with cabin availability |
+| `GET /flights/{fn}/passengers/groups` | Group booking details |
+| `GET /flights/{fn}/passengers/{pnr}/detail` | Full GetPassengerData response |
+| `GET /flights/{fn}/passengers/{pnr}/timeline` | Chronological event history for one passenger |

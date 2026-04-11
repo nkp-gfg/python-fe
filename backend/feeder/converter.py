@@ -104,6 +104,24 @@ def _extract_codeshare_info(itin):
     return info
 
 
+def _extract_free_text_remarks(itin):
+    """Extract ALL FreeTextInfoList entries as a flat text array."""
+    remarks = []
+    fti_list = _ensure_list(
+        (itin.get("FreeTextInfoList") or {}).get("FreeTextInfo", [])
+    )
+    for fti in fti_list:
+        if isinstance(fti, dict):
+            text_line = fti.get("TextLine", {})
+            if isinstance(text_line, dict):
+                text = text_line.get("Text", "")
+                if isinstance(text, list):
+                    remarks.extend(str(t) for t in text if t)
+                elif isinstance(text, str) and text.strip():
+                    remarks.append(text.strip())
+    return remarks
+
+
 def convert_flight_status(raw_data, airline, flight_number, origin, departure_date=""):
     """Convert ACS_FlightDetailRS dict into a clean MongoDB document."""
     data = _strip_ns(raw_data)
@@ -196,6 +214,7 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
         },
         "remarks": _extract_flight_remarks(data),
         "codeshareInfo": _extract_codeshare_info(itin),
+        "freeTextRemarks": _extract_free_text_remarks(itin),
         "_raw": raw_data,
     }
     return doc

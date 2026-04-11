@@ -1448,6 +1448,7 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
         "groupBookingSummary": group_booking_summary,
         "specialRequestsSummary": special_requests_summary,
         "codeshareInfo": fs.get("codeshareInfo", []) if fs else [],
+        "freeTextRemarks": fs.get("freeTextRemarks", []) if fs else [],
         "departureGate": pl.get("departureGate", "") if pl else "",
         "insights": _build_insights(passengers, reservation_doc, schedule_doc, pl, change_summary) if pl and passengers else None,
     }
@@ -1789,6 +1790,122 @@ def list_flights(
     return flights
 
 
+# ─── Phase Journey helpers ──────────────────────────────────────────
+
+PHASE_ORDER = ["SCHEDULED", "CHECK_IN", "BOARDING", "CLOSED", "DEPARTED"]
+PHASE_LABELS = {
+    "SCHEDULED": "Scheduled",
+    "CHECK_IN": "Check-In",
+    "BOARDING": "Boarding",
+    "CLOSED": "Closed",
+    "DEPARTED": "Departed",
+}
+
+
+def _derive_phase_from_snapshot(fs_data, pl_data):
+    """Derive flight phase from a snapshot pair (flight_status + passenger_list)."""
+    if pl_data:
+        passengers = pl_data.get("passengers", [])
+        dummy_analysis = {
+            "boarded": sum(1 for p in passengers if p.get("isBoarded")),
+            "checkedIn": sum(1 for p in passengers if p.get("isCheckedIn") and not p.get("isBoarded")),
+            "notCheckedIn": sum(1 for p in passengers if not p.get("isCheckedIn")),
+            "stateBreakdown": {
+                "booked": {"totalPassengers": sum(1 for p in passengers if not p.get("isCheckedIn") and not p.get("isBoarded"))},
+                "checkedIn": {"totalPassengers": sum(1 for p in passengers if p.get("isCheckedIn") and not p.get("isBoarded"))},
+                "boarded": {"totalPassengers": sum(1 for p in passengers if p.get("isBoarded"))},
+            },
+        }
+    else:
+        dummy_analysis = None
+    phase_info = _derive_flight_phase(fs_data, dummy_analysis)
+    return phase_info.get("phase", "SCHEDULED")
+
+
+def _compute_phase_summary(passengers, gender_lookup=None):
+    """Run _analyze_passengers and build a summary dict for a phase snapshot."""
+    analysis = _analyze_passengers(passengers, gender_lookup)
+    state = analysis.get("stateBreakdown", {})
+    return {
+        "totalPassengers": len(passengers),
+        "adults": sum(1 for p in passengers if not p.get("isChild") and not p.get("hasInfant", False) or True) - 0,
+        "adultCount": len(passengers) - sum(1 for p in passengers if p.get("isChild")),
+        "childCount": sum(1 for p in passengers if p.get("isChild")),
+        "infantCount": sum(1 for p in passengers if p.get("hasInfant")),
+        "totalSouls": len(passengers) + sum(1 for p in passengers if p.get("hasInfant")),
+        "booked": state.get("booked", _empty_state_bucket()),
+        "checkedIn": state.get("checkedIn", _empty_state_bucket()),
+        "boarded": state.get("boarded", _empty_state_bucket()),
+        "economy": analysis.get("economy", {}),
+        "business": analysis.get("business", {}),
+        "cabinTotals": analysis.get("cabinTotals", {}),
+        "totalMale": analysis.get("totalMale", 0),
+        "totalFemale": analysis.get("totalFemale", 0),
+        "totalChildren": analysis.get("totalChildren", 0),
+        "totalInfants": analysis.get("totalInfants", 0),
+        "revenue": analysis.get("revenue", 0),
+        "nonRevenue": analysis.get("nonRevenue", 0),
+        "loyaltyCounts": analysis.get("loyaltyCounts", {}),
+        "nationalityCounts": analysis.get("nationalityCounts", {}),
+    }
+
+
+def _compute_transitions(prev_passengers, curr_passengers):
+    """Compute state transition flows between two passenger snapshots.
+
+    Returns a list of {fromState, toState, count} dicts.
+    """
+    def _pax_key(p):
+        return (p.get("pnr", ""), p.get("lastName", "").upper(), p.get("firstName", "").upper())
+
+    def _pax_state(p):
+        if p.get("isBoarded"):
+            return "boarded"
+        if p.get("isCheckedIn"):
+            return "checkedIn"
+        return "booked"
+
+    prev_map = {}
+    for p in prev_passengers:
+        prev_map[_pax_key(p)] = _pax_state(p)
+
+    curr_map = {}
+    for p in curr_passengers:
+        curr_map[_pax_key(p)] = _pax_state(p)
+
+    flow_counts = {}
+    # Passengers present in both snapshots
+    for key in prev_map:
+        if key in curr_map:
+            from_s = prev_map[key]
+            to_s = curr_map[key]
+            pair = (from_s, to_s)
+            flow_counts[pair] = flow_counts.get(pair, 0) + 1
+
+    # New passengers (added between phases)
+    for key in curr_map:
+        if key not in prev_map:
+            to_s = curr_map[key]
+            pair = ("new", to_s)
+            flow_counts[pair] = flow_counts.get(pair, 0) + 1
+
+    # Removed passengers (disappeared between phases)
+    for key in prev_map:
+        if key not in curr_map:
+            from_s = prev_map[key]
+            pair = (from_s, "removed")
+            flow_counts[pair] = flow_counts.get(pair, 0) + 1
+
+    return [
+        {"fromState": f, "toState": t, "count": c}
+        for (f, t), c in sorted(flow_counts.items(), key=lambda x: -x[1])
+        if c > 0
+    ]
+
+
+# ─── End Phase Journey helpers ──────────────────────────────────────
+
+
 def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_sequence=None):
     """Fetch all dashboard data in parallel using ThreadPoolExecutor."""
     query = {"flightNumber": flight_number}
@@ -2060,3 +2177,175 @@ def get_flight_status_history(
 
     cursor = db["flight_status"].find(query).sort("fetchedAt", -1).limit(limit)
     return [_strip_id(doc) for doc in cursor]
+
+
+@router.get("/{flight_number}/phase-journey")
+def get_phase_journey(
+    flight_number: str,
+    origin: str = Query(None, description="Departure airport code"),
+    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+):
+    """Return per-phase passenger snapshots and inter-phase transition flows.
+
+    Identifies when the flight transitioned between operational phases
+    (SCHEDULED → CHECK_IN → BOARDING → CLOSED → DEPARTED) and runs
+    a deep passenger analysis on the first snapshot captured in each phase.
+    Also computes Sankey-style transition flows between consecutive phases.
+    """
+    validate_date(date)
+    validate_origin(origin)
+
+    db = get_db()
+
+    # ── 1. Fetch all passenger_list snapshots for this flight ────
+    snap_query = {
+        "flightNumber": flight_number,
+        "snapshotType": "passenger_list",
+    }
+    if origin:
+        snap_query["origin"] = origin
+    if date:
+        snap_query["departureDate"] = date
+
+    pl_snaps = list(
+        db["snapshots"]
+        .find(snap_query)
+        .sort("sequenceNumber", 1)
+    )
+
+    # ── 2. Fetch all flight_status snapshots (for phase detection) ──
+    fs_query = dict(snap_query)
+    fs_query["snapshotType"] = "flight_status"
+    fs_snaps = list(
+        db["snapshots"]
+        .find(fs_query)
+        .sort("sequenceNumber", 1)
+    )
+
+    # ── 3. Also fetch the reservations doc for gender lookup ──────
+    res_query = {"flightNumber": flight_number}
+    if origin:
+        res_query["departureAirport"] = origin
+    if date:
+        res_query["departureDate"] = date
+    reservation_doc = db["reservations"].find_one(
+        res_query, sort=[("fetchedAt", -1)])
+    gender_lookup = _build_gender_lookup(
+        reservation_doc) if reservation_doc else None
+
+    # ── 4. Build a timeline: for each pl_snapshot, resolve the flight phase ──
+    # Map fs snapshots by sequenceNumber for quick lookup
+    fs_by_seq = {}
+    for fs in fs_snaps:
+        fs_by_seq[fs.get("sequenceNumber", 0)] = fs.get("data", {})
+
+    # For each PL snapshot, find the closest FS snapshot
+    # (same or most recent FS sequenceNumber <= PL sequenceNumber)
+    fs_seq_list = sorted(fs_by_seq.keys())
+
+    def _find_fs_for_seq(seq):
+        """Find the most recent flight_status data for a given sequenceNumber."""
+        best = None
+        for fs_seq in fs_seq_list:
+            if fs_seq <= seq:
+                best = fs_by_seq[fs_seq]
+            else:
+                break
+        return best
+
+    # ── 5. Walk PL snapshots and detect phase transitions ────────
+    # list of {phase, sequenceNumber, capturedAt, passengers, summary}
+    phase_snapshots = []
+    seen_phases = set()
+
+    for snap in pl_snaps:
+        seq = snap.get("sequenceNumber", 0)
+        pl_data = snap.get("data", {})
+        fs_data = _find_fs_for_seq(seq)
+        phase = _derive_phase_from_snapshot(fs_data, pl_data)
+
+        if phase not in seen_phases:
+            # First snapshot in this phase — capture it
+            seen_phases.add(phase)
+            passengers = pl_data.get("passengers", [])
+            summary = _compute_phase_summary(passengers, gender_lookup)
+            phase_snapshots.append({
+                "phase": phase,
+                "label": PHASE_LABELS.get(phase, phase),
+                "sequenceNumber": seq,
+                "capturedAt": snap.get("capturedAt", ""),
+                "summary": summary,
+                "passengerSummary": {
+                    "totalPassengers": summary["totalPassengers"],
+                    "adultCount": summary["adultCount"],
+                    "childCount": summary["childCount"],
+                    "infantCount": summary["infantCount"],
+                    "totalSouls": summary["totalSouls"],
+                },
+                "_passengers": passengers,  # internal, stripped before response
+            })
+
+    # If we have zero PL snapshots but do have current data, use it as a single phase
+    if not phase_snapshots:
+        # Fall back to current passenger_list
+        query = {"flightNumber": flight_number}
+        if origin:
+            query["origin"] = origin
+        if date:
+            query["departureDate"] = date
+        current_pl = db["passenger_list"].find_one(
+            query, sort=[("fetchedAt", -1)])
+        current_fs = db["flight_status"].find_one(
+            query, sort=[("fetchedAt", -1)])
+        if current_pl:
+            passengers = current_pl.get("passengers", [])
+            phase = _derive_phase_from_snapshot(
+                _strip_id(current_fs), _strip_id(current_pl))
+            summary = _compute_phase_summary(passengers, gender_lookup)
+            phase_snapshots.append({
+                "phase": phase,
+                "label": PHASE_LABELS.get(phase, phase),
+                "sequenceNumber": 0,
+                "capturedAt": current_pl.get("fetchedAt", ""),
+                "summary": summary,
+                "passengerSummary": {
+                    "totalPassengers": summary["totalPassengers"],
+                    "adultCount": summary["adultCount"],
+                    "childCount": summary["childCount"],
+                    "infantCount": summary["infantCount"],
+                    "totalSouls": summary["totalSouls"],
+                },
+                "_passengers": passengers,
+            })
+
+    # ── 6. Sort phases by canonical order ────────────────────────
+    phase_idx = {p: i for i, p in enumerate(PHASE_ORDER)}
+    phase_snapshots.sort(key=lambda ps: phase_idx.get(ps["phase"], 99))
+
+    # ── 7. Compute transitions between consecutive phases ────────
+    transitions = []
+    for i in range(len(phase_snapshots) - 1):
+        prev_pax = phase_snapshots[i]["_passengers"]
+        curr_pax = phase_snapshots[i + 1]["_passengers"]
+        flows = _compute_transitions(prev_pax, curr_pax)
+        transitions.append({
+            "fromPhase": phase_snapshots[i]["phase"],
+            "toPhase": phase_snapshots[i + 1]["phase"],
+            "fromLabel": phase_snapshots[i]["label"],
+            "toLabel": phase_snapshots[i + 1]["label"],
+            "flows": flows,
+            "addedCount": sum(f["count"] for f in flows if f["fromState"] == "new"),
+            "removedCount": sum(f["count"] for f in flows if f["toState"] == "removed"),
+        })
+
+    # ── 8. Strip internal _passengers field and return ───────────
+    for ps in phase_snapshots:
+        del ps["_passengers"]
+
+    return {
+        "flightNumber": flight_number,
+        "origin": origin,
+        "date": date,
+        "phases": phase_snapshots,
+        "transitions": transitions,
+    }

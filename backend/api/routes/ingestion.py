@@ -76,6 +76,11 @@ class SabreIngestRequest(BaseModel):
         default=None,
         description="PostgreSQL flight_sequence_number from otp.flight_xml_current",
     )
+    serviceTypeCode: str | None = Field(
+        default=None,
+        description="IATA service type: J=scheduled, P=positioning/ferry, C=charter. "
+                    "Only J flights are available in Sabre DCS.",
+    )
 
 
 class SabreApiResult(BaseModel):
