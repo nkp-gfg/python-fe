@@ -7,6 +7,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
   Activity,
+  AlertTriangle,
   ArrowRight,
   ArrowRightLeft,
   BookOpen,
@@ -28,6 +29,7 @@ import {
   Search,
   ShieldAlert,
   Timer,
+  TrendingUp,
   Users,
   Clock,
   Briefcase,
@@ -102,6 +104,9 @@ function TableSkeleton() {
 const CommercialInsightsTab = dynamic(() => import("@/components/dashboard/flight-insight-tabs").then(m => m.CommercialInsightsTab), { loading: TabSkeleton });
 const ReadinessInsightsTab = dynamic(() => import("@/components/dashboard/flight-insight-tabs").then(m => m.ReadinessInsightsTab), { loading: TabSkeleton });
 const ExceptionsInsightsTab = dynamic(() => import("@/components/dashboard/flight-insight-tabs").then(m => m.ExceptionsInsightsTab), { loading: TabSkeleton });
+const BriefingTab = dynamic(() => import("@/components/dashboard/briefing-tab").then(m => m.BriefingTab), { loading: TabSkeleton });
+const RevenueTab = dynamic(() => import("@/components/dashboard/revenue-tab").then(m => m.RevenueTab), { loading: TabSkeleton });
+const RiskTab = dynamic(() => import("@/components/dashboard/risk-tab").then(m => m.RiskTab), { loading: TabSkeleton });
 const PassengerTable = dynamic(() => import("@/components/dashboard/passenger-table").then(m => m.PassengerTable), { loading: TableSkeleton });
 const StandbyPanel = dynamic(() => import("@/components/dashboard/standby-panel").then(m => m.StandbyPanel), { loading: TableSkeleton });
 const PassengerDetailSheet = dynamic(() => import("@/components/dashboard/passenger-detail-sheet").then(m => m.PassengerDetailSheet));
@@ -142,7 +147,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [detailPnr, setDetailPnr] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [bottomView, setBottomView] = useState<DetailView | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit" | "journey">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit" | "journey" | "briefing" | "revenue" | "risk">("overview");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [snapshotSequence, setSnapshotSequence] = useState<number | null>(null);
   const [selectedGroupCode, setSelectedGroupCode] = useState<string | null>(null);
@@ -297,11 +302,14 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         flight.departureDate === effectiveSelected?.date,
     ) ?? null;
 
-  const tabLabels: Record<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit" | "journey", string> = {
+  const tabLabels: Record<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit" | "journey" | "briefing" | "revenue" | "risk", string> = {
     overview: "Live Ops",
+    briefing: "Briefing",
     commercial: "Commercial",
     readiness: "Readiness",
     exceptions: "Exceptions",
+    risk: "Risk",
+    revenue: "Revenue",
     passengers: "Passengers",
     groups: "Group Bookings",
     standby: "Standby",
@@ -900,9 +908,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         )}>
           {([
             { key: "overview", icon: LayoutDashboard, label: "Live Ops" },
+            { key: "briefing", icon: Radar, label: "Briefing" },
             { key: "commercial", icon: Briefcase, label: "Commercial" },
             { key: "readiness", icon: CheckCircle2, label: "Readiness" },
             { key: "exceptions", icon: ShieldAlert, label: "Exceptions" },
+            { key: "risk", icon: AlertTriangle, label: "Risk" },
+            { key: "revenue", icon: TrendingUp, label: "Revenue" },
             { key: "passengers", icon: Users, label: "Passengers" },
             { key: "groups", icon: Users, label: "Groups" },
             { key: "standby", icon: Timer, label: "Standby" },
@@ -2067,6 +2078,27 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         </div>
                       </ErrorBoundary>
                     )}
+
+                    {/* Briefing Tab — Decision Intelligence */}
+                    {activeTab === "briefing" && (
+                      <ErrorBoundary compact label="Briefing">
+                        <BriefingTab dashboard={dashboard} />
+                      </ErrorBoundary>
+                    )}
+
+                    {/* Revenue Tab — Revenue Intelligence */}
+                    {activeTab === "revenue" && (
+                      <ErrorBoundary compact label="Revenue">
+                        <RevenueTab dashboard={dashboard} />
+                      </ErrorBoundary>
+                    )}
+
+                    {/* Risk Tab — Risk Assessment */}
+                    {activeTab === "risk" && (
+                      <ErrorBoundary compact label="Risk">
+                        <RiskTab dashboard={dashboard} />
+                      </ErrorBoundary>
+                    )}
                   </div>
 
                   {/* Passenger Detail Sheet */}
@@ -2285,9 +2317,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       <nav className="md:hidden grid grid-cols-6 shrink-0 border-t bg-card" aria-label="Dashboard tabs">
         {([
           { key: "overview" as const, icon: LayoutDashboard, label: "Ops" },
+          { key: "briefing" as const, icon: Radar, label: "Brief" },
           { key: "commercial" as const, icon: Briefcase, label: "Sales" },
           { key: "readiness" as const, icon: CheckCircle2, label: "Ready" },
-          { key: "exceptions" as const, icon: ShieldAlert, label: "Risk" },
+          { key: "exceptions" as const, icon: ShieldAlert, label: "Except" },
+          { key: "risk" as const, icon: AlertTriangle, label: "Risk" },
+          { key: "revenue" as const, icon: TrendingUp, label: "Rev" },
           { key: "passengers" as const, icon: Users, label: "Pax" },
           { key: "groups" as const, icon: Users, label: "Groups" },
           { key: "standby" as const, icon: Timer, label: "Standby" },
