@@ -16,7 +16,6 @@ import {
   ChevronsRight,
   CloudDownload,
   Database,
-  Filter,
   History,
   Info,
   LayoutDashboard,
@@ -47,9 +46,7 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { format, parse } from "date-fns";
@@ -58,6 +55,7 @@ import {
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 
+import { FlightFilters } from "@/components/dashboard/flight-filters";
 import { StatePanels } from "@/components/dashboard/state-panels";
 import type { StateCardKey, PanelFilter } from "@/components/dashboard/state-panels";
 import { PhaseTimeline } from "@/components/dashboard/phase-timeline";
@@ -553,7 +551,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           </Link>
           <div className="hidden items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 sm:flex">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
             Live Data
@@ -596,124 +594,18 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           <div className="flex flex-col h-full">
             <div className="p-4 border-b space-y-3">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Flights</span>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <Popover open={mobileCalendarOpen} onOpenChange={setMobileCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <button
-                        className={cn(
-                          "flex-1 flex items-center gap-1.5 rounded-md border py-1.5 px-2 text-xs shadow-sm transition-colors",
-                          dateFilter !== "all"
-                            ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
-                            : "border-input bg-background text-muted-foreground"
-                        )}
-                      >
-                        <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{dateFilter === "all" ? "All dates" : dateFilter}</span>
-                        {dateFilter !== "all" && (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); setDateFilter("all"); }}
-                            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setDateFilter("all"); } }}
-                            className="ml-auto rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
-                            aria-label="Clear date filter"
-                          >
-                            <X className="h-3 w-3" />
-                          </span>
-                        )}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={calendarSelectedDate}
-                        onSelect={(day) => {
-                          if (day) {
-                            setDateFilter(format(day, "yyyy-MM-dd"));
-                          } else {
-                            setDateFilter("all");
-                          }
-                          setMobileCalendarOpen(false);
-                        }}
-                        disabled={(day) => !availableDateSet.has(format(day, "yyyy-MM-dd"))}
-                        defaultMonth={calendarSelectedDate ?? new Date()}
-                      />
-                      {dateFilter !== "all" && (
-                        <div className="border-t px-3 py-2">
-                          <button
-                            onClick={() => { setDateFilter("all"); setMobileCalendarOpen(false); }}
-                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <X className="h-3 w-3" />
-                            Clear date filter
-                          </button>
-                        </div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                  <div className="relative flex-1">
-                    <Filter className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      aria-label="Filter by status"
-                      className={cn(
-                        "w-full appearance-none rounded-md border py-1.5 pl-7 pr-6 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                        statusFilter !== "all"
-                          ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
-                          : "border-input bg-background"
-                      )}
-                    >
-                      <option value="all">All statuses</option>
-                      {availableStatuses.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                    {statusFilter !== "all" && (
-                      <button
-                        onClick={() => setStatusFilter("all")}
-                        className="absolute right-1 top-1.5 rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
-                        aria-label="Clear status filter"
-                      >
-                        <X className="h-3 w-3 text-blue-500" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {quickDateFilterItems.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {quickDateFilterItems.map((item) => {
-                      const isActive = dateFilter === item.key;
-                      return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          onClick={() => setDateFilter(item.key)}
-                          className={cn(
-                            "rounded-full border px-2 py-1 text-[11px] font-medium transition-colors",
-                            isActive
-                              ? "border-blue-500 bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                              : "border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent"
-                          )}
-                          aria-label={`${item.label} quick filter (${item.count} flights)`}
-                        >
-                          {item.label} ({item.count})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {(dateFilter !== "all" || statusFilter !== "all") && (
-                  <button
-                    onClick={() => { setDateFilter("all"); setStatusFilter("all"); }}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <X className="h-3 w-3" />
-                    Clear all filters
-                  </button>
-                )}
-              </div>
+              <FlightFilters
+                dateFilter={dateFilter}
+                setDateFilter={setDateFilter}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                calendarOpen={mobileCalendarOpen}
+                setCalendarOpen={setMobileCalendarOpen}
+                calendarSelectedDate={calendarSelectedDate}
+                availableDateSet={availableDateSet}
+                availableStatuses={availableStatuses}
+                quickDateFilterItems={quickDateFilterItems}
+              />
             </div>
 
             {/* Currently Selected Flight Card — Mobile */}
@@ -850,122 +742,18 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
 
             </div>
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className={cn(
-                        "flex-1 flex items-center gap-1.5 rounded-md border py-1.5 px-2 text-xs shadow-sm transition-colors",
-                        dateFilter !== "all"
-                          ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
-                          : "border-input bg-background text-muted-foreground"
-                      )}
-                    >
-                      <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{dateFilter === "all" ? "All dates" : dateFilter}</span>
-                      {dateFilter !== "all" && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); setDateFilter("all"); }}
-                          onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setDateFilter("all"); } }}
-                          className="ml-auto rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
-                          aria-label="Clear date filter"
-                        >
-                          <X className="h-3 w-3" />
-                        </span>
-                      )}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={calendarSelectedDate}
-                      onSelect={(day) => {
-                        if (day) {
-                          setDateFilter(format(day, "yyyy-MM-dd"));
-                        } else {
-                          setDateFilter("all");
-                        }
-                        setCalendarOpen(false);
-                      }}
-                      disabled={(day) => !availableDateSet.has(format(day, "yyyy-MM-dd"))}
-                      defaultMonth={calendarSelectedDate ?? new Date()}
-                    />
-                    {dateFilter !== "all" && (
-                      <div className="border-t px-3 py-2">
-                        <button
-                          onClick={() => { setDateFilter("all"); setCalendarOpen(false); }}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <X className="h-3 w-3" />
-                          Clear date filter
-                        </button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-                <div className="relative flex-1">
-                  <Filter className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    aria-label="Filter by status"
-                    className={cn(
-                      "w-full appearance-none rounded-md border py-1.5 pl-7 pr-6 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                      statusFilter !== "all"
-                        ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
-                        : "border-input bg-background"
-                    )}
-                  >
-                    <option value="all">All statuses</option>
-                    {availableStatuses.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                  {statusFilter !== "all" && (
-                    <button
-                      onClick={() => setStatusFilter("all")}
-                      className="absolute right-1 top-1.5 rounded-full p-0.5 hover:bg-blue-500/20 transition-colors"
-                      aria-label="Clear status filter"
-                    >
-                      <X className="h-3 w-3 text-blue-500" />
-                    </button>
-                  )}
-                </div>
-              </div>
-              {quickDateFilterItems.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {quickDateFilterItems.map((item) => {
-                    const isActive = dateFilter === item.key;
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => setDateFilter(item.key)}
-                        className={cn(
-                          "rounded-full border px-2 py-1 text-[11px] font-medium transition-colors",
-                          isActive
-                            ? "border-blue-500 bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                            : "border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent"
-                        )}
-                        aria-label={`${item.label} quick filter (${item.count} flights)`}
-                      >
-                        {item.label} ({item.count})
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {(dateFilter !== "all" || statusFilter !== "all") && (
-                <button
-                  onClick={() => { setDateFilter("all"); setStatusFilter("all"); }}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                  Clear all filters
-                </button>
-              )}
+              <FlightFilters
+                dateFilter={dateFilter}
+                setDateFilter={setDateFilter}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                calendarOpen={calendarOpen}
+                setCalendarOpen={setCalendarOpen}
+                calendarSelectedDate={calendarSelectedDate}
+                availableDateSet={availableDateSet}
+                availableStatuses={availableStatuses}
+                quickDateFilterItems={quickDateFilterItems}
+              />
             </div>
           </div>
 
@@ -1182,7 +970,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         {/* Console Workspace */}
         <Panel minSize="40">
           <ErrorBoundary label="Dashboard" key={effectiveSelected ? `${effectiveSelected.flightNumber}-${effectiveSelected.origin}-${effectiveSelected.date}` : "none"}>
-          <main className="h-full w-full overflow-y-auto bg-muted/10 py-3 px-2 md:py-4 md:px-3">
+          <main id="main-content" className="h-full w-full overflow-y-auto bg-muted/10 py-3 px-2 md:py-4 md:px-3">
             <div className="space-y-3">
               {dashboardLoading && (
                 <div className="flex min-h-[400px] items-center justify-center text-muted-foreground">
@@ -1273,7 +1061,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                       </div>
 
                       {/* KPI strip */}
-                      <div className="flex items-center gap-4 text-xs overflow-x-auto scrollbar-none">
+                      <div className="flex items-center gap-4 text-xs overflow-x-auto scrollbar-none scroll-fade-x">
                         {/* Prominent souls on board */}
                         <button
                           className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 hover:ring-1 hover:ring-emerald-400 transition-all cursor-pointer"
@@ -1327,7 +1115,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                               {dashboard.codeshareInfo && dashboard.codeshareInfo.length > 0 && (
                                 <div className="flex items-center gap-1">
                                   {dashboard.codeshareInfo.map((info) => (
-                                    <Badge key={info} variant="outline" className="text-[9px] px-1.5 border-indigo-300 text-indigo-600">
+                                    <Badge key={info} variant="outline" className="text-[11px] px-1.5 border-indigo-300 text-indigo-600">
                                       {info}
                                     </Badge>
                                   ))}
@@ -1340,7 +1128,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                         {dashboard.fetchedAt && (
                           <>
                             <Separator orientation="vertical" className="h-5 hidden md:block" />
-                            <span className="hidden md:flex items-center gap-1 text-[10px] text-muted-foreground" title={`Data fetched at ${dashboard.fetchedAt}`}>
+                            <span className="hidden md:flex items-center gap-1 text-[11px] text-muted-foreground" title={`Data fetched at ${dashboard.fetchedAt}`}>
                               <Clock className="h-3 w-3" />
                               {new Date(dashboard.fetchedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
@@ -1386,7 +1174,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                   )}
 
                   {/* Stats Strip — Row 1: Core metrics */}
-                  <div className="flex gap-2.5 mt-2 overflow-x-auto scrollbar-none pb-0.5">
+                  <div className="flex gap-2.5 mt-2 overflow-x-auto scrollbar-none scroll-fade-x pb-0.5">
                     {/* Cabin */}
                     <div className="rounded-lg border bg-card px-3 py-3 shadow-sm shrink-0">
                       <div className="mb-2 flex items-center justify-between gap-2">
@@ -2494,7 +2282,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       </AlertDialog>
 
       {/* Mobile Tab Bar — visible below lg breakpoint */}
-      <nav className="md:hidden flex shrink-0 border-t bg-card overflow-x-auto scrollbar-none">
+      <nav className="md:hidden grid grid-cols-6 shrink-0 border-t bg-card" aria-label="Dashboard tabs">
         {([
           { key: "overview" as const, icon: LayoutDashboard, label: "Ops" },
           { key: "commercial" as const, icon: Briefcase, label: "Sales" },
@@ -2506,13 +2294,14 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           { key: "changes" as const, icon: Activity, label: "Changes" },
           { key: "history" as const, icon: History, label: "History" },
           { key: "reservations" as const, icon: BookOpen, label: "Res" },
+          { key: "journey" as const, icon: ArrowRightLeft, label: "Journey" },
           { key: "audit" as const, icon: ShieldAlert, label: "Audit" },
         ]).map(({ key, icon: Icon, label }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
             className={cn(
-              "flex flex-col items-center gap-0.5 flex-1 min-w-[3.5rem] py-2 text-[10px] transition-colors",
+              "flex flex-col items-center gap-0.5 py-2 text-[11px] transition-colors",
               activeTab === key
                 ? "text-primary font-semibold"
                 : "text-muted-foreground hover:text-foreground"

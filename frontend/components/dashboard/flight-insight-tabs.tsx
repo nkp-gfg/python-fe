@@ -70,14 +70,14 @@ type CabinStackDatum = {
 };
 
 const palette = [
-  "var(--color-chart-1)",
-  "var(--color-chart-2)",
-  "var(--color-chart-3)",
-  "var(--color-chart-4)",
-  "var(--color-chart-5)",
-  "oklch(0.78 0.11 165)",
-  "oklch(0.72 0.15 80)",
-  "oklch(0.7 0.17 20)",
+  "oklch(0.65 0.15 250)",   /* blue    – Okabe-Ito safe */
+  "oklch(0.72 0.18 50)",    /* orange  */
+  "oklch(0.58 0.14 160)",   /* teal    */
+  "oklch(0.62 0.20 330)",   /* magenta */
+  "oklch(0.78 0.11 90)",    /* yellow  */
+  "oklch(0.55 0.12 280)",   /* purple  */
+  "oklch(0.70 0.08 30)",    /* salmon  */
+  "oklch(0.80 0.06 210)",   /* sky     */
 ];
 
 function infoButton(onClick?: () => void, title?: string) {
@@ -584,7 +584,7 @@ function CompositionCard({
       {total === 0 ? (
         <EmptyState />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4" role="img" aria-label={`${title} composition chart`}>
           <ChartContainer
             config={{ value: { label: "Passengers", color: "var(--color-chart-4)" } }}
             className="h-[120px] w-full aspect-auto"

@@ -180,16 +180,16 @@ export function PhaseTransitionChart({ phases, transitions }: PhaseTransitionCha
       {/* Inline Chart Area */}
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
         {view === "stacked" && (
-          <EChart option={stackedOption} className="h-64 w-full" />
+          <EChart option={stackedOption} className="h-64 w-full" ariaLabel="Phase stacked bar comparison" />
         )}
         {view === "demographics" && (
-          <EChart option={demographicOption} className="h-64 w-full" />
+          <EChart option={demographicOption} className="h-64 w-full" ariaLabel="Passenger demographics breakdown" />
         )}
         {view === "cabin" && (
-          <EChart option={cabinOption} className="h-64 w-full" />
+          <EChart option={cabinOption} className="h-64 w-full" ariaLabel="Cabin distribution chart" />
         )}
         {view === "sankey" && sankeyOption && (
-          <EChart option={sankeyOption} className="h-80 w-full" />
+          <EChart option={sankeyOption} className="h-80 w-full" ariaLabel="Phase transition Sankey flow" />
         )}
         {view === "sankey" && !sankeyOption && (
           <div className="flex items-center justify-center h-64 text-sm text-muted-foreground">
@@ -231,7 +231,7 @@ export function PhaseTransitionChart({ phases, transitions }: PhaseTransitionCha
                 Sankey flow requires at least 2 phase snapshots.
               </div>
             ) : currentOption ? (
-              <EChart option={currentOption} className="h-full w-full" />
+              <EChart option={currentOption} className="h-full w-full" ariaLabel={`Phase comparison — ${VIEW_LABELS[view]} (fullscreen)`} />
             ) : null}
           </div>
         </DialogContent>

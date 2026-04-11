@@ -221,7 +221,7 @@ export function PassengerTable({
   function renderSortHeader(label: string, field: SortKey) {
     const active = sortKey === field;
     return (
-      <button className="flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort(field)}>
+      <button className="flex items-center gap-1 cursor-pointer hover:text-foreground" onClick={() => toggleSort(field)}>
         {label}
         {active
           ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
@@ -281,7 +281,7 @@ export function PassengerTable({
               value={filterCabin}
               onChange={(e) => setFilterCabin(e.target.value as FilterCabin)}
               className={cn(
-                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6 cursor-pointer",
                 filterCabin !== "all"
                   ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
                   : "border-input bg-background"
@@ -306,7 +306,7 @@ export function PassengerTable({
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
               className={cn(
-                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6 cursor-pointer",
                 filterStatus !== "all"
                   ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
                   : "border-input bg-background"
@@ -332,7 +332,7 @@ export function PassengerTable({
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as FilterType)}
               className={cn(
-                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6 cursor-pointer",
                 filterType !== "all"
                   ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
                   : "border-input bg-background"
@@ -361,7 +361,7 @@ export function PassengerTable({
               value={filterLoyalty}
               onChange={(e) => setFilterLoyalty(e.target.value as FilterLoyalty)}
               className={cn(
-                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6 cursor-pointer",
                 filterLoyalty !== "all"
                   ? "border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium"
                   : "border-input bg-background"
@@ -387,7 +387,7 @@ export function PassengerTable({
               value={filterSSR}
               onChange={(e) => setFilterSSR(e.target.value as FilterSSR)}
               className={cn(
-                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6 cursor-pointer",
                 filterSSR !== "all"
                   ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium"
                   : "border-input bg-background"
@@ -414,7 +414,7 @@ export function PassengerTable({
               value={filterBP}
               onChange={(e) => setFilterBP(e.target.value as FilterBoardingPass)}
               className={cn(
-                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6 cursor-pointer",
                 filterBP !== "all"
                   ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-400 font-medium"
                   : "border-input bg-background"
@@ -439,7 +439,7 @@ export function PassengerTable({
               value={filterSeat}
               onChange={(e) => setFilterSeat(e.target.value as FilterSeat)}
               className={cn(
-                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6 cursor-pointer",
                 filterSeat !== "all"
                   ? "border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium"
                   : "border-input bg-background"
@@ -464,7 +464,7 @@ export function PassengerTable({
               value={filterConnecting}
               onChange={(e) => setFilterConnecting(e.target.value as FilterConnecting)}
               className={cn(
-                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6 cursor-pointer",
                 filterConnecting !== "all"
                   ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-medium"
                   : "border-input bg-background"
@@ -491,7 +491,7 @@ export function PassengerTable({
                 value={filterDestination}
                 onChange={(e) => setFilterDestination(e.target.value as FilterDestination)}
                 className={cn(
-                  "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6",
+                  "rounded-md border px-2 py-1.5 text-xs appearance-none pr-6 cursor-pointer",
                   filterDestination !== "all"
                     ? "border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium"
                     : "border-input bg-background"
