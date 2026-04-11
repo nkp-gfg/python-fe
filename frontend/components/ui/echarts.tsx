@@ -1,29 +1,27 @@
 "use client"
 
 import { useEffect, useId, useRef, type CSSProperties } from "react"
-import * as echarts from "echarts"
 import type { EChartsOption } from "echarts"
 
 import { cn } from "@/lib/utils"
 
-type InitOptions = Parameters<typeof echarts.init>[2]
-type SetOptionOptions = Parameters<ReturnType<typeof echarts.init>["setOption"]>[1]
+type EChartInstance = ReturnType<Awaited<typeof import("echarts")>["init"]>
 
-const DEFAULT_SET_OPTION_OPTS: SetOptionOptions = {
+const DEFAULT_SET_OPTION_OPTS = {
   lazyUpdate: true,
-}
+} as const
 
-type EChartProps = {
+export type EChartProps = {
   option: EChartsOption
   className?: string
   style?: CSSProperties
-  initOptions?: InitOptions
-  setOptionOpts?: SetOptionOptions
+  initOptions?: Record<string, unknown>
+  setOptionOpts?: Record<string, unknown>
   loading?: boolean
   ariaLabel?: string
 }
 
-export function EChart({
+function EChartInner({
   option,
   className,
   style,
@@ -34,37 +32,53 @@ export function EChart({
 }: EChartProps) {
   const chartId = useId()
   const hostRef = useRef<HTMLDivElement | null>(null)
-  const chartRef = useRef<ReturnType<typeof echarts.init> | null>(null)
+  const chartRef = useRef<EChartInstance | null>(null)
+  const echartsRef = useRef<typeof import("echarts") | null>(null)
 
   useEffect(() => {
     const host = hostRef.current
+    if (!host) return
 
-    if (!host) {
-      return
-    }
+    let cancelled = false
 
-    const chart = echarts.getInstanceByDom(host) ?? echarts.init(host, undefined, initOptions)
-    chartRef.current = chart
+    import("echarts").then((echarts) => {
+      if (cancelled) return
+      echartsRef.current = echarts
+      const chart = echarts.getInstanceByDom(host) ?? echarts.init(host, undefined, initOptions)
+      chartRef.current = chart
 
-    const resizeObserver = new ResizeObserver(() => {
-      chart.resize()
+      const resizeObserver = new ResizeObserver(() => {
+        chart.resize()
+      })
+      resizeObserver.observe(host)
+
+      // Apply initial option
+      if (loading) {
+        chart.showLoading()
+      } else {
+        chart.hideLoading()
+        chart.setOption(option, setOptionOpts)
+        chart.resize()
+      }
+
+      // Store cleanup for the resize observer
+      ;(host as HTMLDivElement & { __ro?: ResizeObserver }).__ro = resizeObserver
     })
 
-    resizeObserver.observe(host)
-
     return () => {
-      resizeObserver.disconnect()
-      chart.dispose()
-      chartRef.current = null
+      cancelled = true
+      const ro = (host as HTMLDivElement & { __ro?: ResizeObserver }).__ro
+      if (ro) ro.disconnect()
+      if (chartRef.current) {
+        chartRef.current.dispose()
+        chartRef.current = null
+      }
     }
-  }, [initOptions])
+  }, [initOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const chart = chartRef.current
-
-    if (!chart) {
-      return
-    }
+    if (!chart) return
 
     if (loading) {
       chart.showLoading()
@@ -87,3 +101,17 @@ export function EChart({
     />
   )
 }
+
+// --- Dynamic wrapper: keeps echarts out of the initial bundle ---
+
+import dynamic from "next/dynamic"
+
+export const EChart = dynamic(
+  () => Promise.resolve(EChartInner),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[220px] w-full animate-pulse rounded bg-muted/30" />
+    ),
+  },
+)

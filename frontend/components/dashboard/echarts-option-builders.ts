@@ -1,9 +1,16 @@
-import * as echarts from "echarts"
 import type { EChartsOption } from "echarts"
 
 const ECHARTS_PALETTE = ["#38bdf8", "#a78bfa", "#34d399", "#f59e0b", "#fb7185", "#22c55e", "#f97316", "#06b6d4"]
 const ECHARTS_AXIS_COLOR = "#94a3b8"
 const ECHARTS_TEXT_COLOR = "#e2e8f0"
+
+/** Plain-object gradient compatible with ECharts — avoids importing the full echarts runtime. */
+function linearGradient(
+  x: number, y: number, x2: number, y2: number,
+  colorStops: { offset: number; color: string }[],
+) {
+  return { type: "linear" as const, x, y, x2, y2, colorStops }
+}
 const ECHARTS_SPLIT_LINE = "rgba(148, 163, 184, 0.16)"
 
 type DonutChartDatum = {
@@ -289,15 +296,15 @@ export function buildHistoryStackedAreaOption({
   data: HistoryAreaPoint[]
 }): EChartsOption {
   const gradients = [
-    new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+    linearGradient(0, 0, 0, 1, [
       { offset: 0, color: "rgba(56, 189, 248, 0.9)" },
       { offset: 1, color: "rgba(14, 165, 233, 0.18)" },
     ]),
-    new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+    linearGradient(0, 0, 0, 1, [
       { offset: 0, color: "rgba(167, 139, 250, 0.86)" },
       { offset: 1, color: "rgba(124, 58, 237, 0.18)" },
     ]),
-    new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+    linearGradient(0, 0, 0, 1, [
       { offset: 0, color: "rgba(52, 211, 153, 0.88)" },
       { offset: 1, color: "rgba(5, 150, 105, 0.18)" },
     ]),
@@ -396,11 +403,11 @@ export function buildBoardingProgressAreaOption({
   data: BoardingTimelinePoint[]
 }): EChartsOption {
   const gradients = [
-    new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+    linearGradient(0, 0, 0, 1, [
       { offset: 0, color: "rgba(52, 211, 153, 0.78)" },
       { offset: 1, color: "rgba(5, 150, 105, 0.12)" },
     ]),
-    new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+    linearGradient(0, 0, 0, 1, [
       { offset: 0, color: "rgba(168, 85, 247, 0.76)" },
       { offset: 1, color: "rgba(126, 34, 206, 0.12)" },
     ]),
@@ -484,7 +491,7 @@ export function buildCheckInTimelineAreaOption({
 }: {
   data: HourlyAreaPoint[]
 }): EChartsOption {
-  const gradient = new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+  const gradient = linearGradient(0, 0, 0, 1, [
     { offset: 0, color: "rgba(56, 189, 248, 0.62)" },
     { offset: 1, color: "rgba(14, 165, 233, 0.08)" },
   ])
@@ -719,6 +726,7 @@ export function buildPhaseTransitionSankeyOption({
       },
     },
     series: [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ECharts Sankey `layout` prop missing from type defs
       {
         type: "sankey",
         layout: "none",
@@ -751,7 +759,7 @@ export function buildPhaseTransitionSankeyOption({
         },
         data: nodes,
         links: links,
-      },
+      } as any,
     ],
   }
 }

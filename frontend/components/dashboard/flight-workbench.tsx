@@ -1,9 +1,10 @@
 "use client";
 
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Suspense, startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient, useIsMutating } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   Activity,
   ArrowRight,
@@ -68,28 +69,53 @@ import { IngestionPanel } from "@/components/dashboard/ingestion-panel";
 import { useToast } from "@/components/ui/toast";
 import { TileInfoPanel, type TileInfoKey } from "@/components/dashboard/tile-info-panel";
 import { InsightInfoPanel, type InsightInfoKey } from "@/components/dashboard/insight-info-panel";
-import { PassengerTable, type FilterCabin, type FilterStatus, type FilterType, type FilterLoyalty, type FilterNationality } from "@/components/dashboard/passenger-table";
-import { StandbyPanel } from "@/components/dashboard/standby-panel";
-import { PassengerDetailSheet } from "@/components/dashboard/passenger-detail-sheet";
-import { ChangeTimeline } from "@/components/dashboard/change-timeline";
+import type { FilterCabin, FilterStatus, FilterType, FilterLoyalty, FilterNationality } from "@/components/dashboard/passenger-table";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { StatusHistory } from "@/components/dashboard/status-history";
-import { ReservationView } from "@/components/dashboard/reservation-view";
-import { FlightTimeline } from "@/components/dashboard/flight-timeline";
-import { BoardingProgress } from "@/components/dashboard/boarding-progress";
-import {
-  CommercialInsightsTab,
-  ExceptionsInsightsTab,
-  ReadinessInsightsTab,
-} from "@/components/dashboard/flight-insight-tabs";
-import { AuditPanel } from "@/components/dashboard/audit-panel";
-import { PhaseJourney } from "@/components/dashboard/phase-journey";
 
-type FlightSelection = {
-  flightNumber: string;
-  origin: string;
-  date: string;
-};
+// --- Dynamic imports: heavy components loaded only when their tab is active ---
+// bundle-dynamic-imports: these pull in recharts (400KB) and echarts (1MB+)
+function TabSkeleton() {
+  return (
+    <div className="space-y-4 py-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-24 animate-pulse rounded-lg bg-muted/40" />
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-64 animate-pulse rounded-lg bg-muted/40" />
+        ))}
+      </div>
+    </div>
+  );
+}
+function TableSkeleton() {
+  return (
+    <div className="space-y-2 py-4">
+      <div className="h-10 w-full animate-pulse rounded bg-muted/40" />
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="h-8 w-full animate-pulse rounded bg-muted/30" />
+      ))}
+    </div>
+  );
+}
+
+const CommercialInsightsTab = dynamic(() => import("@/components/dashboard/flight-insight-tabs").then(m => m.CommercialInsightsTab), { loading: TabSkeleton });
+const ReadinessInsightsTab = dynamic(() => import("@/components/dashboard/flight-insight-tabs").then(m => m.ReadinessInsightsTab), { loading: TabSkeleton });
+const ExceptionsInsightsTab = dynamic(() => import("@/components/dashboard/flight-insight-tabs").then(m => m.ExceptionsInsightsTab), { loading: TabSkeleton });
+const PassengerTable = dynamic(() => import("@/components/dashboard/passenger-table").then(m => m.PassengerTable), { loading: TableSkeleton });
+const StandbyPanel = dynamic(() => import("@/components/dashboard/standby-panel").then(m => m.StandbyPanel), { loading: TableSkeleton });
+const PassengerDetailSheet = dynamic(() => import("@/components/dashboard/passenger-detail-sheet").then(m => m.PassengerDetailSheet));
+const ChangeTimeline = dynamic(() => import("@/components/dashboard/change-timeline").then(m => m.ChangeTimeline), { loading: TableSkeleton });
+const StatusHistory = dynamic(() => import("@/components/dashboard/status-history").then(m => m.StatusHistory), { loading: TableSkeleton });
+const ReservationView = dynamic(() => import("@/components/dashboard/reservation-view").then(m => m.ReservationView), { loading: TableSkeleton });
+const FlightTimeline = dynamic(() => import("@/components/dashboard/flight-timeline").then(m => m.FlightTimeline));
+const BoardingProgress = dynamic(() => import("@/components/dashboard/boarding-progress").then(m => m.BoardingProgress));
+const AuditPanel = dynamic(() => import("@/components/dashboard/audit-panel").then(m => m.AuditPanel), { loading: TableSkeleton });
+const PhaseJourney = dynamic(() => import("@/components/dashboard/phase-journey").then(m => m.PhaseJourney));
+
+import { getStatusColor, ScheduleDelay, type FlightSelection } from "@/components/dashboard/workbench-utils";
 
 interface FlightWorkbenchProps {
   initialSelection?: FlightSelection;
@@ -273,7 +299,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         flight.departureDate === effectiveSelected?.date,
     ) ?? null;
 
-  const tabLabels: Record<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit", string> = {
+  const tabLabels: Record<"overview" | "commercial" | "readiness" | "exceptions" | "passengers" | "groups" | "standby" | "changes" | "history" | "reservations" | "activity" | "audit" | "journey", string> = {
     overview: "Live Ops",
     commercial: "Commercial",
     readiness: "Readiness",
@@ -286,6 +312,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     reservations: "Reservations",
     activity: "Activity",
     audit: "Audit",
+    journey: "Journey",
   };
 
   const availableDates = useMemo(() => {
@@ -2497,64 +2524,5 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
         ))}
       </nav>
     </div>
-  );
-}
-
-function getStatusColor(status: string) {
-  switch (status.toUpperCase()) {
-    case "PDC":
-    case "DEPARTED":
-      return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
-    case "OPENCI":
-    case "CHECK_IN":
-      return "bg-blue-500/15 text-blue-600 dark:text-blue-400";
-    case "FINAL":
-    case "CLOSED":
-      return "bg-red-500/15 text-red-600 dark:text-red-400";
-    case "BOARDING":
-      return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
-    case "SCHEDULED":
-      return "bg-slate-500/15 text-slate-600 dark:text-slate-400";
-    default:
-      return "bg-secondary text-secondary-foreground";
-  }
-}
-
-function ScheduleDelay({ schedule }: { schedule?: { scheduledDeparture?: string; estimatedDeparture?: string; scheduledArrival?: string; estimatedArrival?: string } }) {
-  if (!schedule?.scheduledDeparture) return <span>STD —</span>;
-
-  const std = schedule.scheduledDeparture;
-  const etd = schedule.estimatedDeparture;
-
-  // Parse HH:MM from the time strings (last 8 chars is HH:MM:SS)
-  const stdTime = std.slice(-8, -3); // HH:MM
-
-  if (!etd || etd === std) {
-    return <span>STD {stdTime}</span>;
-  }
-
-  // Calculate delay in minutes
-  const parseMinutes = (t: string) => {
-    const hhmm = t.slice(-8, -3);
-    const [h, m] = hhmm.split(":").map(Number);
-    return h * 60 + m;
-  };
-  const delayMin = parseMinutes(etd) - parseMinutes(std);
-
-  if (delayMin === 0) return <span>STD {stdTime}</span>;
-
-  const etdTime = etd.slice(-8, -3);
-  const sign = delayMin > 0 ? "+" : "";
-
-  return (
-    <span className="flex items-center gap-1">
-      <span>STD {stdTime}</span>
-      <span className={cn(
-        "text-[10px] font-semibold px-1 rounded",
-        delayMin > 0 ? "text-rose-500 bg-rose-50 dark:bg-rose-950/40" : "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40"
-      )}>
-        ETD {etdTime} ({sign}{delayMin}m)
-      </span>
-    </span>
   );
 }

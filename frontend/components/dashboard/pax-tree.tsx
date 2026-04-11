@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 import type { FlightTree, FlightTreeNode } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -150,13 +150,16 @@ interface PaxTreeProps {
 export function PaxTree({ tree, className, onClose }: PaxTreeProps) {
   const [magnified, setMagnified] = useState(true);
 
-  // Only render visible nodes in the SVG (display !== false)
-  const visibleNodes = tree.nodes.filter((n) => n.display !== false);
-  const visibleIds = new Set(visibleNodes.map((n) => n.id));
-  const visibleEdges = tree.edges.filter(
-    (e) => visibleIds.has(e.from) && visibleIds.has(e.to),
-  );
-  const nodeMap = new Map(visibleNodes.map((n) => [n.id, n]));
+  // rerender-memo: memoize expensive node/edge filtering + Map construction
+  const { visibleNodes, visibleEdges, nodeMap } = useMemo(() => {
+    const vNodes = tree.nodes.filter((n) => n.display !== false);
+    const vIds = new Set(vNodes.map((n) => n.id));
+    const vEdges = tree.edges.filter(
+      (e) => vIds.has(e.from) && vIds.has(e.to),
+    );
+    const nMap = new Map(vNodes.map((n) => [n.id, n]));
+    return { visibleNodes: vNodes, visibleEdges: vEdges, nodeMap: nMap };
+  }, [tree.nodes, tree.edges]);
 
   function renderSvg(extraClass?: string) {
     return (
