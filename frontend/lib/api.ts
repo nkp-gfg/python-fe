@@ -17,6 +17,8 @@ import type {
   PassengerComparisonResult,
   PhaseJourneyResponse,
   SabreFlightIngestResult,
+  NetworkAnalyticsResponse,
+  AnalyticsFiltersResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -478,4 +480,24 @@ export function fetchPhaseJourney(
   if (date) params.set("date", date);
   const qs = params.toString() ? `?${params}` : "";
   return get<PhaseJourneyResponse>(`/flights/${flightNumber}/phase-journey${qs}`);
+}
+
+export function fetchNetworkAnalytics(
+  dateFrom: string,
+  dateTo: string,
+  filters?: { origin?: string; cabin?: string; flightNumber?: string; destination?: string },
+): Promise<NetworkAnalyticsResponse> {
+  const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
+  if (filters?.origin) params.set("origin", filters.origin);
+  if (filters?.cabin) params.set("cabin", filters.cabin);
+  if (filters?.flightNumber) params.set("flight_number", filters.flightNumber);
+  if (filters?.destination) params.set("destination", filters.destination);
+  return get<NetworkAnalyticsResponse>(`/analytics/network?${params}`);
+}
+
+export function fetchAnalyticsFilters(
+  dateFrom: string,
+  dateTo: string,
+): Promise<AnalyticsFiltersResponse> {
+  return get<AnalyticsFiltersResponse>(`/analytics/filters?date_from=${dateFrom}&date_to=${dateTo}`);
 }

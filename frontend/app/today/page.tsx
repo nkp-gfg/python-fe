@@ -77,14 +77,21 @@ const INGEST_TIMEOUT_MS = 10 * 60_000;
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-function buildIngestPayload(f: OtpFlight): SabreIngestRequest {
-  // Use backend-computed sabreDepartureDate which resolves overnight/rollover
-  // date issues. Falls back: scheduledDepartureLocal → localFlightDate
-  // → legDepartureDate → flightDate (last resort).
-  const departureDate = f.sabreDepartureDate
+/** Returns the Sabre departure date, resolving overnight rollover. */
+function getSabreDepartureDate(f: OtpFlight): string {
+  return f.sabreDepartureDate
     ?? f.scheduledDepartureLocal?.split("T")[0]
     ?? f.localFlightDate?.split("T")[0]
     ?? f.flightDate;
+}
+
+/** True when the Sabre departure date differs from the OTP flight date (overnight rollover). */
+function hasDateRollover(f: OtpFlight): boolean {
+  return getSabreDepartureDate(f) !== f.flightDate;
+}
+
+function buildIngestPayload(f: OtpFlight): SabreIngestRequest {
+  const departureDate = getSabreDepartureDate(f);
 
   if (departureDate !== f.flightDate) {
     console.warn(
@@ -169,12 +176,13 @@ export default function TodayPage() {
   }, [flights]);
 
   const stats = useMemo(() => {
-    if (!flights) return { total: 0, active: 0, cancelled: 0, totalPax: 0 };
+    if (!flights) return { total: 0, active: 0, cancelled: 0, totalPax: 0, rolloverCount: 0 };
     const total = flights.length;
     const cancelled = flights.filter((f) => f.isCancelled).length;
     const active = total - cancelled;
     const totalPax = flights.reduce((s, f) => s + (f.totalPax ?? 0), 0);
-    return { total, active, cancelled, totalPax };
+    const rolloverCount = flights.filter(hasDateRollover).length;
+    return { total, active, cancelled, totalPax, rolloverCount };
   }, [flights]);
 
   /* ── selection helpers ── */
@@ -479,6 +487,13 @@ export default function TodayPage() {
               ))}
           </div>
 
+          {stats.rolloverCount > 0 && (
+            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400" title="Flights where Sabre departure date differs from OTP flight date (overnight rollover)">
+              <CalendarDays className="h-3 w-3" />
+              {stats.rolloverCount} rollover{stats.rolloverCount > 1 ? "s" : ""}
+            </span>
+          )}
+
           <span className="ml-auto text-muted-foreground">
             <Users className="inline h-3 w-3 mr-1" />
             {stats.totalPax} pax
@@ -556,6 +571,7 @@ export default function TodayPage() {
                   ingestState={rowIngestState[flight.flightSequenceNumber] ?? "idle"}
                   ingestError={rowIngestError[flight.flightSequenceNumber] ?? null}
                   onIngest={() => handleRowIngest(flight)}
+                  dateRollover={hasDateRollover(flight)}
                 />
               ))}
             </div>
@@ -680,6 +696,7 @@ function FlightRow({
   ingestState,
   ingestError,
   onIngest,
+  dateRollover,
 }: {
   flight: OtpFlight;
   index: number;
@@ -688,6 +705,7 @@ function FlightRow({
   ingestState: "idle" | "loading" | "done" | "error";
   ingestError: string | null;
   onIngest: () => void;
+  dateRollover: boolean;
 }) {
   const status = flight.flightStatus;
   const std = fmtTime(flight.scheduledDepartureUtc);
@@ -743,6 +761,14 @@ function FlightRow({
           {flight.serviceTypeCode && flight.serviceTypeCode !== "J" && (
             <span className="text-[9px] px-1 py-0.5 rounded font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400" title={`Service type: ${SERVICE_TYPE_LABELS[flight.serviceTypeCode] ?? flight.serviceTypeCode}`}>
               {SERVICE_TYPE_LABELS[flight.serviceTypeCode] ?? flight.serviceTypeCode}
+            </span>
+          )}
+          {dateRollover && (
+            <span
+              className="text-[9px] px-1 py-0.5 rounded font-semibold bg-orange-500/15 text-orange-600 dark:text-orange-400"
+              title={`Date rollover: OTP date ${flight.flightDate}, Sabre departure ${getSabreDepartureDate(flight)}`}
+            >
+              Rollover
             </span>
           )}
         </div>

@@ -1526,3 +1526,135 @@ export interface PhaseJourneyResponse {
   phases: PhaseSnapshot[];
   transitions: PhaseTransition[];
 }
+
+/* ─────────── Network Analytics ─────────── */
+
+export interface NetworkAnalyticsOverview {
+  totalFlights: number;
+  uniqueRoutes: number;
+  uniqueStations: number;
+  daysTracked: number;
+  totalPassengers: number;
+  totalSouls: number;
+  avgPassengersPerFlight: number;
+  maxPassengersOnFlight: number;
+  economyPassengers: number;
+  businessPassengers: number;
+  avgLoadFactor: number;
+}
+
+export interface RoutePerformance {
+  origin: string;
+  totalPassengers: number;
+  flightCount: number;
+  avgPassengers: number;
+}
+
+export interface BookingClassItem {
+  cabin: string;
+  bookingClass: string;
+  count: number;
+}
+
+export interface NationalityItem {
+  nationality: string;
+  count: number;
+}
+
+export interface LoyaltyItem {
+  tier: string;
+  tierName: string;
+  count: number;
+}
+
+export interface MealItem {
+  mealCode: string;
+  count: number;
+}
+
+export interface WheelchairItem {
+  code: string;
+  count: number;
+}
+
+export interface ChangeDistributionItem {
+  changeType: string;
+  count: number;
+}
+
+export interface DailyTrend {
+  date: string;
+  flights: number;
+  passengers: number;
+  changes: number;
+}
+
+export interface PartySizeItem {
+  partySize: number;
+  count: number;
+}
+
+export interface PointOfSaleItem {
+  country: string;
+  count: number;
+}
+
+export interface OperationalRates {
+  totalPassengers: number;
+  checkedIn: number;
+  boarded: number;
+  revenue: number;
+  standby: number;
+  checkInRate: number;
+  boardingRate: number;
+}
+
+export interface UpgradeAnalytics {
+  cabinChanges: number;
+  upgradesConfirmed: number;
+}
+
+export interface BookingLeadTime {
+  sameDay: number;
+  within7d: number;
+  within30d: number;
+  within90d: number;
+  over90d: number;
+}
+
+export interface NetworkAnalyticsResponse {
+  dateRange: { from: string; to: string };
+  filters: { origin: string | null; cabin: string | null; flightNumber: string | null };
+  overview: NetworkAnalyticsOverview;
+  routePerformance: RoutePerformance[];
+  bookingClassDistribution: BookingClassItem[];
+  nationalityDistribution: NationalityItem[];
+  loyaltyDistribution: LoyaltyItem[];
+  mealDistribution: MealItem[];
+  wheelchairDistribution: WheelchairItem[];
+  changeDistribution: ChangeDistributionItem[];
+  totalChanges: number;
+  dailyTrends: DailyTrend[];
+  partySizeDistribution: PartySizeItem[];
+  pointOfSaleDistribution: PointOfSaleItem[];
+  operationalRates: OperationalRates;
+  upgradeAnalytics: UpgradeAnalytics;
+  bookingLeadTime: BookingLeadTime;
+}
+
+export interface AnalyticsRouteItem {
+  airline: string;
+  flightNumber: string;
+  origin: string;
+  destination: string;
+  flightCount: number;
+  totalPassengers: number;
+  dates: string[];
+}
+
+export interface AnalyticsFiltersResponse {
+  origins: string[];
+  flightNumbers: string[];
+  cabins: string[];
+  routes: AnalyticsRouteItem[];
+}

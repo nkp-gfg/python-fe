@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   ArrowRight,
   ArrowRightLeft,
+  BarChart3,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -556,6 +557,16 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
           >
             <ArrowRightLeft className="h-3 w-3" />
             Data Audit
+          </Link>
+          <Link
+            href={selectedFlight
+              ? `/analytics?flight=${selectedFlight.flightNumber}&origin=${selectedFlight.origin}&destination=${selectedFlight.destination || ""}&date=${selectedFlight.departureDate}`
+              : "/analytics"
+            }
+            className="hidden sm:flex items-center gap-1.5 rounded-full bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 transition-colors"
+          >
+            <BarChart3 className="h-3 w-3" />
+            Analytics
           </Link>
           <div className="hidden items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 sm:flex">
             <span className="relative flex h-2 w-2">
