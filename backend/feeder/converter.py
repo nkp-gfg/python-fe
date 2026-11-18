@@ -104,6 +104,27 @@ def _extract_codeshare_info(itin):
     return info
 
 
+def _xsd_true(val):
+    return isinstance(val, str) and val.strip() in ("true", "1")
+
+
+def _jump_seat_totals(entries):
+    """Sum JumpSeat.ACS Cockpit or Cabin entries (maxOccurs=2).
+
+    The seat count is the element text and occupancy is its inUse attribute,
+    so xmltodict yields {"@inUse": ..., "#text": ...} when the attribute is present.
+    """
+    count = 0
+    in_use = False
+    for entry in _ensure_list(entries):
+        if isinstance(entry, dict):
+            count += _safe_int(entry.get("#text"))
+            in_use = in_use or _xsd_true(entry.get("@inUse"))
+        else:
+            count += _safe_int(entry)
+    return count, in_use
+
+
 def _extract_free_text_remarks(itin):
     """Extract ALL FreeTextInfoList entries as a flat text array."""
     remarks = []
@@ -131,7 +152,11 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
         data.get("LegInfoList", {}).get("LegInfo", [])
     )
     counts_raw = _ensure_list(data.get("PassengerCounts", []))
-    jump = data.get("JumpSeat", {})
+    jump = data.get("JumpSeat") or {}
+    if not isinstance(jump, dict):
+        jump = {}
+    cockpit_seats, cockpit_in_use = _jump_seat_totals(jump.get("Cockpit"))
+    cabin_seats, cabin_in_use = _jump_seat_totals(jump.get("Cabin"))
 
     # Build passenger counts per class
     pax_counts = {}
@@ -207,10 +232,10 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
         ],
         "passengerCounts": pax_counts,
         "jumpSeat": {
-            "cockpit": _safe_int(jump.get("Cockpit")),
-            "cabin": _safe_int(jump.get("Cabin")),
-            "cockpitInUse": jump.get("@cockpitInUse", "false") == "true",
-            "cabinInUse": jump.get("@cabinInUse", "false") == "true",
+            "cockpit": cockpit_seats,
+            "cabin": cabin_seats,
+            "cockpitInUse": cockpit_in_use,
+            "cabinInUse": cabin_in_use,
         },
         "remarks": _extract_flight_remarks(data),
         "codeshareInfo": _extract_codeshare_info(itin),
