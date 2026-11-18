@@ -4,7 +4,8 @@ Aggregates flight, passenger, reservation, and change data across all flights
 for a given date range to produce operational & business intelligence dashboards.
 """
 
-from datetime import datetime
+import threading
+from datetime import date, datetime
 from typing import Optional
 
 import structlog
@@ -15,8 +16,47 @@ from backend.api.database import get_db
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
+MAX_RANGE_DAYS = 31
+MAX_CONCURRENT_ANALYTICS = 4
+
+# Shared by every analytics endpoint so parallel requests cannot pin MongoDB
+# and the API thread pool with aggregation work.
+_analytics_slots = threading.BoundedSemaphore(MAX_CONCURRENT_ANALYTICS)
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+def _validate_date_range(date_from: str, date_to: str) -> tuple[str, str]:
+    """Parse both dates and enforce the inclusive span limit.
+
+    Returns canonical YYYY-MM-DD strings; callers must query with these
+    rather than the raw parameters.
+    """
+    try:
+        start = date.fromisoformat(date_from)
+        end = date.fromisoformat(date_to)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="date_from and date_to must be valid dates (YYYY-MM-DD)")
+    if start > end:
+        raise HTTPException(
+            status_code=400, detail="date_from must be before date_to")
+    if (end - start).days + 1 > MAX_RANGE_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Date range cannot exceed {MAX_RANGE_DAYS} days")
+    return start.isoformat(), end.isoformat()
+
+
+def _acquire_analytics_slot() -> None:
+    if not _analytics_slots.acquire(blocking=False):
+        raise HTTPException(
+            status_code=503,
+            detail="Analytics is busy — please retry shortly",
+            headers={"Retry-After": "5"},
+        )
+
 
 def _flight_match(date_from: str, date_to: str, origin: Optional[str],
                   flight_number: Optional[str],
@@ -621,6 +661,8 @@ async def get_analytics_filters(
                          description="End date (YYYY-MM-DD)"),
 ):
     """Return available filter options for analytics within a date range."""
+    date_from, date_to = _validate_date_range(date_from, date_to)
+    _acquire_analytics_slot()
     try:
         result = await run_in_threadpool(_get_filter_options, date_from, date_to)
         return result
@@ -628,6 +670,8 @@ async def get_analytics_filters(
         logger.error("analytics_filters_error", error=str(exc))
         raise HTTPException(
             status_code=500, detail=f"Failed to load filters: {str(exc)}")
+    finally:
+        _analytics_slots.release()
 
 
 @router.get("/network")
@@ -646,10 +690,8 @@ async def get_network_analytics(
         None, description="Filter by arrival airport (IATA code)"),
 ):
     """Comprehensive network-wide analytics for all flights in a date range."""
-    if date_from > date_to:
-        raise HTTPException(
-            status_code=400, detail="date_from must be before date_to")
-
+    date_from, date_to = _validate_date_range(date_from, date_to)
+    _acquire_analytics_slot()
     try:
         result = await run_in_threadpool(
             _run_network_analytics, date_from, date_to,
@@ -661,3 +703,5 @@ async def get_network_analytics(
         logger.error("analytics_error", error=str(exc))
         raise HTTPException(
             status_code=500, detail=f"Analytics computation failed: {str(exc)}")
+    finally:
+        _analytics_slots.release()
