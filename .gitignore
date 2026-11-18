@@ -56,4 +56,11 @@ yarn-error.log*
 # ===== Bruno cache =====
 .bruno/
 
+# ===== Sabre captures =====
+# Live Sabre responses and Bruno runner output carry passenger names, PNRs,
+# travel documents, and contact details. Use the published samples in sabre_docs/.
+sample_data/**/*RS_*.xml
+sample_data/**/*RS_*.json
+sabre-webservices/*results*.json
+
 mm_data/
