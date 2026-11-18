@@ -1,8 +1,9 @@
 """Passenger list API endpoints."""
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.api.database import get_db
+from backend.api.sabre_access import SabreCaller, require_sabre_caller, reserve_sabre_budget
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
 from backend.sabre.client import SabreClient, SabreError
@@ -481,6 +482,7 @@ def get_passenger_detail(
     origin: str = Query(..., description="Departure airport code"),
     date: str = Query(..., description="Departure date YYYY-MM-DD"),
     airline: str = Query("GF", description="Airline code"),
+    caller: SabreCaller = Depends(require_sabre_caller),
 ):
     """Fetch detailed passenger data from Sabre in real-time.
 
@@ -513,6 +515,7 @@ def get_passenger_detail(
             status_code=400, detail="Could not determine last name for PNR")
     first_name = matching[0].get("firstName", "")
 
+    reserve_sabre_budget(caller, sessions=1)
     try:
         with SabreClient() as client:
             raw_data, _, _ = client.get_passenger_data(

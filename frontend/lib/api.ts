@@ -38,11 +38,43 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function get<T>(path: string): Promise<T> {
+const API_TOKEN_STORAGE_KEY = "falconeye.apiToken";
+
+interface RequestOptions {
+  /** Routes that open a Sabre session require the caller's bearer token. */
+  sabre?: boolean;
+}
+
+// Never bundle this token via NEXT_PUBLIC_*: anyone loading the app could read it.
+function getSabreApiToken(): string | null {
+  if (typeof window === "undefined") return null;
+  let token = window.sessionStorage.getItem(API_TOKEN_STORAGE_KEY);
+  if (!token) {
+    token = window.prompt("Enter your FalconEye API token to run Sabre operations")?.trim() || null;
+    if (token) window.sessionStorage.setItem(API_TOKEN_STORAGE_KEY, token);
+  }
+  return token;
+}
+
+function authHeaders(options?: RequestOptions): Record<string, string> {
+  if (!options?.sabre) return {};
+  const token = getSabreApiToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function handleAuthFailure(res: Response, options?: RequestOptions): void {
+  if (res.status === 401 && options?.sabre && typeof window !== "undefined") {
+    window.sessionStorage.removeItem(API_TOKEN_STORAGE_KEY);
+  }
+}
+
+async function get<T>(path: string, options?: RequestOptions): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
+    headers: authHeaders(options),
     signal: withTimeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
+    handleAuthFailure(res, options);
     let errMsg = `API ${res.status}: ${res.statusText}`;
     try {
       const errJson = await res.json();
@@ -59,14 +91,15 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body?: unknown): Promise<T> {
+async function post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(options) },
     body: body ? JSON.stringify(body) : undefined,
     signal: withTimeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
+    handleAuthFailure(res, options);
     let errMsg = `API ${res.status}: ${res.statusText}`;
     try {
       const errJson = await res.json();
@@ -171,7 +204,7 @@ export async function ingestFlight(payload: SabreIngestRequest): Promise<SabreIn
 }
 
 export function ingestBatch(payload: SabreBatchRequest): Promise<SabreBatchAccepted> {
-  return post<SabreBatchAccepted>("/flights/ingest/batch", payload);
+  return post<SabreBatchAccepted>("/flights/ingest/batch", payload, { sabre: true });
 }
 
 export function fetchJobStatus(jobId: string): Promise<SabreJobStatus> {
@@ -216,7 +249,10 @@ export function fetchPassengerDetail(
   airline = "GF",
 ): Promise<PassengerDetailResponse> {
   const params = new URLSearchParams({ origin, date, airline });
-  return get<PassengerDetailResponse>(`/flights/${flightNumber}/passengers/${pnr}/detail?${params}`);
+  return get<PassengerDetailResponse>(
+    `/flights/${flightNumber}/passengers/${pnr}/detail?${params}`,
+    { sabre: true },
+  );
 }
 
 // --- Changes ---
@@ -407,7 +443,7 @@ export function fetchSchedule(
 export function lookupSchedule(
   payload: ScheduleLookupRequest,
 ): Promise<FlightSchedule> {
-  return post<FlightSchedule>("/flights/schedule/lookup", payload);
+  return post<FlightSchedule>("/flights/schedule/lookup", payload, { sabre: true });
 }
 
 // --- Group Bookings ---

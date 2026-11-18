@@ -151,6 +151,7 @@ logger.info("event", key="value", flight_number="2057")  # JSON output
 - **Correlation ID middleware** (lines 81–88): Every request/response gets `X-Request-ID` for tracing.
 - **Exception handlers**: PyMongoError → 503 (database unavailable), everything else → 500 with JSON.
 - **Validators in routes**: Use `validate_date()`, `validate_origin()` from `api/validators.py` before querying.
+- **Sabre access**: Any route that opens a Sabre session (directly, via `run_feeder`, or by queuing a batch) must depend on `require_sabre_caller` and call `reserve_sabre_budget()` from `api/sabre_access.py` before the session or job is created.
 
 ### Frontend Patterns
 
@@ -237,6 +238,8 @@ def create_feature(req: FeatureRequest):
   - `REDIS_URL=redis://127.0.0.1:6379/0`
   - `DATABASE_URL=postgresql://...` (audit logs)
   - `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` (frontend sees this)
+  - `FALCONEYE_API_TOKENS` (comma-separated bearer tokens; required by every route that opens a Sabre session — ingest, ingest/batch, schedule/lookup, passenger detail. Unset means those routes return 401)
+  - `FALCONEYE_SABRE_LIMIT_WINDOW_SECONDS` (default 60), `FALCONEYE_SABRE_SESSIONS_PER_CALLER` (6), `FALCONEYE_SABRE_SESSIONS_GLOBAL` (20), `FALCONEYE_FLIGHTS_PER_CALLER` (100), `FALCONEYE_FLIGHTS_GLOBAL` (200) — Redis-backed sliding-window budgets enforced by `backend/api/sabre_access.py`; over-budget calls get 429
 
 - Secrets: Use environment variables; never hardcode credentials in code.
 

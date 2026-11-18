@@ -11,12 +11,13 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from backend.feeder.runner import run_feeder
 from backend.api.redis_client import create_job, get_job
+from backend.api.sabre_access import SabreCaller, require_sabre_caller, reserve_sabre_budget
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["ingestion"])
@@ -167,8 +168,12 @@ class SabreJobStatus(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────
 
 @router.post("/ingest", response_model=SabreIngestResponse)
-async def ingest_flight(payload: SabreIngestRequest):
+async def ingest_flight(
+    payload: SabreIngestRequest,
+    caller: SabreCaller = Depends(require_sabre_caller),
+):
     """Trigger the Sabre SOAP pipeline for one flight (synchronous)."""
+    reserve_sabre_budget(caller, sessions=1, flights=1)
     feeder_payload = payload.model_dump(mode="json")
     try:
         result = await run_in_threadpool(run_feeder, [feeder_payload])
@@ -203,7 +208,10 @@ async def ingest_flight(payload: SabreIngestRequest):
     response_model=SabreBatchAccepted,
     status_code=202,
 )
-async def ingest_batch(payload: SabreBatchRequest):
+async def ingest_batch(
+    payload: SabreBatchRequest,
+    caller: SabreCaller = Depends(require_sabre_caller),
+):
     """Accept a batch of flights for background ingestion.
 
     Returns immediately with a job ID.  Poll GET /flights/ingest/jobs/{jobId}
@@ -211,14 +219,17 @@ async def ingest_batch(payload: SabreBatchRequest):
     """
     from backend.tasks.ingestion import run_batch_ingestion
 
-    job_id = _new_job_id()
     payloads = [f.model_dump(mode="json") for f in payload.flights]
+    # The worker opens one Sabre session for the whole batch.
+    reserve_sabre_budget(caller, sessions=1, flights=len(payloads))
+
+    job_id = _new_job_id()
 
     # Create job record in Redis
     create_job(job_id, len(payloads), job_type="ingestion")
 
     # Dispatch to Celery worker
-    run_batch_ingestion.delay(job_id, payloads)
+    run_batch_ingestion.delay(job_id, payloads, caller.id)
 
     return {
         "jobId": job_id,
