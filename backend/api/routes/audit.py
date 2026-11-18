@@ -3,7 +3,7 @@
 import structlog
 from fastapi import APIRouter, Query
 from backend.api.database import get_db
-from backend.api.validators import validate_date, validate_origin
+from backend.api.validators import normalize_airline, validate_date, validate_origin
 from backend.api.audit_rules import run_audit
 
 logger = structlog.get_logger(__name__)
@@ -15,6 +15,7 @@ def get_flight_audit(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """
     Run process audit rules against the latest flight data.
@@ -23,11 +24,12 @@ def get_flight_audit(
     Uses the latest passenger_list, reservations, and change history.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
 
     # Build query
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -37,7 +39,7 @@ def get_flight_audit(
     pax_doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
 
     # Fetch latest reservations
-    res_query = {"flightNumber": flight_number}
+    res_query = {"airline": airline, "flightNumber": flight_number}
     if date:
         res_query["departureDate"] = date
     res_doc = db["reservations"].find_one(res_query, sort=[("fetchedAt", -1)])
@@ -57,6 +59,7 @@ def get_flight_audit(
     result = run_audit(pax_doc, res_doc, all_changes)
 
     # Add flight context
+    result["airline"] = airline
     result["flightNumber"] = flight_number
     result["origin"] = origin or ""
     result["departureDate"] = date or ""

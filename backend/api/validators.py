@@ -43,3 +43,11 @@ def validate_airline(value: str) -> None:
             status_code=400,
             detail="Invalid airline code: expected 2-character IATA code",
         )
+
+
+def normalize_airline(value: str) -> str:
+    """Validate an airline code and return it upper-cased, as stored."""
+    if not isinstance(value, str):
+        raise HTTPException(status_code=400, detail="Airline code is required")
+    validate_airline(value)
+    return value.upper()

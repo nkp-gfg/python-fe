@@ -4,6 +4,7 @@
 def get_snapshot_data_as_of(
     db,
     *,
+    airline: str,
     flight_number: str,
     snapshot_type: str,
     snapshot_sequence: int,
@@ -12,6 +13,7 @@ def get_snapshot_data_as_of(
 ):
     """Return snapshot.data for the latest sequence <= snapshot_sequence."""
     query = {
+        "airline": airline,
         "flightNumber": flight_number,
         "snapshotType": snapshot_type,
         "sequenceNumber": {"$lte": snapshot_sequence},
