@@ -67,7 +67,7 @@ npm run dev
 Then:
 - API: http://127.0.0.1:8000
 - Frontend: http://127.0.0.1:3000
-- Flower (job monitor): http://127.0.0.1:5555
+- Flower (job monitor): http://127.0.0.1:5555 — log in with the `FLOWER_BASIC_AUTH` pair from `.env`; Compose publishes it on loopback only
 
 ## Code Organization
 
@@ -237,6 +237,7 @@ def create_feature(req: FeatureRequest):
   - `REDIS_URL=redis://127.0.0.1:6379/0`
   - `DATABASE_URL=postgresql://...` (audit logs)
   - `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` (frontend sees this)
+  - `FLOWER_BASIC_AUTH=<user>:<password>` (required by `docker-compose up`; Flower login, comma-separate multiple pairs)
 
 - Secrets: Use environment variables; never hardcode credentials in code.
 
