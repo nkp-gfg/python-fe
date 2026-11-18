@@ -77,6 +77,14 @@ def ensure_indexes():
     """Create indexes for all collections (skipped if already present)."""
     db = get_db()
 
+    # Date-window indexes used by the analytics endpoints. Created ahead of the
+    # quick check below so deployments that already have the other indexes
+    # still get these; create_index is a no-op when they exist.
+    db["flights"].create_index(
+        [("departureDate", 1)], name="flight_departure_date")
+    db["passenger_list"].create_index(
+        [("departureDate", 1), ("fetchedAt", -1)], name="pax_departure_date")
+
     # Quick check: if main indexes already exist, skip the entire operation
     # to avoid slow dropIndex/createIndex on every startup.
     try:

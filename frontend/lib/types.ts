@@ -1649,7 +1649,6 @@ export interface AnalyticsRouteItem {
   destination: string;
   flightCount: number;
   totalPassengers: number;
-  dates: string[];
 }
 
 export interface AnalyticsFiltersResponse {
