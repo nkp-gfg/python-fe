@@ -6,6 +6,7 @@ Run with:
 """
 
 from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, audit, otp, comparison, events, data_audit, analytics
+from backend.api.auth import require_staff
 from backend.api.database import get_db, close_db
 from backend.api.postgres import close_pool as close_pg_pool
 from backend.api.redis_client import get_redis, close_redis
@@ -16,7 +17,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymongo.errors import PyMongoError
@@ -66,12 +67,20 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────
+# Comma-separated list of browser origins allowed to call the API.
+_ui_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        "FALCONEYE_UI_ORIGIN", "http://localhost:3000,http://127.0.0.1:3000"
+    ).split(",")
+    if origin.strip() and origin.strip() != "*"
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ui_origins,
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
 
 
@@ -88,19 +97,23 @@ async def add_correlation_id(request: Request, call_next):
     return response
 
 
-app.include_router(flights.router)
-app.include_router(ingestion.router)
-app.include_router(passengers.router)
-app.include_router(reservations.router)
-app.include_router(changes.router)
-app.include_router(changes.activity_router)  # Global activity feed
-app.include_router(schedule.router)
-app.include_router(audit.router)
-app.include_router(otp.router)
-app.include_router(comparison.router)
-app.include_router(analytics.router)
-app.include_router(events.router)
-app.include_router(data_audit.router)
+# Every data router requires a staff identity; only the health checks below
+# are mounted outside this router.
+protected = APIRouter(dependencies=[Depends(require_staff)])
+protected.include_router(flights.router)
+protected.include_router(ingestion.router)
+protected.include_router(passengers.router)
+protected.include_router(reservations.router)
+protected.include_router(changes.router)
+protected.include_router(changes.activity_router)  # Global activity feed
+protected.include_router(schedule.router)
+protected.include_router(audit.router)
+protected.include_router(otp.router)
+protected.include_router(comparison.router)
+protected.include_router(analytics.router)
+protected.include_router(events.router)
+protected.include_router(data_audit.router)
+app.include_router(protected)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────

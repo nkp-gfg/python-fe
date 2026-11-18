@@ -6,10 +6,11 @@ Provides:
 """
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from backend.api.auth import require_privileged
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_flight_number
 from backend.feeder.converter import convert_schedule
@@ -109,7 +110,11 @@ def get_flight_schedule(
     return _strip_id(doc)
 
 
-@router.post("/schedule/lookup", response_model=ScheduleResponse)
+@router.post(
+    "/schedule/lookup",
+    response_model=ScheduleResponse,
+    dependencies=[Depends(require_privileged)],
+)
 async def lookup_schedule(payload: ScheduleLookupRequest):
     """Live Sabre lookup — minimum input (airline + flightNumber + date),
     maximum output (full published schedule with times, route, aircraft, etc.).
