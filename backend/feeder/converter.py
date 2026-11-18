@@ -812,6 +812,31 @@ def _parse_docs_string(docs_text):
     }
 
 
+def _text_value(val):
+    """Flatten an xmltodict text node (str, {'#text': ...}, list, or None) to a string."""
+    if val is None:
+        return ""
+    if isinstance(val, dict):
+        return _text_value(val.get("#text"))
+    if isinstance(val, list):
+        return "".join(_text_value(v) for v in val)
+    return str(val)
+
+
+def _free_text_info_text(fti):
+    """Return the text of a FreeTextInfo.ACS entry.
+
+    The schema carries text as TextLine/Text (Text may repeat); the lines are
+    joined in order so a DOCS string split across them parses as one value.
+    A direct Text child is read only when TextLine carries no text.
+    """
+    text = "".join(
+        _text_value(tl.get("Text")) if isinstance(tl, dict) else _text_value(tl)
+        for tl in _ensure_list(fti.get("TextLine"))
+    )
+    return text or _text_value(fti.get("Text"))
+
+
 def convert_passenger_data(raw_data, airline, flight_number, departure_date, origin):
     """Convert GetPassengerDataRS dict into a clean document.
 
@@ -994,8 +1019,10 @@ def convert_passenger_data(raw_data, airline, flight_number, departure_date, ori
         for ft in _ensure_list(
             (pax.get("FreeTextInfoList") or {}).get("FreeTextInfo", [])
         ):
+            if not isinstance(ft, dict):
+                continue
             edit_code = ft.get("EditCode", "")
-            text = ft.get("Text", "")
+            text = _free_text_info_text(ft)
             free_text_entries.append({
                 "editCode": edit_code,
                 "text": text,
