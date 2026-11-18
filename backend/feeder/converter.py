@@ -54,6 +54,57 @@ def _now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# ── Form of payment ────────────────────────────────────────────────────────
+
+_FOP_CARD_RE = re.compile(r"\*\s*([A-Z]{2})")
+_FOP_BRAND_RE = re.compile(r"[A-Z]{2}")
+_FOP_TYPES = {"CASH": "CASH", "CHEQUE": "CHECK", "CHECK": "CHECK"}
+_FOP_ELEMENT_TYPES = {"FP", "FOP"}
+
+
+def form_of_payment_brand(text):
+    """Reduce Sabre form-of-payment text to a card brand or payment type.
+
+    Sabre FOP text (e.g. ``*VI<account>¥<expiry>``) carries the card account
+    number and expiry, which must never be stored or returned. Only the
+    two-letter card brand, CASH, CHECK, or OTHER is kept. Already-reduced
+    values map to themselves.
+    """
+    if not isinstance(text, str):
+        return ""
+    value = text.strip().upper()
+    if not value:
+        return ""
+    card = _FOP_CARD_RE.search(value)
+    if card:
+        return card.group(1)
+    if _FOP_BRAND_RE.fullmatch(value) or value == "OTHER":
+        return value
+    for prefix, label in _FOP_TYPES.items():
+        if value.startswith(prefix):
+            return label
+    return "OTHER"
+
+
+def _without_form_of_payment(obj):
+    """Copy of a raw Sabre dict with form-of-payment content removed.
+
+    Drops every ``FormOfPayment`` element and reduces elements typed FP/FOP
+    (OpenReservationElement, Remark) to their attributes.
+    """
+    if isinstance(obj, dict):
+        if str(obj.get("@type", "")).upper() in _FOP_ELEMENT_TYPES:
+            return {k: v for k, v in obj.items() if k.startswith("@")}
+        return {
+            k: _without_form_of_payment(v)
+            for k, v in obj.items()
+            if re.sub(r"^[a-zA-Z0-9]+:", "", k) != "FormOfPayment"
+        }
+    if isinstance(obj, list):
+        return [_without_form_of_payment(item) for item in obj]
+    return obj
+
+
 # ── Flight Status ──────────────────────────────────────────────────────────
 
 def _extract_flight_remarks(data):
@@ -635,9 +686,13 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
         remarks = []
         for rm in raw_remarks:
             if isinstance(rm, dict):
+                remark_type = rm.get("@type", rm.get("Type", ""))
+                remark_text = rm.get("Text", rm.get("RemarkText", rm.get("#text", "")))
+                if str(remark_type).upper() in _FOP_ELEMENT_TYPES:
+                    remark_text = form_of_payment_brand(remark_text)
                 remarks.append({
-                    "type": rm.get("@type", rm.get("Type", "")),
-                    "text": rm.get("Text", rm.get("RemarkText", rm.get("#text", ""))),
+                    "type": remark_type,
+                    "text": remark_text,
                 })
             elif isinstance(rm, str):
                 remarks.append({"type": "", "text": rm})
@@ -704,9 +759,9 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                 if isinstance(fop, dict):
                     other = fop.get("Other", {})
                     if isinstance(other, dict):
-                        form_of_payment = other.get("Text", "")
+                        form_of_payment = form_of_payment_brand(other.get("Text", ""))
                     elif isinstance(other, str):
-                        form_of_payment = other
+                        form_of_payment = form_of_payment_brand(other)
                 break
 
         reservations.append({
@@ -741,7 +796,7 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
         "fetchedAt": _now_iso(),
         "totalResults": total,
         "reservations": reservations,
-        "_raw": raw_data,
+        "_raw": _without_form_of_payment(raw_data),
     }
     return doc
 
