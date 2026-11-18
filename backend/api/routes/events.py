@@ -5,16 +5,38 @@ Uses Redis pub/sub to receive events from Celery workers.
 """
 
 import asyncio
+import hmac
 import json
 import logging
+import os
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sse_starlette.sse import EventSourceResponse
 
 from backend.api.redis_client import subscribe_events, get_job
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["events"])
+
+OPERATOR_TOKEN_ENV = "FALCONEYE_OPERATOR_TOKEN"
+_bearer = HTTPBearer(auto_error=False)
+
+
+def _operator_refusal(credentials: HTTPAuthorizationCredentials | None) -> str | None:
+    """Return why the caller may not read the global stream, or None for an operator.
+
+    The global stream carries every caller's job ids, so it stays closed
+    when no operator token is configured.
+    """
+    expected = os.environ.get(OPERATOR_TOKEN_ENV, "")
+    if not expected:
+        return "Global job stream is disabled"
+    if credentials is None or not hmac.compare_digest(
+        credentials.credentials.encode(), expected.encode(),
+    ):
+        return "Operator credentials required"
+    return None
 
 
 @router.get("/events/jobs/{job_id}")
@@ -105,12 +127,28 @@ def _get_message_safe(ps, timeout: float = 1.0):
 @router.get("/events/jobs")
 async def stream_all_job_events(
     job_type: str = Query(default=None, description="Filter by job type"),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ):
-    """SSE stream for all job events (global dashboard monitor)."""
+    """SSE stream for all job events (global dashboard monitor).
+
+    Requires the operator bearer token. Other callers get an error event and
+    the stream closes without subscribing to the job channel.
+    """
+    refusal = _operator_refusal(credentials)
+    if refusal is not None:
+        return EventSourceResponse(
+            _refused_events_generator(job_type, refusal),
+            media_type="text/event-stream",
+        )
     return EventSourceResponse(
         _all_events_generator(job_type),
         media_type="text/event-stream",
     )
+
+
+async def _refused_events_generator(job_type: str | None, reason: str):
+    yield {"event": "connected", "data": json.dumps({"filter": job_type})}
+    yield {"event": "error", "data": json.dumps({"error": reason})}
 
 
 async def _all_events_generator(job_type: str | None = None):
@@ -130,6 +168,9 @@ async def _all_events_generator(job_type: str | None = None):
                 try:
                     payload = json.loads(msg["data"])
                 except (json.JSONDecodeError, TypeError):
+                    continue
+
+                if job_type is not None and payload.get("jobType") != job_type:
                     continue
 
                 yield {"event": payload.get("event", "update"), "data": json.dumps(payload)}

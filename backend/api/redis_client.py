@@ -22,6 +22,12 @@ JOB_TTL = 24 * 3600        # Jobs expire after 24h
 CACHE_TTL_SHORT = 30        # Dashboard cache: 30s
 CACHE_TTL_MEDIUM = 300      # Flight list cache: 5min
 
+# Job records and events are readable by anyone holding the job id (and the
+# global stream by operators), so they only ever carry these generic reasons.
+# Exception and Sabre fault text stays in the server logs.
+JOB_FAILED_ERROR = "Job failed. See server logs for details."
+API_FAILED_ERROR = "Request failed. See server logs for details."
+
 
 def _get_pool() -> redis.ConnectionPool:
     global _pool
@@ -70,24 +76,80 @@ def create_job(job_id: str, flights_queued: int, job_type: str = "ingestion") ->
     return job
 
 
+def _redact_api_result(api_result: Any) -> Any:
+    if not isinstance(api_result, dict):
+        return api_result
+    redacted = dict(api_result)
+    if redacted.get("error"):
+        redacted["error"] = API_FAILED_ERROR
+    calls = redacted.get("calls")
+    if isinstance(calls, list):
+        redacted["calls"] = [_redact_api_result(call) for call in calls]
+    return redacted
+
+
+def _redact_results(results: Any) -> Any:
+    """Replace per-API error text in ingestion results with a generic reason."""
+    if not isinstance(results, list):
+        return results
+    redacted = []
+    for result in results:
+        if isinstance(result, dict) and isinstance(result.get("apis"), dict):
+            result = {
+                **result,
+                "apis": {
+                    name: _redact_api_result(api_result)
+                    for name, api_result in result["apis"].items()
+                },
+            }
+        redacted.append(result)
+    return redacted
+
+
+def _job_error(status: str | None, results: Any) -> str | None:
+    if status not in ("failed", "partial"):
+        return None
+    if isinstance(results, list) and results:
+        total = len(results)
+        failed = sum(
+            1 for result in results
+            if not (isinstance(result, dict) and result.get("success", False))
+        )
+        if failed:
+            return f"{failed} of {total} flights failed. See server logs for details."
+    return JOB_FAILED_ERROR
+
+
+def _redact_job(job: dict) -> dict:
+    job["results"] = _redact_results(job.get("results"))
+    job["error"] = _job_error(job.get("status"), job.get("results"))
+    return job
+
+
 def get_job(job_id: str) -> dict | None:
     """Retrieve a job by ID."""
     r = get_redis()
     raw = r.get(f"{JOB_PREFIX}{job_id}")
     if raw is None:
         return None
-    return json.loads(raw)
+    return _redact_job(json.loads(raw))
 
 
-def update_job(job_id: str, **fields) -> None:
-    """Partially update a job record."""
+def update_job(job_id: str, **fields) -> dict | None:
+    """Partially update a job record and return the stored record."""
     job = get_job(job_id)
     if job is None:
-        return
+        return None
     for k, v in fields.items():
         job[k] = v
+    job = _redact_job(job)
     r = get_redis()
     r.set(f"{JOB_PREFIX}{job_id}", json.dumps(job, default=str), ex=JOB_TTL)
+    return job
+
+
+def _job_type(job: dict | None) -> str | None:
+    return job.get("jobType") if job else None
 
 
 def set_job_running(job_id: str) -> None:
@@ -96,93 +158,63 @@ def set_job_running(job_id: str) -> None:
 
 def set_job_progress(job_id: str, processed: int, total: int, message: str = "") -> None:
     """Update progress and publish SSE event."""
-    update_job(
+    job = update_job(
         job_id,
         flightsProcessed=processed,
         progress={"processed": processed, "total": total, "message": message},
     )
     publish_event(job_id, "progress", {
         "processed": processed, "total": total, "message": message,
-    })
-
-
-def _extract_ingestion_error(result: dict[str, Any] | None) -> str | None:
-    if not result:
-        return None
-
-    apis = result.get("apis") or {}
-    for api_name in ("flightStatus", "passengerList", "reservations", "tripReports", "schedule"):
-        api_result = apis.get(api_name) or {}
-        error = api_result.get("error")
-        if error:
-            return str(error)
-
-    flight = result.get("flight") or {}
-    flight_number = flight.get("flightNumber")
-    origin = flight.get("origin")
-    departure_date = flight.get("departureDate")
-    if flight_number and origin and departure_date:
-        return f"Ingestion failed for GF{flight_number} {origin} {departure_date}."
-    return None
+    }, job_type=_job_type(job))
 
 
 def set_ingestion_job_finished(job_id: str, processed: int, results: list[dict[str, Any]]) -> None:
     total = len(results)
-    failed_results = [
-        result for result in results if not result.get("success", False)]
-    failed_count = len(failed_results)
-    succeeded_count = total - failed_count
+    failed_count = sum(
+        1 for result in results if not result.get("success", False))
 
-    if total == 0:
+    if total == 0 or failed_count == total:
         status = "failed"
-        error = "Ingestion batch produced no results"
     elif failed_count == 0:
         status = "completed"
-        error = None
     else:
-        first_error = _extract_ingestion_error(
-            failed_results[0]) or "Ingestion failed"
-        if succeeded_count == 0:
-            status = "failed"
-            error = first_error if failed_count == 1 else f"All {failed_count} flights failed. First error: {first_error}"
-        else:
-            status = "partial"
-            error = f"{failed_count} of {total} flights failed. First error: {first_error}"
+        status = "partial"
 
-    update_job(
+    job = update_job(
         job_id,
         status=status,
         flightsProcessed=processed,
         results=results,
         completedAt=_utc_now(),
-        error=error,
     )
     publish_event(job_id, status, {
         "flightsProcessed": processed,
         "failedFlights": failed_count,
-        "error": error,
-    })
+        "error": job["error"] if job else _job_error(status, None),
+    }, job_type=_job_type(job))
 
 
 def set_job_completed(job_id: str, processed: int, results: Any) -> None:
-    update_job(
+    job = update_job(
         job_id,
         status="completed",
         flightsProcessed=processed,
         results=results,
         completedAt=_utc_now(),
     )
-    publish_event(job_id, "completed", {"flightsProcessed": processed})
+    publish_event(job_id, "completed", {"flightsProcessed": processed},
+                  job_type=_job_type(job))
 
 
-def set_job_failed(job_id: str, error: str) -> None:
-    update_job(
+def set_job_failed(job_id: str) -> None:
+    """Mark a job failed. The cause belongs in the server log, not the job."""
+    job = update_job(
         job_id,
         status="failed",
-        error=error,
         completedAt=_utc_now(),
     )
-    publish_event(job_id, "failed", {"error": error})
+    publish_event(job_id, "failed", {"error": JOB_FAILED_ERROR},
+                  job_type=_job_type(job))
 
 
 # ── Cache ─────────────────────────────────────────────────────────────────
@@ -223,11 +255,12 @@ def cache_invalidate_pattern(pattern: str) -> None:
 
 # ── Pub/Sub for SSE ───────────────────────────────────────────────────────
 
-def publish_event(job_id: str, event_type: str, data: dict) -> None:
+def publish_event(job_id: str, event_type: str, data: dict, job_type: str | None = None) -> None:
     """Publish a job event to the SSE channel."""
     r = get_redis()
     payload = json.dumps({
         "jobId": job_id,
+        "jobType": job_type,
         "event": event_type,
         "data": data,
         "timestamp": _utc_now(),
