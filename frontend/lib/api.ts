@@ -397,9 +397,11 @@ export function fetchReservations(
 export function fetchSchedule(
   flightNumber: string,
   date?: string,
+  airline?: string,
 ): Promise<FlightSchedule> {
   const params = new URLSearchParams();
   if (date) params.set("date", date);
+  if (airline) params.set("airline", airline);
   const qs = params.toString() ? `?${params}` : "";
   return get<FlightSchedule>(`/flights/${flightNumber}/schedule${qs}`);
 }

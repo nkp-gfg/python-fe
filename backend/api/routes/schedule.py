@@ -92,12 +92,14 @@ class ScheduleResponse(BaseModel):
 def get_flight_schedule(
     flight_number: str,
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    airline: str = Query("GF", pattern=r"^[A-Z0-9]{2}$",
+                         description="2-character IATA airline code"),
 ):
     """Get the stored schedule for a flight from MongoDB."""
     validate_flight_number(flight_number)
     validate_date(date)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if date:
         query["departureDate"] = date
 

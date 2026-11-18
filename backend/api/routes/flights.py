@@ -1926,10 +1926,6 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
     if date:
         report_query["departureDate"] = date
 
-    sched_query = {"flightNumber": flight_number}
-    if date:
-        sched_query["departureDate"] = date
-
     change_match = {"flightNumber": flight_number}
     if origin:
         change_match["origin"] = origin
@@ -1961,11 +1957,6 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
             report_query, sort=[("fetchedAt", -1)])
         return _strip_id(doc)
 
-    def fetch_schedule():
-        doc = db["flight_schedules"].find_one(
-            sched_query, sort=[("fetchedAt", -1)])
-        return _strip_id(doc)
-
     def fetch_change_summary():
         counts = {}
         for doc in db["changes"].find(change_match, {"changeType": 1}):
@@ -1985,13 +1976,12 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
         return doc
 
     # Run all queries in parallel
-    with ThreadPoolExecutor(max_workers=7) as executor:
+    with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {
             executor.submit(fetch_flight_status): "flight_status",
             executor.submit(fetch_passenger_list): "passenger_list",
             executor.submit(fetch_reservations): "reservations",
             executor.submit(fetch_trip_reports): "trip_reports",
-            executor.submit(fetch_schedule): "schedule",
             executor.submit(fetch_change_summary): "change_summary",
             executor.submit(fetch_flight_meta): "flight_meta",
         }
@@ -2003,7 +1993,35 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
                 logger.error(f"Error fetching {key}: {e}")
                 results[key] = None
 
+    try:
+        results["schedule"] = _fetch_schedule_for_flight(
+            db, flight_number,
+            results.get("flight_status") or results.get("passenger_list"),
+            date)
+    except Exception as e:
+        logger.error(f"Error fetching schedule: {e}")
+        results["schedule"] = None
+
     return results
+
+
+def _fetch_schedule_for_flight(db, flight_number, flight_doc, date):
+    """Latest published schedule for the flight shown in ``flight_doc``.
+
+    Flight numbers are only unique per airline, so the schedule must match the
+    airline and departure date of the document being displayed.
+    """
+    if not flight_doc:
+        return None
+    query = {
+        "airline": flight_doc.get("airline") or "GF",
+        "flightNumber": flight_number,
+    }
+    departure_date = flight_doc.get("departureDate") or date
+    if departure_date:
+        query["departureDate"] = departure_date
+    doc = db["flight_schedules"].find_one(query, sort=[("fetchedAt", -1)])
+    return _strip_id(doc)
 
 
 @router.get("/{flight_number}/dashboard")
