@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
+from backend.api.flight_scope import count_change_types, resolve_departure_date
 from backend.api.validators import validate_date, validate_origin
 
 logger = structlog.get_logger(__name__)
@@ -138,17 +139,15 @@ def get_changes_summary(
     validate_date(date)
     validate_origin(origin)
     db = get_db()
-    match = {"flightNumber": flight_number}
+    if not date:
+        date = resolve_departure_date(db, flight_number, origin)
+        if not date:
+            raise HTTPException(status_code=404, detail="No changes found")
+    match = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         match["origin"] = origin
-    if date:
-        match["departureDate"] = date
 
-    counts = {}
-    for doc in db["changes"].find(match, {"changeType": 1}):
-        ct = doc.get("changeType")
-        if ct:
-            counts[ct] = counts.get(ct, 0) + 1
+    counts = count_change_types(db, match)
     if not counts:
         raise HTTPException(status_code=404, detail="No changes found")
     return {
@@ -350,11 +349,14 @@ def get_passenger_timeline(
     validate_date(date)
     validate_origin(origin)
     db = get_db()
+    if not date:
+        date = resolve_departure_date(db, flight_number, origin)
+        if not date:
+            raise HTTPException(
+                status_code=404, detail="No timeline events found for this PNR")
 
     # Get all changes for this passenger
-    query = {"flightNumber": flight_number, "passenger.pnr": pnr}
-    if date:
-        query["departureDate"] = date
+    query = {"flightNumber": flight_number, "passenger.pnr": pnr, "departureDate": date}
     if origin:
         query["origin"] = origin
 
@@ -599,13 +601,15 @@ def get_flight_timeline(
     validate_date(date)
     validate_origin(origin)
     db = get_db()
+    if not date:
+        date = resolve_departure_date(db, flight_number, origin)
+        if not date:
+            raise HTTPException(status_code=404, detail="No timeline data found")
 
     # Build query
-    query = {"flightNumber": flight_number}
+    query = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     # Get all changes for this flight
     changes = list(db["changes"].find(query).sort("detectedAt", 1))
@@ -786,12 +790,14 @@ def get_boarding_progress(
     validate_date(date)
     validate_origin(origin)
     db = get_db()
+    if not date:
+        date = resolve_departure_date(db, flight_number, origin)
+        if not date:
+            raise HTTPException(status_code=404, detail="Flight not found")
 
-    query = {"flightNumber": flight_number}
+    query = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     # Get check-in and boarding events
     checkin_query = {**query, "changeType": "CHECKED_IN"}
@@ -881,12 +887,18 @@ def get_passengers_history_badges(
     validate_date(date)
     validate_origin(origin)
     db = get_db()
+    if not date:
+        date = resolve_departure_date(db, flight_number, origin)
+        if not date:
+            return {}
 
-    query = {"flightNumber": flight_number, "passenger.pnr": {"$exists": True}}
+    query = {
+        "flightNumber": flight_number,
+        "passenger.pnr": {"$exists": True},
+        "departureDate": date,
+    }
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     UPGRADE_TYPES = {"CABIN_CHANGE", "CLASS_CHANGE", "UPGRADE_CONFIRMED"}
     badges = {}
