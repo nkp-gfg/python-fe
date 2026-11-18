@@ -14,7 +14,7 @@ router = APIRouter(prefix="/flights", tags=["audit"])
 def get_flight_audit(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
     Run process audit rules against the latest flight data.
@@ -27,19 +27,15 @@ def get_flight_audit(
     db = get_db()
 
     # Build query
-    query = {"flightNumber": flight_number}
+    query = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     # Fetch latest passenger_list
     pax_doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
 
     # Fetch latest reservations
-    res_query = {"flightNumber": flight_number}
-    if date:
-        res_query["departureDate"] = date
+    res_query = {"flightNumber": flight_number, "departureDate": date}
     res_doc = db["reservations"].find_one(res_query, sort=[("fetchedAt", -1)])
 
     # Fetch all changes for this flight
@@ -59,7 +55,7 @@ def get_flight_audit(
     # Add flight context
     result["flightNumber"] = flight_number
     result["origin"] = origin or ""
-    result["departureDate"] = date or ""
+    result["departureDate"] = date
     if pax_doc:
         result["fetchedAt"] = pax_doc.get("fetchedAt", "")
 
