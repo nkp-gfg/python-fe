@@ -1058,6 +1058,9 @@ export interface PassengerTimelineResponse {
   currentState?: PassengerCurrentState;
   events: TimelineEvent[];
   eventCount: number;
+  limit?: number;
+  offset?: number;
+  hasMore?: boolean;
 }
 
 // --- Flight Timeline Types ---
@@ -1128,6 +1131,9 @@ export interface FlightTimelineResponse {
   events: FlightTimelineEvent[];
   eventCount: number;
   stats: FlightTimelineStats;
+  limit?: number;
+  offset?: number;
+  hasMore?: boolean;
 }
 
 // --- Activity Feed Types ---
@@ -1194,6 +1200,9 @@ export interface BoardingProgressResponse {
   checkinProgress: ProgressSeries;
   boardingProgress: ProgressSeries;
   milestones: FlightMilestone[];
+  limit?: number;
+  offset?: number;
+  hasMore?: boolean;
 }
 
 // --- History Badge Types ---

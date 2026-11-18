@@ -2182,8 +2182,8 @@ def get_flight_status_history(
 @router.get("/{flight_number}/phase-journey")
 def get_phase_journey(
     flight_number: str,
-    origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    origin: str = Query(..., description="Departure airport code"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """Return per-phase passenger snapshots and inter-phase transition flows.
 
@@ -2200,12 +2200,10 @@ def get_phase_journey(
     # ── 1. Fetch all passenger_list snapshots for this flight ────
     snap_query = {
         "flightNumber": flight_number,
+        "origin": origin,
+        "departureDate": date,
         "snapshotType": "passenger_list",
     }
-    if origin:
-        snap_query["origin"] = origin
-    if date:
-        snap_query["departureDate"] = date
 
     pl_snaps = list(
         db["snapshots"]
@@ -2223,11 +2221,11 @@ def get_phase_journey(
     )
 
     # ── 3. Also fetch the reservations doc for gender lookup ──────
-    res_query = {"flightNumber": flight_number}
-    if origin:
-        res_query["departureAirport"] = origin
-    if date:
-        res_query["departureDate"] = date
+    res_query = {
+        "flightNumber": flight_number,
+        "departureAirport": origin,
+        "departureDate": date,
+    }
     reservation_doc = db["reservations"].find_one(
         res_query, sort=[("fetchedAt", -1)])
     gender_lookup = _build_gender_lookup(
@@ -2288,11 +2286,7 @@ def get_phase_journey(
     # If we have zero PL snapshots but do have current data, use it as a single phase
     if not phase_snapshots:
         # Fall back to current passenger_list
-        query = {"flightNumber": flight_number}
-        if origin:
-            query["origin"] = origin
-        if date:
-            query["departureDate"] = date
+        query = {"flightNumber": flight_number, "origin": origin, "departureDate": date}
         current_pl = db["passenger_list"].find_one(
             query, sort=[("fetchedAt", -1)])
         current_fs = db["flight_status"].find_one(
