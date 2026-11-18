@@ -18,7 +18,7 @@ import argparse
 import sys
 import io
 from core import CSV_CONFIG, AVAILABLE_STACKS, MAX_RESULTS, search, search_stack
-from design_system import generate_design_system, persist_design_system
+from design_system import generate_design_system, persist_design_system, safe_slug
 
 # Force UTF-8 for stdout/stderr to handle emojis on Windows (cp1252 default)
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
@@ -73,24 +73,28 @@ if __name__ == "__main__":
 
     # Design system takes priority
     if args.design_system:
-        result = generate_design_system(
-            args.query, 
-            args.project_name, 
-            args.format,
-            persist=args.persist,
-            page=args.page,
-            output_dir=args.output_dir
-        )
+        try:
+            result = generate_design_system(
+                args.query, 
+                args.project_name, 
+                args.format,
+                persist=args.persist,
+                page=args.page,
+                output_dir=args.output_dir
+            )
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            sys.exit(2)
         print(result)
         
         # Print persistence confirmation
         if args.persist:
-            project_slug = args.project_name.lower().replace(' ', '-') if args.project_name else "default"
+            project_slug = safe_slug(args.project_name or args.query.upper(), "project")
             print("\n" + "=" * 60)
             print(f"✅ Design system persisted to design-system/{project_slug}/")
             print(f"   📄 design-system/{project_slug}/MASTER.md (Global Source of Truth)")
             if args.page:
-                page_filename = args.page.lower().replace(' ', '-')
+                page_filename = safe_slug(args.page, "page")
                 print(f"   📄 design-system/{project_slug}/pages/{page_filename}.md (Page Overrides)")
             print("")
             print(f"📖 Usage: When building a page, check design-system/{project_slug}/pages/[page].md first.")
