@@ -20,7 +20,12 @@ def _strip_id(doc):
 
 
 def _build_nationality_lookup(db, flight_number, date, origin=None, snapshot_sequence=None):
-    """Build PNR+lastName → {nationality, specialMeal, wheelchairCode, ffTier...} lookup from reservations."""
+    """Build PNR+lastName → nationality lookup from reservations.
+
+    Only nationality is joined onto the flight-wide manifest. Reservation
+    service codes (special meal, wheelchair, emergency contact, loyalty tier)
+    must not be copied onto manifest rows.
+    """
     if snapshot_sequence:
         res_doc = get_snapshot_data_as_of(
             db,
@@ -41,28 +46,9 @@ def _build_nationality_lookup(db, flight_number, date, origin=None, snapshot_seq
         for rv in res_doc.get("reservations", []):
             pnr = rv.get("pnr", "")
             for p in rv.get("passengers", []):
-                key = (pnr, p.get("lastName", "").upper())
-                entry = {}
                 nat = p.get("nationality", "")
                 if nat:
-                    entry["nationality"] = nat
-                meal = p.get("specialMeal", "")
-                if meal:
-                    entry["specialMeal"] = meal
-                wc = p.get("wheelchairCode", "")
-                if wc:
-                    entry["wheelchairCode"] = wc
-                if p.get("hasEmergencyContact"):
-                    entry["hasEmergencyContact"] = True
-                ff_tier = p.get("ffTierLevel", "")
-                if ff_tier:
-                    entry["ffTierLevel"] = ff_tier
-                    entry["ffTierName"] = p.get("ffTierName", "")
-                ff_status = p.get("ffStatus", "")
-                if ff_status:
-                    entry["ffStatus"] = ff_status
-                if entry:
-                    lookup[key] = entry
+                    lookup[(pnr, p.get("lastName", "").upper())] = nat
     return lookup
 
 
@@ -101,7 +87,6 @@ def get_passengers(
     if not doc:
         raise HTTPException(status_code=404, detail="Passenger list not found")
 
-    # Enrich passengers with reservation data (nationality, meals, FF tier, etc.)
     nat_lookup = _build_nationality_lookup(
         db,
         flight_number,
@@ -112,19 +97,7 @@ def get_passengers(
     passengers = doc.get("passengers", [])
     for p in passengers:
         key = (p.get("pnr", ""), p.get("lastName", "").upper())
-        enrichment = nat_lookup.get(key, {})
-        p["nationality"] = enrichment.get("nationality", "")
-        if "specialMeal" in enrichment:
-            p["specialMeal"] = enrichment["specialMeal"]
-        if "wheelchairCode" in enrichment:
-            p["wheelchairCode"] = enrichment["wheelchairCode"]
-        if "hasEmergencyContact" in enrichment:
-            p["hasEmergencyContact"] = enrichment["hasEmergencyContact"]
-        if "ffTierLevel" in enrichment:
-            p["ffTierLevel"] = enrichment["ffTierLevel"]
-            p["ffTierName"] = enrichment.get("ffTierName", "")
-        if "ffStatus" in enrichment:
-            p["ffStatus"] = enrichment["ffStatus"]
+        p["nationality"] = nat_lookup.get(key, "")
 
     return _strip_id(doc)
 

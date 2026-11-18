@@ -222,7 +222,7 @@ elif priority_code == "UPG" and upgrade_code:    return "LMU"           # Gate u
 ```
 
 **Enrichment Pipeline** (passengers.py):
-- Build lookup from latest reservations snapshot: `(PNR, lastName) → {nationality, specialMeal, wheelchairCode, ffTier, ffStatus}`
+- Build lookup from latest reservations snapshot: `(PNR, lastName) → nationality` (service codes such as specialMeal, wheelchairCode, and ffTier stay off the manifest)
 - Merge into passenger list at query time
 - Falls back to empty strings if reservation data missing
 
