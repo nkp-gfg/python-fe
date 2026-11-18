@@ -12,17 +12,33 @@ logger = logging.getLogger(__name__)
 
 
 @app.task(bind=True, name="falconeye.ingest_batch", max_retries=2, default_retry_delay=30)
-def run_batch_ingestion(self, job_id: str, payloads: list[dict]) -> dict:
+def run_batch_ingestion(self, job_id: str, payloads: list[dict],
+                        caller_id: str | None = None) -> dict:
     """Execute the Sabre feeder pipeline for a batch of flights.
 
     Runs in a Celery worker thread — survives API restarts and supports
     retries, timeouts, and concurrency control.
+
+    The API reserves Sabre budget for the first attempt. Each retry opens a
+    new Sabre session, so it must reserve budget again or give up.
     """
     from backend.feeder.runner import run_feeder
     from backend.feeder import storage
+    from backend.api.sabre_access import try_reserve_sabre_budget
+
+    total = len(payloads)
+    if self.request.retries > 0:
+        try:
+            admitted = try_reserve_sabre_budget(
+                caller_id or "unattributed", sessions=1, flights=total)
+        except Exception:
+            logger.exception("Sabre budget unavailable for retry of job %s", job_id)
+            admitted = False
+        if not admitted:
+            set_job_failed(job_id, "Sabre request budget exceeded — retry not attempted")
+            return {"jobId": job_id, "processedFlights": 0}
 
     set_job_running(job_id)
-    total = len(payloads)
 
     try:
         # Ensure storage layer has a DB connection in the worker process

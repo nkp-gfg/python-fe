@@ -6,11 +6,12 @@ Provides:
 """
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.database import get_db
+from backend.api.sabre_access import SabreCaller, require_sabre_caller, reserve_sabre_budget
 from backend.api.validators import validate_date, validate_flight_number
 from backend.feeder.converter import convert_schedule
 from backend.feeder import storage
@@ -110,12 +111,17 @@ def get_flight_schedule(
 
 
 @router.post("/schedule/lookup", response_model=ScheduleResponse)
-async def lookup_schedule(payload: ScheduleLookupRequest):
+async def lookup_schedule(
+    payload: ScheduleLookupRequest,
+    caller: SabreCaller = Depends(require_sabre_caller),
+):
     """Live Sabre lookup — minimum input (airline + flightNumber + date),
     maximum output (full published schedule with times, route, aircraft, etc.).
 
     The result is also stored in MongoDB for future GET requests.
     """
+    reserve_sabre_budget(caller, sessions=1)
+
     def _do_lookup():
         with SabreClient() as client:
             raw, xml, meta = client.verify_flight_details(
