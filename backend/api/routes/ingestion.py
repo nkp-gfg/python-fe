@@ -11,11 +11,12 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from backend.feeder.runner import run_feeder
+from backend.api.auth import require_privileged
 from backend.api.redis_client import create_job, get_job
 
 logger = structlog.get_logger(__name__)
@@ -166,7 +167,11 @@ class SabreJobStatus(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────────────
 
-@router.post("/ingest", response_model=SabreIngestResponse)
+@router.post(
+    "/ingest",
+    response_model=SabreIngestResponse,
+    dependencies=[Depends(require_privileged)],
+)
 async def ingest_flight(payload: SabreIngestRequest):
     """Trigger the Sabre SOAP pipeline for one flight (synchronous)."""
     feeder_payload = payload.model_dump(mode="json")
@@ -202,6 +207,7 @@ async def ingest_flight(payload: SabreIngestRequest):
     "/ingest/batch",
     response_model=SabreBatchAccepted,
     status_code=202,
+    dependencies=[Depends(require_privileged)],
 )
 async def ingest_batch(payload: SabreBatchRequest):
     """Accept a batch of flights for background ingestion.

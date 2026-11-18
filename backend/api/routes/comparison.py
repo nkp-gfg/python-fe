@@ -6,10 +6,11 @@ Provides both synchronous (small) and async (Celery) comparison modes.
 import uuid
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from backend.api.auth import require_privileged
 from backend.api.redis_client import create_job, get_job
 
 logger = logging.getLogger(__name__)
@@ -98,7 +99,12 @@ async def change_type_summary(
 
 # ── Async endpoints (large jobs via Celery) ───────────────────────────────
 
-@router.post("/flights/async", response_model=ComparisonJobAccepted, status_code=202)
+@router.post(
+    "/flights/async",
+    response_model=ComparisonJobAccepted,
+    status_code=202,
+    dependencies=[Depends(require_privileged)],
+)
 async def compare_flights_async(
     date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
     flight_numbers: str = Query(default=None),
@@ -122,7 +128,12 @@ async def compare_flights_async(
     }
 
 
-@router.post("/pnr-mismatches/async", response_model=ComparisonJobAccepted, status_code=202)
+@router.post(
+    "/pnr-mismatches/async",
+    response_model=ComparisonJobAccepted,
+    status_code=202,
+    dependencies=[Depends(require_privileged)],
+)
 async def compare_pnr_async(
     date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
 ):

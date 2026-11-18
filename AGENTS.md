@@ -237,6 +237,10 @@ def create_feature(req: FeatureRequest):
   - `REDIS_URL=redis://127.0.0.1:6379/0`
   - `DATABASE_URL=postgresql://...` (audit logs)
   - `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` (frontend sees this)
+ - `FALCONEYE_STAFF_TOKEN` — bearer token for reading stored data (every route except `/` and `/health/*`)
+ - `FALCONEYE_PRIVILEGED_TOKEN` — bearer token also allowed to call Sabre, restore snapshots, and queue ingestion/comparison jobs
+ - `FALCONEYE_UI_ORIGIN=http://localhost:3000` — comma-separated browser origins allowed by CORS
+ - Unset tokens reject every request; the frontend asks the operator for a token and keeps it in `sessionStorage`
 
 - Secrets: Use environment variables; never hardcode credentials in code.
 

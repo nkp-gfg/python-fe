@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { useState, type ReactNode } from "react";
 
+import { ApiTokenGate } from "@/components/api-token-gate";
 import { ToastProvider } from "@/components/ui/toast";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -23,7 +24,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <QueryClientProvider client={client}>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <ApiTokenGate>{children}</ApiTokenGate>
+        </ToastProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

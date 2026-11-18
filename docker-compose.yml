@@ -5,7 +5,7 @@ services:
     image: mongodb/mongodb-community-server:latest
     container_name: falconeye_mongodb
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: password
@@ -18,7 +18,7 @@ services:
     image: redis:7-alpine
     container_name: falconeye_redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -32,7 +32,7 @@ services:
     image: mher/flower:2.0
     container_name: falconeye_flower
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0

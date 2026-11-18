@@ -4,7 +4,8 @@ from copy import deepcopy
 from datetime import datetime, timezone
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from backend.api.auth import require_privileged
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_origin
 
@@ -250,7 +251,10 @@ def compare_snapshot_against_latest(
     return result
 
 
-@router.post("/{flight_number}/snapshots/{snapshot_sequence}/restore")
+@router.post(
+    "/{flight_number}/snapshots/{snapshot_sequence}/restore",
+    dependencies=[Depends(require_privileged)],
+)
 def restore_snapshot_version(
     flight_number: str,
     snapshot_sequence: int,
@@ -282,6 +286,8 @@ def restore_snapshot_version(
 
         data = deepcopy(snap.get("data", {}))
         if not isinstance(data, dict):
+            continue
+        if data.get("flightNumber", flight_number) != flight_number:
             continue
 
         data.pop("_id", None)

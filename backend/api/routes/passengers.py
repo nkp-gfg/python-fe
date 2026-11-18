@@ -1,7 +1,8 @@
 """Passenger list API endpoints."""
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from backend.api.auth import require_privileged
 from backend.api.database import get_db
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
@@ -474,7 +475,10 @@ def get_passenger_by_pnr(
     }
 
 
-@router.get("/{flight_number}/passengers/{pnr}/detail")
+@router.get(
+    "/{flight_number}/passengers/{pnr}/detail",
+    dependencies=[Depends(require_privileged)],
+)
 def get_passenger_detail(
     flight_number: str,
     pnr: str,
