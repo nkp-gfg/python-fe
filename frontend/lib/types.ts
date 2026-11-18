@@ -693,9 +693,29 @@ export interface PassengerEditEntry {
   attributes: Record<string, string>;
 }
 
+export interface TimaticSubSection {
+  subSectionName: string;
+  subSectionType: string;
+  subSectionText: string;
+}
+
+export interface TimaticSection {
+  sectionName: string;
+  sectionText: string;
+  subsections: TimaticSubSection[];
+}
+
 export interface TimaticEntry {
+  /** TimaticInfo timaticStatus — the overall boarding decision */
+  status: string;
+  /** TimaticCountryInfo timaticStatus */
+  countryStatus: string;
+  infant: boolean;
   country: string;
+  countryCode: string;
+  /** Status lines plus every section/subsection, newline separated */
   text: string;
+  sections: TimaticSection[];
 }
 
 export interface DetailedPassenger {

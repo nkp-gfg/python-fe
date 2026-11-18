@@ -285,7 +285,31 @@ function TimaticSection({ entries }: { entries: TimaticEntry[] }) {
       <CardContent className="space-y-2">
         {entries.map((t, i) => (
           <div key={i} className="rounded border p-2">
-            <span className="text-xs font-medium">{t.country}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium">
+                {t.country || "Timatic result"}
+                {t.countryCode && <span className="text-muted-foreground"> ({t.countryCode})</span>}
+              </span>
+              {t.infant && <Badge variant="secondary" className="text-[9px] px-1">Infant</Badge>}
+              <span className="ml-auto flex flex-wrap gap-1">
+                {[t.status, t.countryStatus !== t.status ? t.countryStatus : ""]
+                  .filter(Boolean)
+                  .map((s) => (
+                    <Badge
+                      key={s}
+                      variant="outline"
+                      className={cn(
+                        "text-[10px]",
+                        /^OK\b/i.test(s)
+                          ? "border-emerald-300 text-emerald-600"
+                          : "border-red-300 text-red-600"
+                      )}
+                    >
+                      {s}
+                    </Badge>
+                  ))}
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{t.text}</p>
           </div>
         ))}
