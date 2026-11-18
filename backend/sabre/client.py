@@ -5,14 +5,14 @@ Usage:
     with SabreClient() as client:
         status = client.get_flight_status("GF", "2006", "LHR", "2026-03-19")
         passengers = client.get_passenger_list("GF", "2006", "2026-03-19", "LHR")
-        reservations = client.get_reservations("GF", "2006", "LHR", "2026-03-19T08:00:00")
+        reservations = client.get_reservations("GF", "2006", "LHR", "2026-03-19")
 """
 
 import os
 import re
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import requests
 import structlog
@@ -260,17 +260,28 @@ class SabreClient:
 
     # ── Reservations ───────────────────────────────────────────────────────
 
-    def get_reservations(self, airline, flight_number, departure_airport, departure_datetime):
+    def get_reservations(self, airline, flight_number, departure_airport, departure_date):
         """
-        Call Trip_SearchRQ.
+        Call Trip_SearchRQ for every PNR on the flight's local departure date.
+
+        Sabre matches DepartureDateTime against the segment's local departure
+        time, so an exact timestamp only finds PNRs when it equals that value
+        to the second. Searching the whole departure date avoids depending on
+        the caller knowing it.
         Returns (parsed_body_dict, raw_xml_string, request_meta).
         """
+        try:
+            day = date.fromisoformat(str(departure_date)).isoformat()
+        except ValueError as exc:
+            raise SabreError(
+                f"Trip_SearchRQ needs a YYYY-MM-DD departure date, got {departure_date!r}") from exc
         body = templates.RESERVATION.format(
             **self._common_vars(),
             airline=airline,
             flight_number=flight_number,
             departure_airport=departure_airport,
-            departure_datetime=departure_datetime,
+            departure_after=f"{day}T00:00:00",
+            departure_before=f"{day}T23:59:59",
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
             "Trip_SearchRQ", body, timeout=60)

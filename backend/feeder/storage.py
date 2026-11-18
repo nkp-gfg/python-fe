@@ -374,6 +374,41 @@ def store_reservations(doc):
     return result.inserted_id
 
 
+def get_stored_reservation_pnrs(flight_number, origin, departure_date):
+    """PNRs in the reservations list the API currently serves for a flight,
+    plus those in the latest reservations snapshot that change detection diffs
+    against."""
+    db = get_db()
+    live = db["reservations"].find_one(
+        {
+            "flightNumber": flight_number,
+            "departureAirport": origin,
+            "departureDate": departure_date,
+        },
+        sort=[("fetchedAt", DESCENDING)],
+        projection={"reservations.pnr": 1},
+    )
+    snapshot = db["snapshots"].find_one(
+        {
+            "flightNumber": flight_number,
+            "origin": origin,
+            "departureDate": departure_date,
+            "snapshotType": "reservations",
+        },
+        sort=[("sequenceNumber", DESCENDING)],
+        projection={"data.reservations.pnr": 1},
+    )
+    pnrs = set()
+    for res_list in (
+        (live or {}).get("reservations"),
+        ((snapshot or {}).get("data") or {}).get("reservations"),
+    ):
+        for r in res_list or []:
+            if isinstance(r, dict) and r.get("pnr"):
+                pnrs.add(r["pnr"])
+    return pnrs
+
+
 def store_trip_reports(doc):
     """Insert a trip_reports document. Returns the inserted _id."""
     result = get_db()["trip_reports"].insert_one(doc)

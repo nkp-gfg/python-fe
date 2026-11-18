@@ -60,6 +60,58 @@ class IngestionPayloadRejectedError(Exception):
     """Raised when a supplied ingestion payload conflicts with live Sabre data."""
 
 
+class UnsafeSnapshotError(Exception):
+    """Raised when a converted response must not replace the stored state.
+
+    The raw request/response is already archived; request_id points at it.
+    """
+
+    def __init__(self, message, request_id=None):
+        super().__init__(message)
+        self.request_id = request_id
+
+
+def _pnr_text(value):
+    if isinstance(value, dict):
+        value = value.get("#text", "")
+    return str(value or "").strip()
+
+
+def _cancelled_pnrs(mlx_doc):
+    """PNRs that the MLX (cancelled passengers) trip report lists."""
+    pnrs = set()
+    for p in (mlx_doc or {}).get("passengers", []):
+        pnr = _pnr_text(p.get("pnr"))
+        if pnr:
+            pnrs.add(pnr)
+    return pnrs
+
+
+def _guard_reservations_snapshot(raw_data, converted, flight_info, cancelled_pnrs):
+    """Refuse a Trip Search result that would drop stored bookings.
+
+    Trip Search answers Success with an empty or partial list whenever its
+    criteria miss PNRs, which is indistinguishable from cancellations. A
+    stored PNR may only disappear when the MLX report from the same run
+    lists it as cancelled.
+    """
+    data = _strip_ns(raw_data or {})
+    if "Success" not in data or data.get("Errors"):
+        raise UnsafeSnapshotError(
+            "Trip_SearchRS did not report Success; stored reservations were kept.")
+
+    stored = storage.get_stored_reservation_pnrs(
+        flight_info["flightNumber"], flight_info["origin"],
+        flight_info["departureDate"])
+    returned = {r.get("pnr") for r in converted.get("reservations", [])}
+    missing = stored - returned - cancelled_pnrs
+    if missing:
+        raise UnsafeSnapshotError(
+            f"Trip_SearchRS omitted {len(missing)} of {len(stored)} stored PNR(s) "
+            "that the MLX trip report does not list as cancelled; "
+            "stored reservations were kept.")
+
+
 def _flatten_sabre_messages(value):
     """Return a flat list of message strings from a Sabre Result.Message payload."""
     if value is None:
@@ -232,13 +284,15 @@ def _lookup_flight_sequence_number(flight_number, origin, departure_date):
 
 def _process_api_call(api_type, snapshot_type, flight_info,
                       raw_data, raw_xml, meta, converter_fn, converter_args,
-                      flight_sequence_number=None):
+                      flight_sequence_number=None, validate_fn=None):
     """
     Execute the 3-layer storage pipeline for one API call:
     1. Store raw request/response
     2. Convert + store snapshot
     3. Diff against previous snapshot + store changes
     4. Update flight current state
+
+    validate_fn(converted) may raise UnsafeSnapshotError to stop after step 1.
     """
     airline = flight_info["airline"]
     fn = flight_info["flightNumber"]
@@ -260,6 +314,12 @@ def _process_api_call(api_type, snapshot_type, flight_info,
 
     # Layer 2: Convert and store snapshot
     converted = converter_fn(*converter_args)
+    if validate_fn is not None:
+        try:
+            validate_fn(converted)
+        except UnsafeSnapshotError as exc:
+            exc.request_id = request_id
+            raise
     snapshot_id, checksum, is_dup = storage.store_snapshot(
         request_id=request_id,
         airline=airline,
@@ -519,36 +579,16 @@ def run_feeder(flights, progress_callback=None):
                     "calls": pax_call_statuses,
                 }
 
-            # 3. Reservations
-            try:
-                raw, xml, meta = client.get_reservations(
-                    airline, fn, origin, dep_dt)
-                details = _process_api_call(
-                    "Reservations", "reservations", flight_info,
-                    raw, xml, meta,
-                    convert_reservations, (raw, airline, fn, origin, dep_date),
-                    flight_sequence_number=flight_seq,
-                )
-                flight_result["apis"]["reservations"] = {
-                    "status": "success",
-                    **details,
-                }
-            except SabreError as e:
-                logger.error("reservations_failed",
-                             flight=f"{airline}{fn}", error=str(e))
-                flight_result["success"] = False
-                flight_result["apis"]["reservations"] = {
-                    "status": "error",
-                    "error": str(e),
-                }
-
-            # 4. Trip Reports (MLX + MLC for offloaded / no-show detection)
+            # 3. Trip Reports (MLX + MLC for offloaded / no-show detection).
+            #    Runs before reservations so MLX can confirm removed PNRs.
+            cancelled_pnrs = set()
             try:
                 # MLX = cancelled passengers
                 mlx_raw, mlx_xml, mlx_meta = client.get_trip_report(
                     airline, fn, dep_date, origin, "MLX")
                 mlx_doc = convert_trip_report(
                     mlx_raw, airline, fn, dep_date, origin, "MLX")
+                cancelled_pnrs = _cancelled_pnrs(mlx_doc)
 
                 # Store raw MLX request
                 storage.store_raw_request(
@@ -602,6 +642,42 @@ def run_feeder(flights, progress_callback=None):
                 logger.warning("trip_reports_failed",
                                flight=f"{airline}{fn}", error=str(e))
                 flight_result["apis"]["tripReports"] = {
+                    "status": "error",
+                    "error": str(e),
+                }
+
+            # 4. Reservations
+            try:
+                raw, xml, meta = client.get_reservations(
+                    airline, fn, origin, dep_date)
+                details = _process_api_call(
+                    "Reservations", "reservations", flight_info,
+                    raw, xml, meta,
+                    convert_reservations, (raw, airline, fn, origin, dep_date),
+                    flight_sequence_number=flight_seq,
+                    validate_fn=lambda converted: _guard_reservations_snapshot(
+                        raw, converted, flight_info, cancelled_pnrs),
+                )
+                flight_result["apis"]["reservations"] = {
+                    "status": "success",
+                    **details,
+                }
+            except UnsafeSnapshotError as e:
+                logger.error("reservations_snapshot_refused",
+                             flight=f"{airline}{fn}", origin=origin,
+                             departure_date=dep_date, error=str(e))
+                flight_result["success"] = False
+                flight_result["apis"]["reservations"] = {
+                    "status": "error",
+                    "apiType": "Reservations",
+                    "requestId": e.request_id,
+                    "error": str(e),
+                }
+            except SabreError as e:
+                logger.error("reservations_failed",
+                             flight=f"{airline}{fn}", error=str(e))
+                flight_result["success"] = False
+                flight_result["apis"]["reservations"] = {
                     "status": "error",
                     "error": str(e),
                 }

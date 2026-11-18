@@ -190,7 +190,7 @@ RESERVATION = """<?xml version="1.0" encoding="UTF-8"?>
                         <Flight>
                             <FlightNumber>{flight_number}</FlightNumber>
                             <DepartureAirport>{departure_airport}</DepartureAirport>
-                            <DepartureDateTime Is="{departure_datetime}"/>
+                            <DepartureDateTime After="{departure_after}" Before="{departure_before}"/>
                             <AirlineCode>{airline}</AirlineCode>
                         </Flight>
                     </FlightCriteria>
