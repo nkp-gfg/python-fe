@@ -821,7 +821,14 @@ export interface FlightStatusRecord {
   gate: string;
   terminal: string;
   boarding: { time: string; indicator: string };
-  legs: { city: string; controllingCity: boolean; status: string }[];
+  legs: {
+    city: string;
+    controllingCity: boolean;
+    status: string;
+    date?: string;
+    departureTime?: string;
+    arrivalTime?: string;
+  }[];
   passengerCounts: Record<string, ClassCounts>;
   jumpSeat: JumpSeat;
   remarks?: RemarkEntry[];

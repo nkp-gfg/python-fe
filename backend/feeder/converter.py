@@ -54,6 +54,15 @@ def _now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _text(val):
+    """Element text from xmltodict output: None for empty, dict when attributed."""
+    if isinstance(val, dict):
+        val = val.get("#text")
+    if val is None:
+        return ""
+    return str(val).strip()
+
+
 # ── Flight Status ──────────────────────────────────────────────────────────
 
 def _extract_flight_remarks(data):
@@ -127,9 +136,12 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
     data = _strip_ns(raw_data)
     itin = data.get("ItineraryResponseList", {}).get(
         "ItineraryInfoResponse", {})
-    legs = _ensure_list(
-        data.get("LegInfoList", {}).get("LegInfo", [])
-    )
+    legs = [
+        leg for leg in _ensure_list(
+            (data.get("LegInfoList") or {}).get("LegInfo", [])
+        )
+        if isinstance(leg, dict)
+    ]
     counts_raw = _ensure_list(data.get("PassengerCounts", []))
     jump = data.get("JumpSeat", {})
 
@@ -199,9 +211,13 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
         },
         "legs": [
             {
-                "city": leg.get("City", ""),
-                "controllingCity": leg.get("@controllingCity", "") == "true",
-                "status": leg.get("LegStatus", ""),
+                "city": _text(leg.get("LegCity")),
+                # ACS marks the controlling city with a non-empty indicator (e.g. "!").
+                "controllingCity": bool(_text(leg.get("ControllingCityInd"))),
+                "status": _text(leg.get("LegStatus")),
+                "date": _text(leg.get("LegDate")),
+                "departureTime": _text(leg.get("LegDepartureTime")),
+                "arrivalTime": _text(leg.get("LegArrivalTime")),
             }
             for leg in legs
         ],
