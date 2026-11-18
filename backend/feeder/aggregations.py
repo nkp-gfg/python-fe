@@ -7,7 +7,7 @@ avoiding pulling full document sets into Python.
 import logging
 from datetime import datetime, timezone
 
-from backend.feeder.storage import get_db
+from backend.feeder.storage import get_db, latest_snapshot_stages
 from backend.api.postgres import query_all
 
 logger = logging.getLogger(__name__)
@@ -27,49 +27,36 @@ def find_missing_pnrs(date: str) -> dict:
     # Pipeline: get latest passenger_list per flight, extract unique PNRs,
     # then $lookup against reservations to find mismatches.
     pipeline = [
-        # Get latest passenger_list per flight for this date
-        {"$match": {"departureDate": date}},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin"},
-            "paxDoc": {"$first": "$$ROOT"},
-        }},
-        # Unwind passengers to get PNR list
-        {"$unwind": "$paxDoc.passengers"},
-        {"$group": {
-            "_id": "$_id",
-            "paxPnrs": {"$addToSet": "$paxDoc.passengers.pnr"},
-        }},
-        # Lookup reservations for same flight
+        # Latest passenger_list per flight for this date, PNRs only
+        *latest_snapshot_stages(
+            "passenger_list",
+            {"departureDate": date},
+            {"flightNumber": "$flightNumber", "origin": "$origin"},
+            {"flightNumber": 1, "origin": 1, "passengers.pnr": 1},
+        ),
+        {"$match": {"passengers.0": {"$exists": True}}},
+        # Lookup latest reservations for same flight, PNRs only
         {"$lookup": {
             "from": "reservations",
-            "let": {
-                "fn": "$_id.flightNumber",
-                "orig": "$_id.origin",
-            },
-            "pipeline": [
-                {"$match": {
-                    "$expr": {
-                        "$and": [
-                            {"$eq": ["$flightNumber", "$$fn"]},
-                            {"$eq": ["$departureDate", date]},
-                        ]
-                    }
-                }},
-                {"$sort": {"fetchedAt": -1}},
-                {"$limit": 1},
-                {"$unwind": "$reservations"},
-                {"$group": {"_id": None, "resPnrs": {
-                    "$addToSet": "$reservations.pnr"}}},
-            ],
+            "let": {"fn": "$flightNumber"},
+            "pipeline": latest_snapshot_stages(
+                "reservations",
+                {
+                    "departureDate": date,
+                    "$expr": {"$eq": ["$flightNumber", "$$fn"]},
+                },
+                None,
+                {"_id": 0, "resPnrs": "$reservations.pnr"},
+            ),
             "as": "resData",
         }},
         # Compute set differences
         {"$project": {
-            "flightNumber": "$_id.flightNumber",
-            "origin": "$_id.origin",
-            "paxPnrs": 1,
-            "resPnrs": {"$ifNull": [{"$arrayElemAt": ["$resData.resPnrs", 0]}, []]},
+            "flightNumber": 1,
+            "origin": 1,
+            "paxPnrs": {"$setUnion": [{"$ifNull": ["$passengers.pnr", []]}]},
+            "resPnrs": {"$setUnion": [{"$ifNull": [
+                {"$arrayElemAt": ["$resData.resPnrs", 0]}, []]}]},
         }},
         {"$project": {
             "flightNumber": 1,
@@ -119,7 +106,7 @@ def find_missing_pnrs(date: str) -> dict:
     }
 
 
-def passenger_status_distribution(date: str) -> dict:
+def passenger_status_distribution(date: str, flight_numbers: list[str] | None = None) -> dict:
     """Aggregate passenger status distribution across all flights for a date.
 
     Returns counts of booked, checked-in, boarded per cabin class.
@@ -127,23 +114,33 @@ def passenger_status_distribution(date: str) -> dict:
     """
     db = get_db()
 
+    match = {"departureDate": date}
+    if flight_numbers:
+        match["flightNumber"] = {"$in": flight_numbers}
+
     pipeline = [
-        {"$match": {"departureDate": date}},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin"},
-            "doc": {"$first": "$$ROOT"},
-        }},
-        {"$unwind": "$doc.passengers"},
+        *latest_snapshot_stages(
+            "passenger_list",
+            match,
+            {"flightNumber": "$flightNumber", "origin": "$origin"},
+            {
+                "flightNumber": 1,
+                "passengers.cabin": 1,
+                "passengers.isCheckedIn": 1,
+                "passengers.isBoarded": 1,
+                "passengers.isRevenue": 1,
+            },
+        ),
+        {"$unwind": "$passengers"},
         {"$group": {
             "_id": {
-                "flightNumber": "$_id.flightNumber",
-                "cabin": "$doc.passengers.cabin",
+                "flightNumber": "$flightNumber",
+                "cabin": "$passengers.cabin",
             },
             "total": {"$sum": 1},
-            "checkedIn": {"$sum": {"$cond": ["$doc.passengers.isCheckedIn", 1, 0]}},
-            "boarded": {"$sum": {"$cond": ["$doc.passengers.isBoarded", 1, 0]}},
-            "revenue": {"$sum": {"$cond": ["$doc.passengers.isRevenue", 1, 0]}},
+            "checkedIn": {"$sum": {"$cond": ["$passengers.isCheckedIn", 1, 0]}},
+            "boarded": {"$sum": {"$cond": ["$passengers.isBoarded", 1, 0]}},
+            "revenue": {"$sum": {"$cond": ["$passengers.isRevenue", 1, 0]}},
         }},
         {"$group": {
             "_id": "$_id.cabin",
@@ -153,10 +150,12 @@ def passenger_status_distribution(date: str) -> dict:
             "revenue": {"$sum": "$revenue"},
             "flights": {"$sum": 1},
         }},
-        {"$sort": {"_id": 1}},
     ]
 
-    results = list(db["passenger_list"].aggregate(pipeline))
+    results = sorted(
+        db["passenger_list"].aggregate(pipeline),
+        key=lambda r: r["_id"] or "",
+    )
 
     cabins = {}
     grand_total = 0
