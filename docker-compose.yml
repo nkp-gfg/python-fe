@@ -4,11 +4,14 @@ services:
   mongodb:
     image: mongodb/mongodb-community-server:latest
     container_name: falconeye_mongodb
-    ports:
-      - "27017:27017"
+    # Not published on a host port: reach it from the Compose network, or with
+    # `docker compose exec mongodb mongosh`. The root credential comes from the
+    # shell environment or an untracked .env file and has no default.
+    expose:
+      - "27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?set MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD}
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb

@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 
 from pymongo import MongoClient, ASCENDING, DESCENDING
 
+from backend.sabre.redaction import redact_security_tokens as _redact_security_tokens
+
 logger = logging.getLogger(__name__)
 
 DB_NAME = "falconeye"
@@ -178,9 +180,10 @@ def ensure_indexes():
 
 def store_raw_request(api_type, flight_info, request_xml, response_xml,
                       response_json, http_status, duration_ms,
-                      session_token=None, conversation_id=None):
+                      conversation_id=None):
     """
     Store the complete raw request/response in sabre_requests (append-only).
+    Sabre session tokens are redacted before the document is written.
     Returns the requestId (UUID string).
     """
     request_id = _new_id()
@@ -189,13 +192,12 @@ def store_raw_request(api_type, flight_info, request_xml, response_xml,
         "requestedAt": _now_iso(),
         "apiType": api_type,
         "flight": flight_info,
-        "requestXml": request_xml,
-        "responseXml": response_xml,
-        "responseJson": response_json,
+        "requestXml": _redact_security_tokens(request_xml),
+        "responseXml": _redact_security_tokens(response_xml),
+        "responseJson": _redact_security_tokens(response_json),
         "httpStatus": http_status,
         "durationMs": duration_ms,
         "metadata": {
-            "sessionToken": session_token,
             "conversationId": conversation_id,
         },
     }
