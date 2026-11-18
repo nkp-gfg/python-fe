@@ -202,7 +202,7 @@ export function BoardingProgress({
   const { data, isLoading, error } = useQuery({
     queryKey: ["boardingProgress", flightNumber, origin, date],
     queryFn: () => fetchBoardingProgress(flightNumber, origin, date),
-    enabled: !!flightNumber,
+    enabled: !!flightNumber && !!origin && !!date,
     refetchInterval: 15000, // Auto-refresh every 15 seconds during active boarding
   });
 
