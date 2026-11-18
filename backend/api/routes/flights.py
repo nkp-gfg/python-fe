@@ -9,6 +9,7 @@ from pymongo.errors import PyMongoError
 from backend.api.database import get_db
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
+from backend.feeder.converter import form_of_payment_brand
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["flights"])
@@ -729,7 +730,7 @@ def _build_insights(passengers, reservation_doc, schedule_doc, pl, change_summar
     payment_counts = {}
     if reservation_doc:
         for rv in reservation_doc.get("reservations", []):
-            fop = rv.get("formOfPayment", "")
+            fop = form_of_payment_brand(rv.get("formOfPayment", ""))
             if fop:
                 payment_counts[fop] = payment_counts.get(fop, 0) + 1
     insights["paymentMethods"] = dict(
