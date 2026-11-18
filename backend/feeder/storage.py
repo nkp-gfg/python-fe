@@ -314,14 +314,20 @@ def update_flight_state(airline, flight_number, origin, departure_date,
     """
     Update the flights collection with the latest state.
     Uses upsert to create or update.
+
+    Summary fields are merged into the existing summary: each snapshot type
+    owns only some of them (flight_status sets status/gate, passenger_list
+    sets counts), so replacing the whole object would erase the others.
     """
     db = get_db()
     update_fields = {
         "lastUpdatedAt": _now_iso(),
         f"latest{snapshot_type.replace('_', ' ').title().replace(' ', '')}SnapshotId": snapshot_id,
     }
-    if summary:
-        update_fields["summary"] = summary
+    for key, value in (summary or {}).items():
+        if not isinstance(key, str) or not key or "." in key or key.startswith("$"):
+            raise ValueError(f"invalid summary field name: {key!r}")
+        update_fields[f"summary.{key}"] = value
     if flight_sequence_number is not None:
         update_fields["flightSequenceNumber"] = flight_sequence_number
 
