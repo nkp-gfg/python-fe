@@ -35,7 +35,7 @@ def run_flight_comparison(self, job_id: str, date: str, flight_numbers: list[str
         return {"jobId": job_id, **result}
     except Exception as exc:
         logger.exception("Comparison job %s failed", job_id)
-        set_job_failed(job_id, str(exc))
+        set_job_failed(job_id, "Comparison failed")
         raise self.retry(exc=exc)
 
 
@@ -54,7 +54,7 @@ def run_pnr_comparison(self, job_id: str, date: str) -> dict:
         return {"jobId": job_id, **result}
     except Exception as exc:
         logger.exception("PNR comparison job %s failed", job_id)
-        set_job_failed(job_id, str(exc))
+        set_job_failed(job_id, "PNR comparison failed")
         raise self.retry(exc=exc)
 
 
