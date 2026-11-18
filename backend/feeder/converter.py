@@ -812,6 +812,113 @@ def _parse_docs_string(docs_text):
     }
 
 
+def _xml_text(val):
+    """Return the text of an xmltodict value (str, None, or dict with #text)."""
+    if val is None:
+        return ""
+    if isinstance(val, dict):
+        return _xml_text(val.get("#text"))
+    if isinstance(val, list):
+        return " ".join(t for t in (_xml_text(v) for v in val) if t)
+    return str(val)
+
+
+def _format_timatic_text(status, country_status, infant, raw_sections):
+    lines = []
+    if status:
+        lines.append(f"Status: {status}" + (" (infant)" if infant else ""))
+    if country_status:
+        lines.append(f"Country status: {country_status}")
+    for sec_name, sec_type, sec_text, subsections in raw_sections:
+        heading = " / ".join(p for p in (sec_name, sec_type) if p)
+        if heading or sec_text:
+            lines.append(" - ".join(p for p in (heading, sec_text) if p))
+        for sub_name, sub_type, sub_text in subsections:
+            if sub_name and sub_type:
+                label = f"{sub_name} ({sub_type})"
+            else:
+                label = sub_name or sub_type
+            line = ": ".join(p for p in (label, sub_text) if p)
+            if line:
+                lines.append(f"  {line}")
+    return "\n".join(lines)
+
+
+def _convert_timatic_info(timatic_info_list):
+    """Flatten TimaticInfoList into one entry per TimaticCountryInfo.
+
+    timaticStatus sits on TimaticInfo and on each TimaticCountryInfo; the
+    country is in Country/@countryName and @countryCode; the visa/passport
+    text is under SectionInfo/SubSectionInfo. A TimaticInfo with no country
+    detail still yields an entry so its boarding decision is not lost.
+    """
+    timatic_infos = []
+    for til in _ensure_list(timatic_info_list):
+        if isinstance(til, dict):
+            timatic_infos.extend(_ensure_list(til.get("TimaticInfo")))
+
+    entries = []
+    for ti in timatic_infos:
+        if not isinstance(ti, dict):
+            continue
+        status = _xml_text(ti.get("@timaticStatus"))
+        infant = _xml_text(ti.get("@infant")).lower() == "true"
+
+        country_infos = [
+            ci for ci in _ensure_list(ti.get("TimaticCountryInfo"))
+            if isinstance(ci, dict)
+        ] or [{}]
+        for ci in country_infos:
+            country_status = _xml_text(ci.get("@timaticStatus"))
+            country = ci.get("Country")
+            if isinstance(country, dict):
+                country_name = _xml_text(country.get("@countryName")) or _xml_text(country.get("#text"))
+                country_code = _xml_text(country.get("@countryCode"))
+            else:
+                country_name = _xml_text(country)
+                country_code = ""
+
+            sections = []
+            raw_sections = []
+            for sec in _ensure_list(ci.get("SectionInfo")):
+                if not isinstance(sec, dict):
+                    continue
+                sec_name = _xml_text(sec.get("SectionName"))
+                sec_type = _xml_text(sec.get("SectionType"))
+                sec_text = _xml_text(sec.get("SectionText"))
+                subsections = []
+                raw_subsections = []
+                for sub in _ensure_list(sec.get("SubSectionInfo")):
+                    if not isinstance(sub, dict):
+                        continue
+                    sub_name = _xml_text(sub.get("SubSectionName"))
+                    sub_type = _xml_text(sub.get("SubSectionType"))
+                    sub_text = _xml_text(sub.get("SubSectionText"))
+                    subsections.append({
+                        "subSectionName": sub_name,
+                        "subSectionType": sub_type,
+                        "subSectionText": sub_text,
+                    })
+                    raw_subsections.append((sub_name, sub_type, sub_text))
+                sections.append({
+                    "sectionName": sec_name,
+                    "sectionText": sec_text,
+                    "subsections": subsections,
+                })
+                raw_sections.append((sec_name, sec_type, sec_text, raw_subsections))
+
+            entries.append({
+                "status": status,
+                "countryStatus": country_status,
+                "infant": infant,
+                "country": country_name,
+                "countryCode": country_code,
+                "text": _format_timatic_text(status, country_status, infant, raw_sections),
+                "sections": sections,
+            })
+    return entries
+
+
 def convert_passenger_data(raw_data, airline, flight_number, departure_date, origin):
     """Convert GetPassengerDataRS dict into a clean document.
 
@@ -1021,15 +1128,7 @@ def convert_passenger_data(raw_data, airline, flight_number, departure_date, ori
                     },
                 })
 
-        # Timatic info
-        timatic_info = []
-        for ti in _ensure_list(
-            (pax.get("TimaticInfoList") or {}).get("TimaticInfo", [])
-        ):
-            timatic_info.append({
-                "country": ti.get("Country", ""),
-                "text": ti.get("Text", "") if isinstance(ti.get("Text"), str) else str(ti.get("Text", "")),
-            })
+        timatic_info = _convert_timatic_info(pax.get("TimaticInfoList"))
 
         passengers.append({
             "lineNumber": line_number,
