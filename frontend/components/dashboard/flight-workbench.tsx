@@ -46,6 +46,7 @@ import { useDebounce } from "@/lib/hooks";
 import { fetchDashboard, fetchFlightTree, fetchFlights, ingestFlight } from "@/lib/api";
 import type { FlightListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { formatClock24, toIsoLocalDateTime } from "@/lib/sabre-time";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -262,17 +263,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
 
   /** Convert Sabre "2026-03-20T04:00PM" → ISO "2026-03-20T16:00:00" */
   function toIsoDateTime(raw: string | undefined, fallbackDate: string): string {
-    if (!raw) return `${fallbackDate}T00:00:00`;
-    const m = raw.match(/(\d{4}-\d{2}-\d{2})T(\d{1,2}):(\d{2})(AM|PM)?/i);
-    if (!m) return `${fallbackDate}T00:00:00`;
-    const [, datePart, hStr, min, ampm] = m;
-    let h = parseInt(hStr, 10);
-    if (ampm) {
-      const up = ampm.toUpperCase();
-      if (up === "PM" && h < 12) h += 12;
-      if (up === "AM" && h === 12) h = 0;
-    }
-    return `${datePart}T${String(h).padStart(2, "0")}:${min}:00`;
+    return toIsoLocalDateTime(raw) ?? `${fallbackDate}T00:00:00`;
   }
 
   function handleQuickIngest(flight: FlightListItem, e: React.MouseEvent) {
@@ -1646,7 +1637,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                               </div>
                               {/* Departure time */}
                               <div className="text-center">
-                                <p className="text-sm font-semibold">{dashboard.schedule.scheduledDeparture?.slice(-8, -3) || "—"}</p>
+                                <p className="text-sm font-semibold">{formatClock24(dashboard.schedule.scheduledDeparture) ?? "—"}</p>
                                 <p className="text-[10px] text-muted-foreground">Depart</p>
                               </div>
                               {/* Arrow + duration */}
@@ -1663,7 +1654,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                               </div>
                               {/* Arrival time */}
                               <div className="text-center">
-                                <p className="text-sm font-semibold">{dashboard.schedule.scheduledArrival?.slice(-8, -3) || "—"}</p>
+                                <p className="text-sm font-semibold">{formatClock24(dashboard.schedule.scheduledArrival) ?? "—"}</p>
                                 <p className="text-[10px] text-muted-foreground">Arrive</p>
                               </div>
                               {/* Destination */}
@@ -1686,7 +1677,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                                     <span className="font-medium text-foreground">{seg.origin}</span>
                                     <ArrowRight className="h-2.5 w-2.5" />
                                     <span className="font-medium text-foreground">{seg.destination}</span>
-                                    <span>{seg.departureDateTime?.slice(-8, -3)} → {seg.arrivalDateTime?.slice(-8, -3)}</span>
+                                    <span>{formatClock24(seg.departureDateTime) ?? "—"} → {formatClock24(seg.arrivalDateTime) ?? "—"}</span>
                                     <span>{seg.aircraftType}</span>
                                     {seg.elapsedTime && <span>({seg.elapsedTime})</span>}
                                   </div>

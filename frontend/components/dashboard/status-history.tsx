@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatClock24 } from "@/lib/sabre-time";
 import type { FlightStatusRecord, ClassCounts, SnapshotMeta } from "@/lib/types";
 
 interface StatusHistoryProps {
@@ -76,18 +77,8 @@ function formatTs(ts: string): string {
   }
 }
 
-/** Extract time portion (HH:mm) from "YYYY-MM-DDTHH:mm" or "HH:mm:ss" */
 function fmtTime(v: string | undefined): string {
-  if (!v) return "—";
-  // Full ISO with T
-  const tIdx = v.indexOf("T");
-  if (tIdx >= 0) {
-    const timePart = v.slice(tIdx + 1); // "HH:mm:ss" or "HH:mm"
-    return timePart ? timePart.slice(0, 5) : "—";
-  }
-  // Already a time string
-  if (v.includes(":")) return v.slice(0, 5);
-  return v || "—";
+  return formatClock24(v) ?? "—";
 }
 
 function totalPax(counts: Record<string, ClassCounts> | undefined): { booked: number; onBoard: number; bp: number } {
