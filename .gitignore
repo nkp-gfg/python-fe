@@ -56,4 +56,12 @@ yarn-error.log*
 # ===== Bruno cache =====
 .bruno/
 
+# ===== Captured passenger data (never commit; use synthetic fixtures) =====
+testing/*.json
+sabre-webservices/*results*.json
+sample_data/**/GetPassengerListRS_*.xml
+sample_data/**/GetPassengerDataRS_*.xml
+sample_data/**/Trip_SearchRS_*.xml
+sample_data/**/Trip_ReportsRS_*.xml
+
 mm_data/
