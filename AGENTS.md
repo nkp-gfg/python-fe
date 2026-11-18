@@ -237,6 +237,7 @@ def create_feature(req: FeatureRequest):
   - `REDIS_URL=redis://127.0.0.1:6379/0`
   - `DATABASE_URL=postgresql://...` (audit logs)
   - `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` (frontend sees this)
+  - `CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000` (web app origins the API accepts browser calls from; `*` is ignored)
 
 - Secrets: Use environment variables; never hardcode credentials in code.
 

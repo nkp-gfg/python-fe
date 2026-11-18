@@ -9,6 +9,7 @@ from backend.api.routes import flights, passengers, reservations, changes, inges
 from backend.api.database import get_db, close_db
 from backend.api.postgres import close_pool as close_pg_pool
 from backend.api.redis_client import get_redis, close_redis
+from backend.api.origins import BrowserOriginGuardMiddleware, get_allowed_origins
 from backend.feeder import storage as feeder_storage
 import logging
 import os
@@ -66,13 +67,18 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────
+_allowed_origins = get_allowed_origins()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-Request-ID"],
 )
+# Added after CORSMiddleware so it runs first and rejects disallowed origins
+# before CORS handling or any route executes.
+app.add_middleware(BrowserOriginGuardMiddleware, allowed_origins=_allowed_origins)
 
 
 # ── Request correlation ID middleware ─────────────────────────────────────
