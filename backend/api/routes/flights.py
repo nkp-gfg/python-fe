@@ -9,6 +9,7 @@ from pymongo.errors import PyMongoError
 from backend.api.database import get_db
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
+from backend.feeder.differ import index_passengers
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["flights"])
@@ -1855,9 +1856,6 @@ def _compute_transitions(prev_passengers, curr_passengers):
 
     Returns a list of {fromState, toState, count} dicts.
     """
-    def _pax_key(p):
-        return (p.get("pnr", ""), p.get("lastName", "").upper(), p.get("firstName", "").upper())
-
     def _pax_state(p):
         if p.get("isBoarded"):
             return "boarded"
@@ -1865,13 +1863,8 @@ def _compute_transitions(prev_passengers, curr_passengers):
             return "checkedIn"
         return "booked"
 
-    prev_map = {}
-    for p in prev_passengers:
-        prev_map[_pax_key(p)] = _pax_state(p)
-
-    curr_map = {}
-    for p in curr_passengers:
-        curr_map[_pax_key(p)] = _pax_state(p)
+    prev_map = {k: _pax_state(p) for k, p in index_passengers(prev_passengers).items()}
+    curr_map = {k: _pax_state(p) for k, p in index_passengers(curr_passengers).items()}
 
     flow_counts = {}
     # Passengers present in both snapshots

@@ -16,19 +16,41 @@ def _now_iso():
 
 
 def _pax_key(passenger):
-    """Create a unique key for a passenger.
+    """Create a stable identity key for a passenger.
 
-    Uses PNR + lastName + firstName when PNR is available.
-    Falls back to lineNumber for staff/non-revenue passengers without a PNR.
+    Several passengers can share a PNR and name (namesakes, and unnamed group
+    members stored as PAX with a blank first name), so the name never
+    identifies a passenger. Sabre's PassengerID is unique per passenger on the
+    flight; lineNumber is used only when PassengerID is missing.
     """
-    pnr = passenger.get("pnr", "")
-    last = passenger.get("lastName", "")
-    first = passenger.get("firstName", "")
-    if pnr:
-        return f"{pnr}|{last}|{first}"
-    # Staff may have no PNR — use lineNumber as fallback key
-    line = passenger.get("lineNumber", "")
-    return f"LINE:{line}|{last}|{first}"
+    pnr = passenger.get("pnr") or ""
+    pid = passenger.get("passengerId") or ""
+    if pid:
+        return f"{pnr}|PID:{pid}"
+    line = passenger.get("lineNumber")
+    if line:
+        return f"{pnr}|LINE:{line}"
+    last = passenger.get("lastName") or ""
+    first = passenger.get("firstName") or ""
+    return f"{pnr}|NAME:{last}|{first}"
+
+
+def index_passengers(passengers):
+    """Map each passenger to a key unique within this list.
+
+    Rows whose identity key repeats are kept under a suffixed key instead of
+    replacing the earlier row, so no passenger is dropped from the diff.
+    """
+    indexed = {}
+    for p in passengers or []:
+        base = _pax_key(p)
+        key = base
+        n = 2
+        while key in indexed:
+            key = f"{base}#{n}"
+            n += 1
+        indexed[key] = p
+    return indexed
 
 
 def _classify_upgrade_type(passenger):
@@ -73,6 +95,8 @@ def _make_change(flight_info, change_type, before_snap_id, after_snap_id,
             "pnr": passenger.get("pnr", ""),
             "lastName": passenger.get("lastName", ""),
             "firstName": passenger.get("firstName", ""),
+            "passengerId": passenger.get("passengerId", ""),
+            "lineNumber": passenger.get("lineNumber"),
         }
     if field:
         doc["field"] = field
@@ -187,8 +211,8 @@ def diff_passenger_list(before_snap, after_snap, flight_info):
     after_id = after_snap["snapshotId"]
     changes = []
 
-    before_pax = {_pax_key(p): p for p in before.get("passengers", [])}
-    after_pax = {_pax_key(p): p for p in after.get("passengers", [])}
+    before_pax = index_passengers(before.get("passengers", []))
+    after_pax = index_passengers(after.get("passengers", []))
 
     before_keys = set(before_pax.keys())
     after_keys = set(after_pax.keys())

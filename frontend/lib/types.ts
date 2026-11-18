@@ -447,6 +447,7 @@ export interface PassengerRecord {
   priorityCode: string;
   bookingClass: string;
   desiredBookingClass: string;
+  upgradeCode?: string;
   cabin: string;
   seat: string;
   destination: string;
@@ -565,6 +566,7 @@ export interface StandbyEntry {
   priorityCode: string;
   bookingClass: string;
   desiredBookingClass: string;
+  upgradeCode?: string;
   cabin: string;
   seat: string;
   destination: string;
@@ -745,6 +747,8 @@ export interface ChangeRecord {
     pnr: string;
     lastName: string;
     firstName: string;
+    passengerId?: string;
+    lineNumber?: number;
   };
   field?: string;
   oldValue?: string | number | boolean;
@@ -1099,6 +1103,8 @@ export interface FlightTimelineEvent {
     pnr: string;
     lastName: string;
     firstName: string;
+    passengerId?: string;
+    lineNumber?: number;
   };
   metadata?: Record<string, unknown>;
 }
@@ -1147,6 +1153,8 @@ export interface ActivityFeedEvent {
     pnr: string;
     lastName: string;
     firstName: string;
+    passengerId?: string;
+    lineNumber?: number;
   };
 }
 
@@ -1167,6 +1175,8 @@ export interface ProgressDataPoint {
     pnr: string;
     lastName: string;
     firstName: string;
+    passengerId?: string;
+    lineNumber?: number;
   };
 }
 

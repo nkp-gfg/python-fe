@@ -309,6 +309,7 @@ def convert_passenger_list(raw_data, airline, flight_number, departure_date, ori
             "priorityCode": p.get("PriorityCode", ""),
             "bookingClass": p.get("BookingClass", ""),
             "desiredBookingClass": p.get("DesiredBookingClass", ""),
+            "upgradeCode": p.get("UpgradeCode", ""),
             "cabin": p.get("Cabin", ""),
             "seat": p.get("Seat", ""),
             "destination": p.get("Destination", ""),
