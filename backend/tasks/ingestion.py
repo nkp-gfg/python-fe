@@ -7,6 +7,7 @@ from backend.api.redis_client import (
     set_job_running, set_job_progress, set_ingestion_job_finished, set_job_failed,
     cache_invalidate_pattern,
 )
+from backend.sabre.client import SabreError
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,10 @@ def run_batch_ingestion(self, job_id: str, payloads: list[dict]) -> dict:
         }
     except Exception as exc:
         logger.exception("Batch ingestion job %s failed", job_id)
-        set_job_failed(job_id, str(exc))
+        set_job_failed(
+            job_id,
+            str(exc) if isinstance(exc, SabreError) else "Batch ingestion failed",
+        )
         raise self.retry(exc=exc)
 
 
