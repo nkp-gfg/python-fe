@@ -143,7 +143,6 @@ async def lookup_schedule(payload: ScheduleLookupRequest):
                 response_json=raw,
                 http_status=meta["httpStatus"],
                 duration_ms=meta["durationMs"],
-                session_token=meta.get("sessionToken"),
                 conversation_id=meta.get("conversationId"),
             )
 

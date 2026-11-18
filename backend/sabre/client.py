@@ -25,6 +25,7 @@ from tenacity import (
 )
 
 from . import templates
+from .redaction import redact_security_tokens
 
 logger = structlog.get_logger(__name__)
 
@@ -131,7 +132,8 @@ class SabreClient:
                     endpoint=target_endpoint)
         if resp.status_code != 200:
             raise SabreError(
-                f"{action} returned HTTP {resp.status_code}: {resp.text[:500]}")
+                f"{action} returned HTTP {resp.status_code}: "
+                f"{redact_security_tokens(resp.text)[:500]}")
         return resp.text, resp.status_code, duration_ms, body
 
     @staticmethod
@@ -177,7 +179,6 @@ class SabreClient:
                 f"Session creation failed. Response: {xml_text[:500]}")
         self._token = match.group(1).strip()
         logger.info("sabre_session_created",
-                    token_prefix=self._token[:20],
                     conversation_id=self._conversation_id)
         return self._token
 
@@ -200,7 +201,7 @@ class SabreClient:
         """
         Call ACS_FlightDetailRQ.
         Returns (parsed_body_dict, raw_xml_string, request_meta).
-        request_meta = {requestXml, httpStatus, durationMs, sessionToken, conversationId}
+        request_meta = {requestXml, httpStatus, durationMs, conversationId}
         """
         if departure_date is None:
             departure_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -219,7 +220,6 @@ class SabreClient:
             "requestXml": request_xml,
             "httpStatus": http_status,
             "durationMs": duration_ms,
-            "sessionToken": self._token,
             "conversationId": self._conversation_id,
         }
         return data, xml_text, meta
@@ -253,7 +253,6 @@ class SabreClient:
             "requestXml": request_xml,
             "httpStatus": http_status,
             "durationMs": duration_ms,
-            "sessionToken": self._token,
             "conversationId": self._conversation_id,
         }
         return data, xml_text, meta
@@ -280,7 +279,6 @@ class SabreClient:
             "requestXml": request_xml,
             "httpStatus": http_status,
             "durationMs": duration_ms,
-            "sessionToken": self._token,
             "conversationId": self._conversation_id,
         }
         return data, xml_text, meta
@@ -318,7 +316,6 @@ class SabreClient:
             "requestXml": request_xml,
             "httpStatus": http_status,
             "durationMs": duration_ms,
-            "sessionToken": self._token,
             "conversationId": self._conversation_id,
         }
         return data, xml_text, meta
@@ -347,7 +344,6 @@ class SabreClient:
             "requestXml": request_xml,
             "httpStatus": http_status,
             "durationMs": duration_ms,
-            "sessionToken": self._token,
             "conversationId": self._conversation_id,
         }
         return data, xml_text, meta
@@ -380,7 +376,6 @@ class SabreClient:
             "requestXml": request_xml,
             "httpStatus": http_status,
             "durationMs": duration_ms,
-            "sessionToken": self._token,
             "conversationId": self._conversation_id,
         }
         return data, xml_text, meta

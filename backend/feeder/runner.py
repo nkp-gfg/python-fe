@@ -254,7 +254,6 @@ def _process_api_call(api_type, snapshot_type, flight_info,
         response_json=raw_data,
         http_status=meta["httpStatus"],
         duration_ms=meta["durationMs"],
-        session_token=meta.get("sessionToken"),
         conversation_id=meta.get("conversationId"),
     )
 
@@ -559,7 +558,6 @@ def run_feeder(flights, progress_callback=None):
                     response_json=mlx_raw,
                     http_status=mlx_meta["httpStatus"],
                     duration_ms=mlx_meta["durationMs"],
-                    session_token=mlx_meta.get("sessionToken"),
                     conversation_id=mlx_meta.get("conversationId"),
                 )
 
@@ -578,7 +576,6 @@ def run_feeder(flights, progress_callback=None):
                     response_json=mlc_raw,
                     http_status=mlc_meta["httpStatus"],
                     duration_ms=mlc_meta["durationMs"],
-                    session_token=mlc_meta.get("sessionToken"),
                     conversation_id=mlc_meta.get("conversationId"),
                 )
 
@@ -622,7 +619,6 @@ def run_feeder(flights, progress_callback=None):
                     response_json=raw,
                     http_status=meta["httpStatus"],
                     duration_ms=meta["durationMs"],
-                    session_token=meta.get("sessionToken"),
                     conversation_id=meta.get("conversationId"),
                 )
 
