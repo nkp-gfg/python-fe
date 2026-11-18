@@ -11,6 +11,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from starlette.concurrency import run_in_threadpool
 from backend.api.database import get_db
+from backend.feeder.storage import latest_snapshot_stages
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -74,6 +75,22 @@ def _change_match(date_from: str, date_to: str, origin: Optional[str],
     return m
 
 
+_PAX_KEY = {"flightNumber": "$flightNumber", "origin": "$origin",
+            "departureDate": "$departureDate"}
+_RES_KEY = {"flightNumber": "$flightNumber", "departureAirport": "$departureAirport",
+            "departureDate": "$departureDate"}
+
+
+def _latest_pax(match: dict, fields: dict) -> list:
+    """Stages yielding the latest passenger_list per flight with only `fields`."""
+    return latest_snapshot_stages("passenger_list", match, _PAX_KEY, fields)
+
+
+def _latest_res(match: dict, fields: dict) -> list:
+    """Stages yielding the latest reservations doc per flight with only `fields`."""
+    return latest_snapshot_stages("reservations", match, _RES_KEY, fields)
+
+
 def _run_network_analytics(date_from: str, date_to: str,
                            origin: Optional[str] = None,
                            cabin: Optional[str] = None,
@@ -112,17 +129,10 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 2. Passenger totals from latest passenger_list per flight ─────────
     pax_pipeline = [
-        {"$match": pm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin", "departureDate": "$departureDate"},
-            "totalPassengers": {"$first": "$totalPassengers"},
-            "adultCount": {"$first": "$adultCount"},
-            "childCount": {"$first": "$childCount"},
-            "infantCount": {"$first": "$infantCount"},
-            "totalSouls": {"$first": "$totalSouls"},
-            "cabinSummary": {"$first": "$cabinSummary"},
-        }},
+        *_latest_pax(pm, {
+            "totalPassengers": 1, "adultCount": 1, "childCount": 1,
+            "infantCount": 1, "totalSouls": 1, "cabinSummary": 1,
+        }),
         {"$group": {
             "_id": None,
             "totalPassengers": {"$sum": "$totalPassengers"},
@@ -171,14 +181,7 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 3. Route Performance (passengers by origin) ───────────────────────
     route_pipeline = [
-        {"$match": pm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin", "departureDate": "$departureDate"},
-            "totalPassengers": {"$first": "$totalPassengers"},
-            "origin": {"$first": "$origin"},
-            "cabinSummary": {"$first": "$cabinSummary"},
-        }},
+        *_latest_pax(pm, {"origin": 1, "totalPassengers": 1}),
         {"$group": {
             "_id": "$origin",
             "totalPassengers": {"$sum": "$totalPassengers"},
@@ -195,12 +198,7 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 4. Booking Class Distribution ─────────────────────────────────────
     class_pipeline = [
-        {"$match": pm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin", "departureDate": "$departureDate"},
-            "passengers": {"$first": "$passengers"},
-        }},
+        *_latest_pax(pm, {"passengers.cabin": 1, "passengers.bookingClass": 1}),
         {"$unwind": "$passengers"},
         *([
             {"$match": {"passengers.cabin": cabin}}
@@ -224,12 +222,7 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 5. Nationality Distribution ───────────────────────────────────────
     nationality_pipeline = [
-        {"$match": rm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "departureAirport": "$departureAirport", "departureDate": "$departureDate"},
-            "reservations": {"$first": "$reservations"},
-        }},
+        *_latest_res(rm, {"reservations.passengers.nationality": 1}),
         {"$unwind": "$reservations"},
         {"$unwind": "$reservations.passengers"},
         {"$match": {"reservations.passengers.nationality": {"$ne": ""},
@@ -245,12 +238,10 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 6. Loyalty Tier Distribution ──────────────────────────────────────
     loyalty_pipeline = [
-        {"$match": rm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "departureAirport": "$departureAirport", "departureDate": "$departureDate"},
-            "reservations": {"$first": "$reservations"},
-        }},
+        *_latest_res(rm, {
+            "reservations.passengers.frequentFlyerNumber": 1,
+            "reservations.passengers.ffTierLevel": 1,
+        }),
         {"$unwind": "$reservations"},
         {"$unwind": "$reservations.passengers"},
         {"$match": {"reservations.passengers.frequentFlyerNumber": {"$ne": ""}}},
@@ -272,12 +263,7 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 7. Special Meals Distribution ────────────────────────────────────
     meals_pipeline = [
-        {"$match": rm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "departureAirport": "$departureAirport", "departureDate": "$departureDate"},
-            "reservations": {"$first": "$reservations"},
-        }},
+        *_latest_res(rm, {"reservations.passengers.specialMeal": 1}),
         {"$unwind": "$reservations"},
         {"$unwind": "$reservations.passengers"},
         {"$match": {"reservations.passengers.specialMeal": {"$ne": ""},
@@ -293,12 +279,7 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 8. Wheelchair / SSR Requests ──────────────────────────────────────
     wheelchair_pipeline = [
-        {"$match": rm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "departureAirport": "$departureAirport", "departureDate": "$departureDate"},
-            "reservations": {"$first": "$reservations"},
-        }},
+        *_latest_res(rm, {"reservations.passengers.wheelchairCode": 1}),
         {"$unwind": "$reservations"},
         {"$unwind": "$reservations.passengers"},
         {"$match": {"reservations.passengers.wheelchairCode": {"$ne": ""},
@@ -331,13 +312,7 @@ def _run_network_analytics(date_from: str, date_to: str,
     daily_flights = list(db.flights.aggregate(daily_flights_pipeline))
 
     daily_pax_pipeline = [
-        {"$match": pm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin", "departureDate": "$departureDate"},
-            "totalPassengers": {"$first": "$totalPassengers"},
-            "departureDate": {"$first": "$departureDate"},
-        }},
+        *_latest_pax(pm, {"departureDate": 1, "totalPassengers": 1}),
         {"$group": {
             "_id": "$departureDate",
             "totalPassengers": {"$sum": "$totalPassengers"},
@@ -369,12 +344,7 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 11. Party Size Distribution ───────────────────────────────────────
     party_pipeline = [
-        {"$match": rm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "departureAirport": "$departureAirport", "departureDate": "$departureDate"},
-            "reservations": {"$first": "$reservations"},
-        }},
+        *_latest_res(rm, {"reservations.numberInParty": 1}),
         {"$unwind": "$reservations"},
         {"$group": {"_id": "$reservations.numberInParty", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
@@ -386,12 +356,7 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 12. Point of Sale by Country ──────────────────────────────────────
     pos_pipeline = [
-        {"$match": rm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "departureAirport": "$departureAirport", "departureDate": "$departureDate"},
-            "reservations": {"$first": "$reservations"},
-        }},
+        *_latest_res(rm, {"reservations.pointOfSale.isoCountry": 1}),
         {"$unwind": "$reservations"},
         {"$group": {"_id": "$reservations.pointOfSale.isoCountry", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
@@ -404,13 +369,11 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 13. Check-in & Boarding Rates ─────────────────────────────────────
     checkin_pipeline = [
-        {"$match": pm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin", "departureDate": "$departureDate"},
-            "passengers": {"$first": "$passengers"},
-            "totalPassengers": {"$first": "$totalPassengers"},
-        }},
+        *_latest_pax(pm, {
+            "passengers.cabin": 1, "passengers.isCheckedIn": 1,
+            "passengers.isBoarded": 1, "passengers.isRevenue": 1,
+            "passengers.isStandby": 1,
+        }),
         {"$unwind": "$passengers"},
         *([
             {"$match": {"passengers.cabin": cabin}}
@@ -463,13 +426,10 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     # ── 15. Booking Lead Time ─────────────────────────────────────────────
     lead_time_pipeline = [
-        {"$match": rm},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "departureAirport": "$departureAirport", "departureDate": "$departureDate"},
-            "reservations": {"$first": "$reservations"},
-            "departureDate": {"$first": "$departureDate"},
-        }},
+        *_latest_res(rm, {
+            "departureDate": 1,
+            "reservations.segments.segmentBookedDate": 1,
+        }),
         {"$unwind": "$reservations"},
         {"$unwind": "$reservations.segments"},
         {"$match": {"reservations.segments.segmentBookedDate": {"$ne": None}}},
@@ -559,16 +519,16 @@ def _get_filter_options(date_from: str, date_to: str):
                 "orig": "$origin",
                 "dep": "$departureDate",
             },
-            "pipeline": [
-                {"$match": {"$expr": {"$and": [
+            "pipeline": latest_snapshot_stages(
+                "passenger_list",
+                {"$expr": {"$and": [
                     {"$eq": ["$flightNumber", "$$fn"]},
                     {"$eq": ["$origin", "$$orig"]},
                     {"$eq": ["$departureDate", "$$dep"]},
-                ]}}},
-                {"$sort": {"fetchedAt": -1}},
-                {"$limit": 1},
-                {"$project": {"destination": 1, "_id": 0}},
-            ],
+                ]}},
+                None,
+                {"destination": 1, "_id": 0},
+            ),
             "as": "pax",
         }},
         {"$addFields": {

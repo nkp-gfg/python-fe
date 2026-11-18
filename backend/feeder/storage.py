@@ -105,7 +105,7 @@ def _ensure_latest_snapshot_indexes(db):
     """Date-first indexes that cover the per-flight pick in latest_snapshot_stages."""
     db["passenger_list"].create_index(
         [("departureDate", 1), ("flightNumber", 1), ("origin", 1),
-         ("fetchedAt", -1), ("_id", -1)],
+         ("fetchedAt", -1), ("_id", -1), ("airline", 1)],
         name="pax_date_latest")
     db["reservations"].create_index(
         [("departureDate", 1), ("flightNumber", 1), ("departureAirport", 1),
