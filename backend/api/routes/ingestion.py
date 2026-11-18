@@ -17,6 +17,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.feeder.runner import run_feeder
 from backend.api.redis_client import create_job, get_job
+from backend.sabre.client import SabreError
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["ingestion"])
@@ -172,13 +173,17 @@ async def ingest_flight(payload: SabreIngestRequest):
     feeder_payload = payload.model_dump(mode="json")
     try:
         result = await run_in_threadpool(run_feeder, [feeder_payload])
-    except Exception as exc:
+    except SabreError as exc:
         logger.exception("Ingestion failed for %s%s",
                          payload.airline, payload.flightNumber)
         raise HTTPException(
             status_code=502,
-            detail=f"Ingestion pipeline error: {exc}",
+            detail=f"Sabre request failed (reference {exc.reference})",
         )
+    except Exception:
+        logger.exception("Ingestion failed for %s%s",
+                         payload.airline, payload.flightNumber)
+        raise HTTPException(status_code=502, detail="Ingestion pipeline error")
     flight_result = result["results"][0] if result["results"] else None
 
     if flight_result is None:

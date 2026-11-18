@@ -160,7 +160,8 @@ async def lookup_schedule(payload: ScheduleLookupRequest):
     except SabreError as e:
         logger.exception("Schedule lookup failed for %s%s",
                          payload.airline, payload.flightNumber)
-        raise HTTPException(status_code=502,
-                            detail=f"Sabre API error: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Sabre request failed (reference {e.reference})")
 
     return result

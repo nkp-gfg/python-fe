@@ -525,7 +525,9 @@ def get_passenger_detail(
                 pnr=pnr,
             )
     except SabreError as e:
-        raise HTTPException(status_code=502, detail=f"Sabre API error: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Sabre request failed (reference {e.reference})")
 
     result = convert_passenger_data(
         raw_data, airline, flight_number, date, origin)

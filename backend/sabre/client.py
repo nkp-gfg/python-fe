@@ -13,6 +13,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timezone
+from xml.parsers.expat import ExpatError
 
 import requests
 import structlog
@@ -38,8 +39,16 @@ def _log_retry(retry_state):
 
 
 class SabreError(Exception):
-    """Raised when a Sabre API call fails."""
-    pass
+    """Raised when a Sabre API call fails.
+
+    The message is shown to API clients and in the UI, so it must never
+    contain Sabre response content. Upstream details are logged server-side
+    under ``reference``.
+    """
+
+    def __init__(self, message="Sabre request failed", reference=None):
+        self.reference = reference or uuid.uuid4().hex[:12]
+        super().__init__(f"{message} (reference {self.reference})")
 
 
 class SabreClient:
@@ -130,14 +139,25 @@ class SabreClient:
                     http_status=resp.status_code, duration_ms=duration_ms,
                     endpoint=target_endpoint)
         if resp.status_code != 200:
-            raise SabreError(
-                f"{action} returned HTTP {resp.status_code}: {resp.text[:500]}")
+            error = SabreError(
+                f"Sabre request {action} failed with HTTP {resp.status_code}")
+            logger.error("sabre_api_http_error", action=action,
+                         http_status=resp.status_code,
+                         reference=error.reference,
+                         response_body=resp.text[:2000])
+            raise error
         return resp.text, resp.status_code, duration_ms, body
 
     @staticmethod
     def _parse_xml(xml_text):
         """Parse SOAP XML to an ordered dict."""
-        return xmltodict.parse(xml_text, process_namespaces=False)
+        try:
+            return xmltodict.parse(xml_text, process_namespaces=False)
+        except ExpatError as exc:
+            error = SabreError("Sabre returned a malformed response")
+            logger.error("sabre_response_malformed", reference=error.reference,
+                         parse_error=str(exc), response_body=xml_text[:2000])
+            raise error from exc
 
     def _extract_body(self, parsed, response_key):
         """Extract the response body from the SOAP envelope."""
@@ -148,8 +168,10 @@ class SabreClient:
         for key in body:
             if key.endswith(response_key) or response_key in key:
                 return body[key]
-        raise SabreError(
-            f"Response key '{response_key}' not found in SOAP body. Keys: {list(body.keys())}")
+        error = SabreError(f"Unexpected Sabre response, expected {response_key}")
+        logger.error("sabre_response_key_missing", response_key=response_key,
+                     body_keys=list(body.keys()), reference=error.reference)
+        raise error
 
     # ── Session ────────────────────────────────────────────────────────────
 
@@ -173,8 +195,12 @@ class SabreClient:
             xml_text, re.IGNORECASE,
         )
         if not match:
-            raise SabreError(
-                f"Session creation failed. Response: {xml_text[:500]}")
+            # The body may carry session token material, so only its size is logged.
+            error = SabreError("Sabre session creation failed")
+            logger.error("sabre_session_token_missing",
+                         reference=error.reference,
+                         response_length=len(xml_text))
+            raise error
         self._token = match.group(1).strip()
         logger.info("sabre_session_created",
                     token_prefix=self._token[:20],
