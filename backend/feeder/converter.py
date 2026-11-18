@@ -603,20 +603,31 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                     "type": ssr.get("@type", ""),
                 })
 
-        # Email addresses
-        raw_emails = _ensure_list(
-            (pax_res.get("EmailAddresses") or {}).get("EmailAddress", [])
-        )
+        # Email addresses: Passenger.PNRB carries EmailAddress per passenger;
+        # Reservation.PNRB carries the EmailAddresses list.
+        raw_emails = []
+        for px in raw_passengers:
+            if isinstance(px, dict):
+                raw_emails.extend(_ensure_list(px.get("EmailAddress", [])))
+        raw_emails.extend(_ensure_list(
+            (inner.get("EmailAddresses") or {}).get("EmailAddress", [])
+        ))
         emails = []
         for em in raw_emails:
             if isinstance(em, dict):
-                emails.append(em.get("Address", em.get("#text", "")))
+                address = em.get("Address", em.get("#text", ""))
             elif isinstance(em, str):
-                emails.append(em)
+                address = em
+            else:
+                address = ""
+            if isinstance(address, str):
+                address = address.strip()
+                if address and address not in emails:
+                    emails.append(address)
 
-        # Phone numbers
+        # Phone numbers (Reservation.PNRB)
         raw_phones = _ensure_list(
-            (pax_res.get("PhoneNumbers") or {}).get("PhoneNumber", [])
+            (inner.get("PhoneNumbers") or {}).get("PhoneNumber", [])
         )
         phones = []
         for ph in raw_phones:
@@ -628,16 +639,25 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
             elif isinstance(ph, str):
                 phones.append({"number": ph, "type": ""})
 
-        # Remarks
+        # Remarks (Reservation.PNRB)
         raw_remarks = _ensure_list(
-            (pax_res.get("Remarks") or {}).get("Remark", [])
+            (inner.get("Remarks") or {}).get("Remark", [])
         )
         remarks = []
         for rm in raw_remarks:
             if isinstance(rm, dict):
+                text = rm.get("Text", rm.get("RemarkText", rm.get("#text", "")))
+                if not text:
+                    lines = _ensure_list(
+                        (rm.get("RemarkLines") or {}).get("RemarkLine", [])
+                    )
+                    text = " ".join(
+                        (ln.get("Text") or "") if isinstance(ln, dict) else str(ln)
+                        for ln in lines
+                    ).strip()
                 remarks.append({
                     "type": rm.get("@type", rm.get("Type", "")),
-                    "text": rm.get("Text", rm.get("RemarkText", rm.get("#text", ""))),
+                    "text": text,
                 })
             elif isinstance(rm, str):
                 remarks.append({"type": "", "text": rm})
