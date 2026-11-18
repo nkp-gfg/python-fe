@@ -26,7 +26,7 @@ Input JSON format:
 
 import re as _re
 from backend.feeder import storage
-from backend.feeder.converter import _strip_ns, convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports, convert_schedule
+from backend.feeder.converter import _ensure_list, _strip_ns, convert_flight_status, convert_passenger_list, convert_reservations, convert_trip_report, merge_trip_reports, convert_schedule
 from backend.feeder.differ import detect_changes
 from backend.sabre.client import SabreClient, SabreError
 from backend.sabre import templates
@@ -58,6 +58,10 @@ logger = structlog.get_logger(__name__)
 
 class IngestionPayloadRejectedError(Exception):
     """Raised when a supplied ingestion payload conflicts with live Sabre data."""
+
+
+class ResponseCarrierMismatchError(IngestionPayloadRejectedError):
+    """Raised when Sabre answers for a different carrier than the one requested."""
 
 
 def _flatten_sabre_messages(value):
@@ -155,6 +159,116 @@ def _mark_skipped_api_results(flight_result, error_message):
         }
 
 
+# ── Response carrier verification ─────────────────────────────────────────
+
+
+def _code(value):
+    """Normalize an airline code / flight number leaf from a parsed Sabre dict."""
+    if isinstance(value, dict):
+        value = value.get("#text", "")
+    if value is None or isinstance(value, (dict, list)):
+        return ""
+    return str(value).strip().upper()
+
+
+def _same_flight_number(left, right):
+    left, right = _code(left).lstrip("0"), _code(right).lstrip("0")
+    return bool(left) and left == right
+
+
+def _dicts(value):
+    return [item for item in _ensure_list(value) if isinstance(item, dict)]
+
+
+def _flight_status_carriers(data, flight_number, origin):
+    itineraries = _dicts(
+        (data.get("ItineraryResponseList") or {}).get("ItineraryInfoResponse"))
+    return [{_code(itin.get("Airline"))} for itin in itineraries]
+
+
+def _passenger_list_carriers(data, flight_number, origin):
+    itineraries = _dicts((data.get("ItineraryInfo") or {}).get("Itinerary"))
+    return [{_code(itin.get("Airline"))} for itin in itineraries]
+
+
+def _reservations_carriers(data, flight_number, origin):
+    """Carrier codes of every PNR segment that is this flight number from this origin.
+
+    PNRs also hold connecting segments on other carriers; only segments that
+    claim the requested flight number are attributed to the requested flight.
+    """
+    carriers = []
+    wrapper = data.get("ReservationsList") or {}
+    for reservation in _dicts((wrapper.get("Reservations") or {}).get("Reservation")):
+        inner = (reservation.get("GetReservationRS") or {}).get("Reservation") or {}
+        pax_res = inner.get("PassengerReservation") or {}
+        for segment in _dicts((pax_res.get("Segments") or {}).get("Segment")):
+            air = segment.get("Air")
+            if not isinstance(air, dict):
+                continue
+            departure = _code(air.get("DepartureAirport"))
+            if departure and departure != origin.upper():
+                continue
+            numbers = (air.get("FlightNumber"), air.get("MarketingFlightNumber"),
+                       air.get("OperatingFlightNumber"))
+            if not any(_same_flight_number(n, flight_number) for n in numbers):
+                continue
+            carriers.append({_code(air.get("MarketingAirlineCode")),
+                             _code(air.get("OperatingAirlineCode"))})
+    return carriers
+
+
+def _trip_report_carriers(data, flight_number, origin):
+    carriers = [{_code(data.get("AirlineCode"))}]
+    for report in _dicts(data.get("Report")):
+        for result in _dicts(report.get("ReportResult")):
+            for header in _dicts(result.get("Header")):
+                carriers.append({_code(header.get("AirlineCode"))})
+    return carriers
+
+
+def _schedule_carriers(data, flight_number, origin):
+    carriers = []
+    options = data.get("OriginDestinationOptions") or {}
+    for option in _dicts(options.get("OriginDestinationOption")):
+        for segment in _dicts(option.get("FlightSegment")):
+            marketing = segment.get("MarketingAirline")
+            if isinstance(marketing, dict):
+                carriers.append({_code(marketing.get("@Code"))})
+    return carriers
+
+
+_CARRIER_EXTRACTORS = {
+    "flight_status": _flight_status_carriers,
+    "passenger_list": _passenger_list_carriers,
+    "reservations": _reservations_carriers,
+    "trip_report": _trip_report_carriers,
+    "schedule": _schedule_carriers,
+}
+
+
+def _verify_response_carrier(response_type, raw_data, flight_info):
+    """Refuse a Sabre response that names a carrier other than the requested airline.
+
+    Must run before anything from the response is written: storage is keyed
+    by the requested airline, so a foreign carrier's data would otherwise be
+    filed under it.
+    """
+    airline = flight_info["airline"].upper()
+    data = _strip_ns(raw_data or {})
+    if not isinstance(data, dict):
+        return
+    extractor = _CARRIER_EXTRACTORS[response_type]
+    for codes in extractor(data, flight_info["flightNumber"], flight_info["origin"]):
+        codes = {code for code in codes if code}
+        if codes and airline not in codes:
+            raise ResponseCarrierMismatchError(
+                f"Rejected {response_type} response for {airline}{flight_info['flightNumber']} "
+                f"{flight_info['origin']} {flight_info['departureDate']}: Sabre returned carrier "
+                f"{'/'.join(sorted(codes))}, which does not match the requested airline {airline}."
+            )
+
+
 # ── Passenger list merge helpers ──────────────────────────────────────────
 
 
@@ -245,6 +359,8 @@ def _process_api_call(api_type, snapshot_type, flight_info,
     origin = flight_info["origin"]
     dep_date = flight_info["departureDate"]
 
+    _verify_response_carrier(snapshot_type, raw_data, flight_info)
+
     # Layer 1: Raw archive
     request_id = storage.store_raw_request(
         api_type=api_type,
@@ -282,7 +398,7 @@ def _process_api_call(api_type, snapshot_type, flight_info,
     num_changes = 0
     if not is_dup:
         prev_snap = storage.get_previous_snapshot(
-            fn, origin, dep_date, snapshot_type)
+            airline, fn, origin, dep_date, snapshot_type)
         if prev_snap:
             after_snap = {"snapshotId": snapshot_id, "data": converted}
             changes = detect_changes(
@@ -447,12 +563,15 @@ def run_feeder(flights, progress_callback=None):
             merged_xml_parts = []
             merged_meta = None
             pax_call_statuses = []
+            pax_carrier_error = None
 
             for label, codes in pax_calls:
                 try:
                     raw, xml, meta = client.get_passenger_list(
                         airline, fn, dep_date, origin,
                         display_codes=codes)
+                    _verify_response_carrier(
+                        "passenger_list", raw, flight_info)
                     pax_call_statuses.append(
                         {"call": label, "status": "success"})
 
@@ -479,6 +598,14 @@ def run_feeder(flights, progress_callback=None):
                             # Update the merged raw with combined list
                             _set_passenger_info_list(merged_raw, base_pax_list)
 
+                except ResponseCarrierMismatchError as e:
+                    logger.error("passenger_list_carrier_mismatch",
+                                 flight=f"{airline}{fn}",
+                                 call=label, error=str(e))
+                    pax_call_statuses.append({"call": label, "status": "error",
+                                              "error": str(e)})
+                    pax_carrier_error = str(e)
+                    break
                 except SabreError as e:
                     logger.warning("passenger_list_partial_fail",
                                    flight=f"{airline}{fn}",
@@ -486,7 +613,14 @@ def run_feeder(flights, progress_callback=None):
                     pax_call_statuses.append({"call": label, "status": "error",
                                               "error": str(e)})
 
-            if merged_raw is not None:
+            if pax_carrier_error is not None:
+                flight_result["success"] = False
+                flight_result["apis"]["passengerList"] = {
+                    "status": "error",
+                    "error": pax_carrier_error,
+                    "calls": pax_call_statuses,
+                }
+            elif merged_raw is not None:
                 try:
                     details = _process_api_call(
                         "PassengerList", "passenger_list", flight_info,
@@ -533,7 +667,7 @@ def run_feeder(flights, progress_callback=None):
                     "status": "success",
                     **details,
                 }
-            except SabreError as e:
+            except (SabreError, ResponseCarrierMismatchError) as e:
                 logger.error("reservations_failed",
                              flight=f"{airline}{fn}", error=str(e))
                 flight_result["success"] = False
@@ -547,6 +681,7 @@ def run_feeder(flights, progress_callback=None):
                 # MLX = cancelled passengers
                 mlx_raw, mlx_xml, mlx_meta = client.get_trip_report(
                     airline, fn, dep_date, origin, "MLX")
+                _verify_response_carrier("trip_report", mlx_raw, flight_info)
                 mlx_doc = convert_trip_report(
                     mlx_raw, airline, fn, dep_date, origin, "MLX")
 
@@ -566,6 +701,7 @@ def run_feeder(flights, progress_callback=None):
                 # MLC = ever-booked passengers
                 mlc_raw, mlc_xml, mlc_meta = client.get_trip_report(
                     airline, fn, dep_date, origin, "MLC")
+                _verify_response_carrier("trip_report", mlc_raw, flight_info)
                 mlc_doc = convert_trip_report(
                     mlc_raw, airline, fn, dep_date, origin, "MLC")
 
@@ -598,6 +734,14 @@ def run_feeder(flights, progress_callback=None):
                             flight=f"{airline}{fn}",
                             cancelled_count=merged.get("cancelledCount", 0),
                             ever_booked_count=merged.get("everBookedCount", 0))
+            except ResponseCarrierMismatchError as e:
+                logger.error("trip_reports_carrier_mismatch",
+                             flight=f"{airline}{fn}", error=str(e))
+                flight_result["success"] = False
+                flight_result["apis"]["tripReports"] = {
+                    "status": "error",
+                    "error": str(e),
+                }
             except SabreError as e:
                 logger.warning("trip_reports_failed",
                                flight=f"{airline}{fn}", error=str(e))
@@ -611,6 +755,7 @@ def run_feeder(flights, progress_callback=None):
             try:
                 raw, xml, meta = client.verify_flight_details(
                     airline, fn, dep_date, origin="", destination="")
+                _verify_response_carrier("schedule", raw, flight_info)
                 schedule_doc = convert_schedule(raw, airline, fn, dep_date)
 
                 # Store raw request
@@ -645,6 +790,14 @@ def run_feeder(flights, progress_callback=None):
                             origin=schedule_doc.get("origin", ""),
                             destination=schedule_doc.get("destination", ""),
                             departure=schedule_doc.get("scheduledDeparture", ""))
+            except ResponseCarrierMismatchError as e:
+                logger.error("schedule_carrier_mismatch",
+                             flight=f"{airline}{fn}", error=str(e))
+                flight_result["success"] = False
+                flight_result["apis"]["schedule"] = {
+                    "status": "error",
+                    "error": str(e),
+                }
             except SabreError as e:
                 logger.warning("schedule_failed",
                                flight=f"{airline}{fn}", error=str(e))

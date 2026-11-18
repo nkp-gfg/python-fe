@@ -81,7 +81,10 @@ def ensure_indexes():
     # to avoid slow dropIndex/createIndex on every startup.
     try:
         existing = set(db["flight_status"].index_information().keys())
-        if "flight_lookup" in existing:
+        snap_lookup = db["snapshots"].index_information().get(
+            "snap_flight_lookup", {})
+        snap_keys = [name for name, _direction in snap_lookup.get("key", [])]
+        if "flight_lookup" in existing and "airline" in snap_keys:
             logger.info(
                 "MongoDB indexes already present — skipping ensure_indexes.")
             return
@@ -89,6 +92,7 @@ def ensure_indexes():
         pass  # Collection may not exist yet; proceed with creation
 
     # Drop stale indexes whose key-spec or name changed (safe if already gone)
+    _drop_index_if_exists(db["snapshots"], "snap_flight_lookup")
     _drop_index_if_exists(db["changes"], "chg_flight_lookup")
     _drop_index_if_exists(db["changes"], "chg_pnr")
     _drop_index_if_exists(db["flight_status"], "flight_lookup")
@@ -112,16 +116,16 @@ def ensure_indexes():
     db["snapshots"].create_index(
         [("snapshotId", 1)], name="snap_id", unique=True)
     db["snapshots"].create_index(
-        [("flightNumber", 1), ("origin", 1), ("departureDate", 1),
-         ("snapshotType", 1), ("sequenceNumber", -1)],
+        [("airline", 1), ("flightNumber", 1), ("origin", 1),
+         ("departureDate", 1), ("snapshotType", 1), ("sequenceNumber", -1)],
         name="snap_flight_lookup")
     db["snapshots"].create_index(
         [("requestId", 1)], name="snap_request")
 
     # changes
     db["changes"].create_index(
-        [("flightNumber", 1), ("origin", 1), ("departureDate", 1),
-         ("detectedAt", -1)],
+        [("airline", 1), ("flightNumber", 1), ("origin", 1),
+         ("departureDate", 1), ("detectedAt", -1)],
         name="chg_flight_lookup")
     db["changes"].create_index(
         [("afterSnapshotId", 1)], name="chg_snapshot")
@@ -171,7 +175,24 @@ def ensure_indexes():
          ("fetchedAt", -1)],
         name="schedule_lookup")
 
+    _backfill_change_airlines(db)
+
     logger.info("MongoDB indexes ensured.")
+
+
+def _backfill_change_airlines(db):
+    """Attribute change records written before changes carried an airline.
+
+    Each record takes the airline of the snapshot it was diffed into.
+    """
+    missing = {"airline": None}
+    for snapshot_id in db["changes"].distinct("afterSnapshotId", missing):
+        snap = db["snapshots"].find_one(
+            {"snapshotId": snapshot_id}, {"airline": 1})
+        if snap and snap.get("airline"):
+            db["changes"].update_many(
+                {**missing, "afterSnapshotId": snapshot_id},
+                {"$set": {"airline": snap["airline"]}})
 
 
 # ── Layer 1: Raw Archive ──────────────────────────────────────────────────
@@ -208,11 +229,12 @@ def store_raw_request(api_type, flight_info, request_xml, response_xml,
 
 # ── Layer 2: Parsed Snapshots ─────────────────────────────────────────────
 
-def _next_sequence(flight_number, origin, departure_date, snapshot_type):
+def _next_sequence(airline, flight_number, origin, departure_date, snapshot_type):
     """Get the next sequence number for this flight+type combination."""
     db = get_db()
     last = db["snapshots"].find_one(
         {
+            "airline": airline,
             "flightNumber": flight_number,
             "origin": origin,
             "departureDate": departure_date,
@@ -233,7 +255,8 @@ def store_snapshot(request_id, airline, flight_number, origin, departure_date,
     """
     snapshot_id = _new_id()
     checksum = _compute_checksum(data)
-    seq = _next_sequence(flight_number, origin, departure_date, snapshot_type)
+    seq = _next_sequence(airline, flight_number, origin,
+                         departure_date, snapshot_type)
 
     doc = {
         "snapshotId": snapshot_id,
@@ -255,6 +278,7 @@ def store_snapshot(request_id, airline, flight_number, origin, departure_date,
     if seq > 1:
         prev = get_db()["snapshots"].find_one(
             {
+                "airline": airline,
                 "flightNumber": flight_number,
                 "origin": origin,
                 "departureDate": departure_date,
@@ -272,12 +296,14 @@ def store_snapshot(request_id, airline, flight_number, origin, departure_date,
     return snapshot_id, checksum, is_duplicate
 
 
-def get_previous_snapshot(flight_number, origin, departure_date, snapshot_type):
+def get_previous_snapshot(airline, flight_number, origin, departure_date,
+                          snapshot_type):
     """Get the snapshot before the most recent one, for diffing."""
     db = get_db()
     # Get last two snapshots
     cursor = db["snapshots"].find(
         {
+            "airline": airline,
             "flightNumber": flight_number,
             "origin": origin,
             "departureDate": departure_date,
@@ -295,7 +321,7 @@ def get_previous_snapshot(flight_number, origin, departure_date, snapshot_type):
 def store_changes(changes):
     """
     Store a list of detected changes.
-    Each change is a dict with: flightNumber, origin, departureDate, changeType,
+    Each change is a dict with: airline, flightNumber, origin, departureDate, changeType,
     beforeSnapshotId, afterSnapshotId, detectedAt, passenger, field, oldValue, newValue.
     """
     if not changes:

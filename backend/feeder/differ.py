@@ -60,6 +60,7 @@ def _make_change(flight_info, change_type, before_snap_id, after_snap_id,
                  metadata=None):
     """Create a change document."""
     doc = {
+        "airline": flight_info.get("airline"),
         "flightNumber": flight_info["flightNumber"],
         "origin": flight_info["origin"],
         "departureDate": flight_info["departureDate"],
