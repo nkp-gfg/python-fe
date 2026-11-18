@@ -15,7 +15,8 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo import MongoClient, ASCENDING, DESCENDING, ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 logger = logging.getLogger(__name__)
 
@@ -208,27 +209,66 @@ def store_raw_request(api_type, flight_info, request_xml, response_xml,
 
 # ── Layer 2: Parsed Snapshots ─────────────────────────────────────────────
 
+def _snapshot_key(flight_number, origin, departure_date, snapshot_type):
+    return {
+        "flightNumber": flight_number,
+        "origin": origin,
+        "departureDate": departure_date,
+        "snapshotType": snapshot_type,
+    }
+
+
 def _next_sequence(flight_number, origin, departure_date, snapshot_type):
-    """Get the next sequence number for this flight+type combination."""
+    """Atomically allocate the next sequence number for this flight+type.
+
+    Each call gets a distinct number, even when ingests of the same flight
+    overlap. The counter lives in ``snapshot_sequences`` keyed by ``_id`` so
+    concurrent upserts cannot create two counters for one flight.
+    """
     db = get_db()
-    last = db["snapshots"].find_one(
-        {
-            "flightNumber": flight_number,
-            "origin": origin,
-            "departureDate": departure_date,
-            "snapshotType": snapshot_type,
-        },
+    key = _snapshot_key(flight_number, origin, departure_date, snapshot_type)
+    counters = db["snapshot_sequences"]
+
+    doc = counters.find_one_and_update(
+        {"_id": key}, {"$inc": {"seq": 1}},
+        return_document=ReturnDocument.AFTER)
+    if doc is None:
+        # First allocation for this flight: start above any snapshots that
+        # were stored before the counter existed. $max keeps a concurrent
+        # seed or increment from being rolled back.
+        last = db["snapshots"].find_one(
+            key,
+            sort=[("sequenceNumber", DESCENDING)],
+            projection={"sequenceNumber": 1},
+        )
+        floor = last["sequenceNumber"] if last else 0
+        try:
+            counters.update_one(
+                {"_id": key}, {"$max": {"seq": floor}}, upsert=True)
+        except DuplicateKeyError:
+            pass
+        doc = counters.find_one_and_update(
+            {"_id": key}, {"$inc": {"seq": 1}},
+            return_document=ReturnDocument.AFTER)
+    return doc["seq"]
+
+
+def _find_previous_snapshot(flight_number, origin, departure_date,
+                            snapshot_type, before_sequence, projection=None):
+    query = _snapshot_key(flight_number, origin, departure_date, snapshot_type)
+    query["sequenceNumber"] = {"$lt": before_sequence}
+    return get_db()["snapshots"].find_one(
+        query,
         sort=[("sequenceNumber", DESCENDING)],
-        projection={"sequenceNumber": 1},
+        projection=projection,
     )
-    return (last["sequenceNumber"] + 1) if last else 1
 
 
 def store_snapshot(request_id, airline, flight_number, origin, departure_date,
                    snapshot_type, data):
     """
     Store a normalized snapshot.
-    Returns (snapshotId, checksum, is_duplicate).
+    Returns (snapshotId, checksum, is_duplicate, sequenceNumber).
     is_duplicate is True if the checksum matches the previous snapshot.
     """
     snapshot_id = _new_id()
@@ -250,44 +290,24 @@ def store_snapshot(request_id, airline, flight_number, origin, departure_date,
     }
     get_db()["snapshots"].insert_one(doc)
 
-    # Check if previous snapshot had the same checksum
-    is_duplicate = False
-    if seq > 1:
-        prev = get_db()["snapshots"].find_one(
-            {
-                "flightNumber": flight_number,
-                "origin": origin,
-                "departureDate": departure_date,
-                "snapshotType": snapshot_type,
-                "sequenceNumber": seq - 1,
-            },
-            projection={"checksum": 1},
-        )
-        if prev and prev.get("checksum") == checksum:
-            is_duplicate = True
+    # Sequences can have gaps (an allocated number whose insert failed), so
+    # compare with the nearest stored predecessor rather than seq - 1.
+    prev = _find_previous_snapshot(
+        flight_number, origin, departure_date, snapshot_type, seq,
+        projection={"checksum": 1})
+    is_duplicate = bool(prev and prev.get("checksum") == checksum)
 
     logger.info("Stored snapshot %s (%s) seq=%d checksum=%s%s",
                 snapshot_id[:8], snapshot_type, seq, checksum[:12],
                 " [DUPLICATE]" if is_duplicate else "")
-    return snapshot_id, checksum, is_duplicate
+    return snapshot_id, checksum, is_duplicate, seq
 
 
-def get_previous_snapshot(flight_number, origin, departure_date, snapshot_type):
-    """Get the snapshot before the most recent one, for diffing."""
-    db = get_db()
-    # Get last two snapshots
-    cursor = db["snapshots"].find(
-        {
-            "flightNumber": flight_number,
-            "origin": origin,
-            "departureDate": departure_date,
-            "snapshotType": snapshot_type,
-        },
-        sort=[("sequenceNumber", DESCENDING)],
-    ).limit(2)
-    results = list(cursor)
-    # Return the second one (previous to the one we just inserted)
-    return results[1] if len(results) >= 2 else None
+def get_previous_snapshot(flight_number, origin, departure_date, snapshot_type,
+                          before_sequence):
+    """Get the stored snapshot immediately preceding ``before_sequence``."""
+    return _find_previous_snapshot(
+        flight_number, origin, departure_date, snapshot_type, before_sequence)
 
 
 # ── Layer 3: Changes ──────────────────────────────────────────────────────
