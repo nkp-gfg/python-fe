@@ -44,7 +44,7 @@ def run_batch_ingestion(self, job_id: str, payloads: list[dict]) -> dict:
         }
     except Exception as exc:
         logger.exception("Batch ingestion job %s failed", job_id)
-        set_job_failed(job_id, str(exc))
+        set_job_failed(job_id)
         raise self.retry(exc=exc)
 
 
@@ -53,6 +53,6 @@ def _make_progress_cb(job_id: str, total: int):
     def _on_progress(index: int, flight_key: str):
         set_job_progress(
             job_id, index, total,
-            message=f"Processing {flight_key} ({index}/{total})",
+            message=f"Processed flight {index} of {total}",
         )
     return _on_progress
