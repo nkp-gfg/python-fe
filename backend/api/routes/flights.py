@@ -7,6 +7,7 @@ from functools import lru_cache
 from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import PyMongoError
 from backend.api.database import get_db
+from backend.api.flight_scope import count_change_types, resolve_departure_date
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
 
@@ -1967,12 +1968,9 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
         return _strip_id(doc)
 
     def fetch_change_summary():
-        counts = {}
-        for doc in db["changes"].find(change_match, {"changeType": 1}):
-            ct = doc.get("changeType")
-            if ct:
-                counts[ct] = counts.get(ct, 0) + 1
-        return counts
+        if not date:
+            return {}
+        return count_change_types(db, change_match)
 
     def fetch_flight_meta():
         """Fetch flight-level metadata (e.g. flightSequenceNumber) from the flights collection."""
@@ -2031,6 +2029,10 @@ def get_flight_dashboard(
         return cached
 
     db = get_db()
+    if not date:
+        date = resolve_departure_date(db, flight_number, origin)
+        if not date:
+            raise HTTPException(status_code=404, detail="Flight not found")
 
     # Fetch all data in parallel
     data = _fetch_dashboard_data_parallel(
@@ -2092,6 +2094,10 @@ def get_flight_tree(
         }
 
     db = get_db()
+    if not date:
+        date = resolve_departure_date(db, flight_number, origin)
+        if not date:
+            raise HTTPException(status_code=404, detail="Flight not found")
 
     # Reuse parallel data fetching (only need fs, pl, reservations, trip_reports for tree)
     data = _fetch_dashboard_data_parallel(
@@ -2196,6 +2202,16 @@ def get_phase_journey(
     validate_origin(origin)
 
     db = get_db()
+    if not date:
+        date = resolve_departure_date(db, flight_number, origin)
+        if not date:
+            return {
+                "flightNumber": flight_number,
+                "origin": origin,
+                "date": None,
+                "phases": [],
+                "transitions": [],
+            }
 
     # ── 1. Fetch all passenger_list snapshots for this flight ────
     snap_query = {
