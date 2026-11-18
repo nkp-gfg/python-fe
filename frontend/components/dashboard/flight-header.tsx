@@ -1,6 +1,7 @@
 import type { FlightListItem } from "@/lib/types";
 import { Plane } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { sabreMinutesBetween } from "@/lib/sabre-time";
 
 interface Props {
   flightStatus: FlightListItem | null;
@@ -17,10 +18,8 @@ export function FlightHeader({ flightStatus: fs, flightNumber }: Props) {
   // Compute delay from schedule
   let delayBadge = null;
   if (sched?.scheduledDeparture && sched?.estimatedDeparture) {
-    const schedTime = new Date(sched.scheduledDeparture).getTime();
-    const estTime = new Date(sched.estimatedDeparture).getTime();
-    const diffMin = Math.round((estTime - schedTime) / 60000);
-    if (diffMin > 0) {
+    const diffMin = sabreMinutesBetween(sched.scheduledDeparture, sched.estimatedDeparture);
+    if (diffMin !== null && diffMin > 0) {
       delayBadge = `+${diffMin}m`;
     }
   }

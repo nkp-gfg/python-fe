@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { formatClock24, sabreMinutesBetween } from "@/lib/sabre-time";
 
 /** Shared flight selection shape used across workbench sub-components */
 export type FlightSelection = {
@@ -46,27 +47,21 @@ export function getStatusColor(status: string) {
 
 /** Compact schedule / delay indicator for the flight header KPI strip */
 export function ScheduleDelay({ schedule }: { schedule?: { scheduledDeparture?: string; estimatedDeparture?: string; scheduledArrival?: string; estimatedArrival?: string } }) {
-  if (!schedule?.scheduledDeparture) return <span>STD {"\u2014"}</span>;
+  const std = schedule?.scheduledDeparture;
+  const etd = schedule?.estimatedDeparture;
 
-  const std = schedule.scheduledDeparture;
-  const etd = schedule.estimatedDeparture;
-
-  const stdTime = std.slice(-8, -3);
+  const stdTime = formatClock24(std);
+  if (!stdTime) return <span>STD {"\u2014"}</span>;
 
   if (!etd || etd === std) {
     return <span>STD {stdTime}</span>;
   }
 
-  const parseMinutes = (t: string) => {
-    const hhmm = t.slice(-8, -3);
-    const [h, m] = hhmm.split(":").map(Number);
-    return h * 60 + m;
-  };
-  const delayMin = parseMinutes(etd) - parseMinutes(std);
+  const etdTime = formatClock24(etd);
+  const delayMin = sabreMinutesBetween(std, etd);
 
-  if (delayMin === 0) return <span>STD {stdTime}</span>;
+  if (!etdTime || delayMin === null || delayMin === 0) return <span>STD {stdTime}</span>;
 
-  const etdTime = etd.slice(-8, -3);
   const sign = delayMin > 0 ? "+" : "";
 
   return (
