@@ -80,7 +80,6 @@ def rule_desired_upgrade_not_processed(passengers, changes):
                         "bookingClass": booking,
                         "desiredBookingClass": desired,
                         "priorityCode": p.get("priorityCode", ""),
-                        "seniorityDate": p.get("seniorityDate", ""),
                         "lineNumber": p.get("lineNumber"),
                     },
                 ))
@@ -313,18 +312,15 @@ def rule_upgrade_queue_skipped(passengers, changes):
                     alerts.append(_alert(
                         "UPGRADE_QUEUE_SKIPPED",
                         WARNING,
-                        f"Higher-priority passenger {_pax_name(skipped)} (line {skip_line}, "
-                        f"seniority {skip_seniority}) was skipped while "
-                        f"{_pax_name(upg)} (line {upg_line}, seniority {upg_seniority}) was upgraded",
+                        f"Higher-priority passenger {_pax_name(skipped)} (line {skip_line}) "
+                        f"was skipped while {_pax_name(upg)} (line {upg_line}) was upgraded",
                         pnr=skipped.get("pnr"),
                         passenger_name=_pax_name(skipped),
                         details={
                             "skippedLine": skip_line,
-                            "skippedSeniority": skip_seniority,
                             "upgradedPnr": upg.get("pnr"),
                             "upgradedName": _pax_name(upg),
                             "upgradedLine": upg_line,
-                            "upgradedSeniority": upg_seniority,
                             "desiredCabin": desired,
                         },
                     ))
@@ -408,7 +404,6 @@ def rule_staff_in_premium_no_upgrade(passengers, changes):
                 details={
                     "cabin": p.get("cabin"),
                     "bookingClass": p.get("bookingClass"),
-                    "corpId": p.get("corpId"),
                 },
             ))
     return alerts

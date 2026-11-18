@@ -970,7 +970,7 @@ def _build_insights(passengers, reservation_doc, schedule_doc, pl, change_summar
     else:
         insights["flightInfo"] = None
 
-    # ── 20. Corporate travel IDs ────────────────────────────
+    # ── 20. Corporate travel (counts only; account IDs stay internal) ──
     corp_ids = {}
     for px in passengers:
         cid = px.get("corpId", "")
@@ -979,7 +979,7 @@ def _build_insights(passengers, reservation_doc, schedule_doc, pl, change_summar
     insights["corporateTravel"] = {
         "totalCorporate": sum(corp_ids.values()),
         "corporatePct": round(sum(corp_ids.values()) / total_pax * 100, 1) if total_pax else 0,
-        "companies": dict(sorted(corp_ids.items(), key=lambda x: -x[1])),
+        "accountCount": len(corp_ids),
     }
 
     # ── 21. Priority passengers ─────────────────────────────
