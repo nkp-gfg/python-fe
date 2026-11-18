@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 interface ActivityFeedProps {
-  date?: string;
+  date: string;
   limit?: number;
   categories?: string;
 }

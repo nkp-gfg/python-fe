@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 DB_NAME = "falconeye"
 
+# Serves the cross-flight activity feed: one departure date, newest first.
+CHANGES_FEED_INDEX = [("departureDate", ASCENDING), ("detectedAt", DESCENDING)]
+
 _client = None
 _db = None
 _owns_connection = False  # True when we created the MongoClient ourselves
@@ -76,6 +79,10 @@ def _drop_index_if_exists(collection, index_name: str):
 def ensure_indexes():
     """Create indexes for all collections (skipped if already present)."""
     db = get_db()
+
+    # Created before the quick check so existing deployments also get it;
+    # the activity feed hints this index and fails without it.
+    db["changes"].create_index(CHANGES_FEED_INDEX, name="chg_feed")
 
     # Quick check: if main indexes already exist, skip the entire operation
     # to avoid slow dropIndex/createIndex on every startup.

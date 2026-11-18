@@ -287,12 +287,12 @@ export function fetchFlightTimeline(
 }
 
 export function fetchActivityFeed(
-  date?: string,
+  date: string,
   limit = 50,
   categories?: string,
 ): Promise<ActivityFeedResponse> {
   const params = new URLSearchParams();
-  if (date) params.set("date", date);
+  params.set("date", date);
   params.set("limit", String(limit));
   if (categories) params.set("categories", categories);
   return get<ActivityFeedResponse>(`/activity/feed?${params}`);
