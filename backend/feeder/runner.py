@@ -348,7 +348,7 @@ def run_feeder(flights, progress_callback=None):
             origin = flight["origin"]
             dep_date = flight["departureDate"]
             dep_dt = flight["departureDateTime"]
-            flight_seq = flight.get("flightSequenceNumber")
+            requested_seq = flight.get("flightSequenceNumber")
 
             flight_info = {
                 "airline": airline,
@@ -363,7 +363,7 @@ def run_feeder(flights, progress_callback=None):
                     "origin": origin,
                     "departureDate": dep_date,
                     "departureDateTime": dep_dt,
-                    "flightSequenceNumber": flight_seq,
+                    "flightSequenceNumber": None,
                 },
                 "success": True,
                 "apis": {},
@@ -385,20 +385,28 @@ def run_feeder(flights, progress_callback=None):
                             flight=f"{airline}{fn}", service_type=service_type,
                             label=svc_label)
 
-            # Resolve flight_sequence_number: use provided value or fallback to PG lookup
-            if flight_seq is None:
-                flight_seq = _lookup_flight_sequence_number(
-                    fn, origin, dep_date)
-                if flight_seq is not None:
-                    logger.info("resolved_flight_seq_from_pg",
-                                flight=f"{airline}{fn}", seq=flight_seq)
-                    flight_result["flight"]["flightSequenceNumber"] = flight_seq
+            # The sequence written onto the flight always comes from the
+            # operational row; a caller-supplied value is never persisted.
+            flight_seq = _lookup_flight_sequence_number(fn, origin, dep_date)
+            if flight_seq is not None:
+                logger.info("resolved_flight_seq_from_pg",
+                            flight=f"{airline}{fn}", seq=flight_seq)
+            if requested_seq is not None and requested_seq != flight_seq:
+                logger.warning("ignored_caller_flight_seq",
+                               flight=f"{airline}{fn}", origin=origin,
+                               departure_date=dep_date,
+                               requested_seq=requested_seq,
+                               operational_seq=flight_seq)
+            flight_result["flight"]["flightSequenceNumber"] = flight_seq
 
             # 1. Flight Status
             try:
                 raw, xml, meta = client.get_flight_status(
                     airline, fn, origin, dep_date)
-                _validate_live_flight_payload(flight_info, flight_seq, raw)
+                _validate_live_flight_payload(
+                    flight_info,
+                    flight_seq if flight_seq is not None else requested_seq,
+                    raw)
                 details = _process_api_call(
                     "FlightStatus", "flight_status", flight_info,
                     raw, xml, meta,
