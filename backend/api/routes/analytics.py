@@ -4,7 +4,7 @@ Aggregates flight, passenger, reservation, and change data across all flights
 for a given date range to produce operational & business intelligence dashboards.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 import structlog
@@ -15,8 +15,32 @@ from backend.api.database import get_db
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
+# Inclusive span: date_to may be at most this many days after date_from.
+MAX_RANGE_DAYS = 30
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+def _validate_date_range(date_from: str, date_to: str) -> None:
+    """Raise 400 unless both dates are real and span at most 31 days, in order."""
+    # The raw strings are used as MongoDB string bounds, so they must be the
+    # canonical form of the dates checked here.
+    try:
+        start = date.fromisoformat(date_from)
+        end = date.fromisoformat(date_to)
+    except ValueError:
+        start = end = None
+    if start is None or start.isoformat() != date_from or end.isoformat() != date_to:
+        raise HTTPException(
+            status_code=400, detail="date_from and date_to must be valid YYYY-MM-DD dates")
+    if start > end:
+        raise HTTPException(
+            status_code=400, detail="date_from must be on or before date_to")
+    if (end - start).days > MAX_RANGE_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Date range may span at most {MAX_RANGE_DAYS + 1} days")
+
 
 def _flight_match(date_from: str, date_to: str, origin: Optional[str],
                   flight_number: Optional[str],
@@ -549,61 +573,54 @@ def _get_filter_options(date_from: str, date_to: str):
     flight_numbers = [d["_id"] for d in db.flights.aggregate(
         flight_numbers_pipeline) if d["_id"]]
 
-    # Group flights by route — destination comes from passenger_list
-    routes_pipeline = [
+    # Destination is not stored on flights; take it from the latest
+    # passenger_list fetch for each flight in the same window.
+    destinations_pipeline = [
         {"$match": date_match},
-        {"$lookup": {
-            "from": "passenger_list",
-            "let": {
-                "fn": "$flightNumber",
-                "orig": "$origin",
-                "dep": "$departureDate",
-            },
-            "pipeline": [
-                {"$match": {"$expr": {"$and": [
-                    {"$eq": ["$flightNumber", "$$fn"]},
-                    {"$eq": ["$origin", "$$orig"]},
-                    {"$eq": ["$departureDate", "$$dep"]},
-                ]}}},
-                {"$sort": {"fetchedAt": -1}},
-                {"$limit": 1},
-                {"$project": {"destination": 1, "_id": 0}},
-            ],
-            "as": "pax",
-        }},
-        {"$addFields": {
-            "destination": {
-                "$ifNull": [
-                    {"$arrayElemAt": ["$pax.destination", 0]},
-                    "",
-                ]
-            },
-        }},
-        {"$match": {"destination": {"$nin": [None, ""]}}},
+        {"$project": {"_id": 0, "flightNumber": 1, "origin": 1,
+                      "departureDate": 1, "destination": 1, "fetchedAt": 1}},
+        {"$sort": {"fetchedAt": -1}},
         {"$group": {
             "_id": {
                 "flightNumber": "$flightNumber",
                 "origin": "$origin",
-                "destination": "$destination",
+                "departureDate": "$departureDate",
             },
-            "airline": {"$first": "$airline"},
-            "flightCount": {"$sum": 1},
-            "totalPassengers": {"$sum": {"$ifNull": ["$summary.totalPax", 0]}},
-            "dates": {"$push": "$departureDate"},
+            "destination": {"$first": "$destination"},
         }},
-        {"$project": {
-            "_id": 0,
-            "airline": 1,
-            "flightNumber": "$_id.flightNumber",
-            "origin": "$_id.origin",
-            "destination": "$_id.destination",
-            "flightCount": 1,
-            "totalPassengers": 1,
-            "dates": 1,
-        }},
-        {"$sort": {"flightNumber": 1, "origin": 1}},
     ]
-    routes = list(db.flights.aggregate(routes_pipeline))
+    destinations = {
+        (d["_id"].get("flightNumber"), d["_id"].get("origin"),
+         d["_id"].get("departureDate")): d.get("destination")
+        for d in db.passenger_list.aggregate(destinations_pipeline, allowDiskUse=True)
+    }
+
+    routes_by_key: dict = {}
+    flight_projection = {"_id": 0, "airline": 1, "flightNumber": 1, "origin": 1,
+                         "departureDate": 1, "summary.totalPax": 1}
+    for flight in db.flights.find(date_match, flight_projection):
+        fn = flight.get("flightNumber")
+        orig = flight.get("origin")
+        dest = destinations.get((fn, orig, flight.get("departureDate")))
+        if not dest:
+            continue
+        route = routes_by_key.setdefault((fn, orig, dest), {
+            "airline": flight.get("airline"),
+            "flightNumber": fn,
+            "origin": orig,
+            "destination": dest,
+            "flightCount": 0,
+            "totalPassengers": 0,
+        })
+        route["flightCount"] += 1
+        pax = (flight.get("summary") or {}).get("totalPax")
+        if isinstance(pax, (int, float)) and not isinstance(pax, bool):
+            route["totalPassengers"] += pax
+
+    routes = sorted(
+        routes_by_key.values(),
+        key=lambda r: (str(r["flightNumber"]), str(r["origin"]), str(r["destination"])),
+    )
 
     return {
         "origins": origins,
@@ -621,6 +638,7 @@ async def get_analytics_filters(
                          description="End date (YYYY-MM-DD)"),
 ):
     """Return available filter options for analytics within a date range."""
+    _validate_date_range(date_from, date_to)
     try:
         result = await run_in_threadpool(_get_filter_options, date_from, date_to)
         return result
@@ -646,9 +664,7 @@ async def get_network_analytics(
         None, description="Filter by arrival airport (IATA code)"),
 ):
     """Comprehensive network-wide analytics for all flights in a date range."""
-    if date_from > date_to:
-        raise HTTPException(
-            status_code=400, detail="date_from must be before date_to")
+    _validate_date_range(date_from, date_to)
 
     try:
         result = await run_in_threadpool(
