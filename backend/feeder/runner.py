@@ -582,6 +582,15 @@ def run_feeder(flights, progress_callback=None):
                     conversation_id=mlc_meta.get("conversationId"),
                 )
 
+                report_errors = [
+                    f"{doc['reportType']}: {err}"
+                    for doc in (mlx_doc, mlc_doc)
+                    if doc.get("status") != "success"
+                    for err in (doc.get("errors") or ["conversion failed"])
+                ]
+                if report_errors:
+                    raise SabreError("; ".join(report_errors))
+
                 # Merge both reports into one document for storage
                 merged = merge_trip_reports(
                     mlx_doc, mlc_doc, airline, fn, dep_date, origin)

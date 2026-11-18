@@ -748,29 +748,141 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
 
 # ── Trip Reports ───────────────────────────────────────────────────────
 
+class TripReportParseError(ValueError):
+    """Trip_ReportsRS body does not have the shape the schema defines."""
+
+
+# Entry children that carry a single passenger name (Trip_ReportsRS 1.3.0).
+_TRIP_NAMED_ENTRIES = ("GroupEntry", "ScheduleChangeEntry")
+_TRIP_SPLIT_NAME_ENTRIES = ("ReservationEntry", "PaxEntry")
+# Entry children that describe flights, segments or inventory, not passengers.
+_TRIP_NON_PASSENGER_ENTRIES = (
+    "FlightEntry", "ShareEntry", "CodeShareTableAgreement",
+    "SegmentEntry", "ConnectingFlightEntry",
+)
+
+
+def _xml_text(val):
+    """Return the text of an xmltodict leaf, or '' when it is empty."""
+    if val is None:
+        return ""
+    if isinstance(val, dict):
+        val = val.get("#text", "")
+    if not isinstance(val, str):
+        raise TripReportParseError(f"expected text, got {type(val).__name__}")
+    return val.strip()
+
+
+def _split_sabre_name(full_name):
+    """Split a Sabre 'LAST/FIRST TITLE' name into (last, first)."""
+    last, _, first = full_name.partition("/")
+    return last.strip(), first.strip()
+
+
+def _trip_passenger(kind, el):
+    if not isinstance(el, dict):
+        raise TripReportParseError(f"{kind} is not an element")
+    if kind in _TRIP_NAMED_ENTRIES:
+        last, first = _split_sabre_name(_xml_text(el.get("Name")))
+    else:
+        last = _xml_text(el.get("LastName"))
+        first = _xml_text(el.get("FirstName"))
+    pnr = _xml_text(el.get("Locator"))
+    if not last and not pnr:
+        raise TripReportParseError(f"{kind} has neither a name nor a locator")
+    return {
+        "lastName": last,
+        "firstName": first,
+        "pnr": pnr,
+        "bookingClass": _xml_text(el.get("ClassOfService")),
+        "statusCode": _xml_text(el.get("StatusCode")),
+        "numberInParty": _safe_int(_xml_text(el.get("NumberInParty")), None),
+        "updatedAt": _xml_text(el.get("UpdateDateTime")),
+        "entryType": kind,
+    }
+
+
+def _trip_report_errors(data):
+    errors = data.get("Errors")
+    if errors is None:
+        return []
+    messages = []
+    for err in _ensure_list(errors.get("Error") if isinstance(errors, dict) else None):
+        message = ""
+        if isinstance(err, dict):
+            message = err.get("@ErrorMessage") or err.get("@ErrorCode") or ""
+        messages.append(str(message) or "Sabre returned an error")
+    return messages or ["Sabre returned an Errors element"]
+
+
+def _parse_trip_report_passengers(data):
+    report = data.get("Report")
+    if not isinstance(report, dict):
+        raise TripReportParseError("response has no Report element")
+
+    passengers = []
+    for result in _ensure_list(report.get("ReportResult")):
+        if not isinstance(result, dict):
+            raise TripReportParseError("ReportResult is not an element")
+        details = result.get("Details")
+        if details is None:
+            continue
+        if not isinstance(details, dict):
+            raise TripReportParseError("Details is not an element")
+        for entry in _ensure_list(details.get("Entry")):
+            if entry is None:
+                continue
+            if not isinstance(entry, dict):
+                raise TripReportParseError("Entry is not an element")
+            entry_passengers = []
+            for key, value in entry.items():
+                if key.startswith("@") or key == "EntryHeader":
+                    continue
+                if key in _TRIP_NAMED_ENTRIES or key in _TRIP_SPLIT_NAME_ENTRIES:
+                    for el in _ensure_list(value):
+                        entry_passengers.append(_trip_passenger(key, el))
+                elif key not in _TRIP_NON_PASSENGER_ENTRIES:
+                    raise TripReportParseError(f"unrecognised Entry child {key}")
+
+            header = entry.get("EntryHeader")
+            if header is not None and not isinstance(header, dict):
+                raise TripReportParseError("EntryHeader is not an element")
+            if header and (header.get("LastName") or header.get("FirstName")):
+                header_pax = _trip_passenger("EntryHeader", header)
+                identity = (header_pax["lastName"], header_pax["firstName"], header_pax["pnr"])
+                if not any(
+                    (p["lastName"], p["firstName"], p["pnr"]) == identity
+                    for p in entry_passengers
+                ):
+                    entry_passengers.insert(0, header_pax)
+            passengers.extend(entry_passengers)
+    return passengers
+
+
 def convert_trip_report(raw_data, airline, flight_number, departure_date, origin, report_type):
     """Convert Trip_ReportsRS dict into a clean MongoDB document.
 
     Handles both MLX (cancelled passengers) and MLC (ever-booked passengers)
-    report types. Both share a similar passenger list structure.
-    """
-    data = _strip_ns(raw_data)
-    passenger_list = _ensure_list(
-        data.get("PassengerList", {}).get("Passenger", [])
-    )
+    report types. Passengers sit in Report/ReportResult/Details/Entry as
+    GroupEntry, ScheduleChangeEntry, ReservationEntry, PaxEntry or a named
+    EntryHeader.
 
-    passengers = []
-    for p in passenger_list:
-        name = p.get("Name", {}) if isinstance(p.get("Name"), dict) else {}
-        passengers.append({
-            "lastName": name.get("LastName", p.get("LastName", "")),
-            "firstName": name.get("FirstName", p.get("FirstName", "")),
-            "pnr": p.get("PNRLocator", p.get("Locator", "")),
-            "passengerType": p.get("PassengerType", ""),
-            "cabin": p.get("Cabin", ""),
-            "seat": p.get("Seat", ""),
-            "bookingClass": p.get("BookingClass", ""),
-        })
+    ``status`` is "success" only when Sabre returned a Success element, no
+    Errors, and every passenger entry in the body was parsed. Otherwise
+    ``passengers`` and ``totalPassengers`` are None so the report is never
+    mistaken for an authoritative empty list.
+    """
+    data = _strip_ns(raw_data) if isinstance(raw_data, dict) else {}
+    errors = _trip_report_errors(data)
+    if not errors and "Success" not in data:
+        errors = ["response has no Success element"]
+
+    passengers = None
+    if not errors:
+        try:
+            passengers = _parse_trip_report_passengers(data)
+        except TripReportParseError as exc:
+            errors = [str(exc)]
 
     doc = {
         "airline": airline,
@@ -779,8 +891,10 @@ def convert_trip_report(raw_data, airline, flight_number, departure_date, origin
         "departureDate": departure_date,
         "fetchedAt": _now_iso(),
         "reportType": report_type,
-        "totalPassengers": len(passengers),
-        "passengers": passengers,
+        "status": "error" if errors else "success",
+        "errors": errors,
+        "totalPassengers": None if errors else len(passengers),
+        "passengers": None if errors else passengers,
         "_raw": raw_data,
     }
     return doc
@@ -1070,19 +1184,31 @@ def merge_trip_reports(mlx_doc, mlc_doc, airline, flight_number, departure_date,
     """Merge MLX and MLC reports into a single trip_reports document for storage.
 
     This combined document is what the dashboard queries:
-    - cancelledPassengers (from MLX)
-    - everBookedPassengers (from MLC)
+    - cancelledPassengers (from MLX), trusted only when mlxStatus is "success"
+    - everBookedPassengers (from MLC), trusted only when mlcStatus is "success"
+
+    A report that did not convert successfully contributes None, never an
+    empty list.
     """
+    def _part(report):
+        if report and report.get("status") == "success":
+            return "success", report.get("passengers"), report.get("totalPassengers")
+        return "error", None, None
+
+    mlx_status, mlx_passengers, mlx_count = _part(mlx_doc)
+    mlc_status, mlc_passengers, mlc_count = _part(mlc_doc)
     doc = {
         "airline": airline,
         "flightNumber": flight_number,
         "origin": origin,
         "departureDate": departure_date,
         "fetchedAt": _now_iso(),
-        "cancelledPassengers": mlx_doc.get("passengers", []) if mlx_doc else [],
-        "cancelledCount": mlx_doc.get("totalPassengers", 0) if mlx_doc else 0,
-        "everBookedPassengers": mlc_doc.get("passengers", []) if mlc_doc else [],
-        "everBookedCount": mlc_doc.get("totalPassengers", 0) if mlc_doc else 0,
+        "mlxStatus": mlx_status,
+        "mlcStatus": mlc_status,
+        "cancelledPassengers": mlx_passengers,
+        "cancelledCount": mlx_count,
+        "everBookedPassengers": mlc_passengers,
+        "everBookedCount": mlc_count,
     }
     return doc
 
