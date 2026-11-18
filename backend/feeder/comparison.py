@@ -5,8 +5,9 @@ using vectorized operations for performance at scale (100+ flights).
 """
 
 import logging
+import re
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Callable, Iterable
 
 import polars as pl
 
@@ -15,6 +16,39 @@ from backend.api.postgres import query_all
 
 logger = logging.getLogger(__name__)
 
+# Every comparison runs in a single API/worker process, so a request must name
+# a bounded set of flights rather than expanding to a whole departure day.
+MAX_COMPARISON_FLIGHTS = 20
+_FLIGHT_TOKEN_RE = re.compile(r"^[A-Za-z0-9]{1,10}$")
+
+
+def parse_flight_numbers(flight_numbers: str | Iterable[str] | None) -> list[str]:
+    """Return the de-duplicated flight list for a comparison.
+
+    Accepts a comma-separated string or an iterable of flight numbers.
+    Raises ValueError when the list is missing, empty, malformed, or names
+    more than MAX_COMPARISON_FLIGHTS entries (duplicates included).
+    """
+    if flight_numbers is None:
+        raise ValueError("flight_numbers is required")
+    if isinstance(flight_numbers, str):
+        raw = flight_numbers.split(",")
+    else:
+        raw = list(flight_numbers)
+
+    entries = [str(f).strip() for f in raw]
+    entries = [f for f in entries if f]
+    if not entries:
+        raise ValueError("flight_numbers must name at least one flight")
+    if len(entries) > MAX_COMPARISON_FLIGHTS:
+        raise ValueError(
+            f"flight_numbers may name at most {MAX_COMPARISON_FLIGHTS} flights")
+    for f in entries:
+        if not _FLIGHT_TOKEN_RE.match(f):
+            raise ValueError(f"Invalid flight number: {f[:20]!r}")
+
+    return list(dict.fromkeys(entries))
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -22,12 +56,11 @@ def _now_iso() -> str:
 
 # ── Data Loaders ──────────────────────────────────────────────────────────
 
-def load_sabre_flights(date: str, flight_numbers: list[str] | None = None) -> pl.DataFrame:
+def load_sabre_flights(date: str, flight_numbers: list[str]) -> pl.DataFrame:
     """Load latest Sabre flight data from MongoDB into a Polars DataFrame."""
+    flight_numbers = parse_flight_numbers(flight_numbers)
     db = get_db()
-    query = {"departureDate": date}
-    if flight_numbers:
-        query["flightNumber"] = {"$in": flight_numbers}
+    query = {"departureDate": date, "flightNumber": {"$in": flight_numbers}}
 
     flights = list(db["flights"].find(query, {
         "_id": 0,
@@ -65,8 +98,9 @@ def load_sabre_flights(date: str, flight_numbers: list[str] | None = None) -> pl
     return pl.DataFrame(rows)
 
 
-def load_otp_flights(date: str, flight_numbers: list[str] | None = None) -> pl.DataFrame:
+def load_otp_flights(date: str, flight_numbers: list[str]) -> pl.DataFrame:
     """Load OTP flight data from PostgreSQL into a Polars DataFrame."""
+    flight_numbers = parse_flight_numbers(flight_numbers)
     sql = """
         SELECT
             flight_number,
@@ -81,11 +115,9 @@ def load_otp_flights(date: str, flight_numbers: list[str] | None = None) -> pl.D
         WHERE (scheduled_departure_local::date = %s
                OR scheduled_arrival_local::date = %s)
     """
-    params: list = [date, date]
-    if flight_numbers:
-        placeholders = ",".join(["%s"] * len(flight_numbers))
-        sql += f" AND flight_number IN ({placeholders})"
-        params.extend(flight_numbers)
+    placeholders = ",".join(["%s"] * len(flight_numbers))
+    sql += f" AND flight_number IN ({placeholders})"
+    params: list = [date, date, *flight_numbers]
 
     sql += " ORDER BY scheduled_departure_utc ASC"
 
@@ -128,12 +160,11 @@ def load_otp_flights(date: str, flight_numbers: list[str] | None = None) -> pl.D
     return pl.DataFrame(result)
 
 
-def load_sabre_passengers(date: str, flight_numbers: list[str] | None = None) -> pl.DataFrame:
+def load_sabre_passengers(date: str, flight_numbers: list[str]) -> pl.DataFrame:
     """Load latest Sabre passenger lists from MongoDB into Polars."""
+    flight_numbers = parse_flight_numbers(flight_numbers)
     db = get_db()
-    query = {"departureDate": date}
-    if flight_numbers:
-        query["flightNumber"] = {"$in": flight_numbers}
+    query = {"departureDate": date, "flightNumber": {"$in": flight_numbers}}
 
     # Get latest passenger_list per flight
     pipeline = [
@@ -181,13 +212,14 @@ def load_sabre_passengers(date: str, flight_numbers: list[str] | None = None) ->
 
 def compare_flights_for_date(
     date: str,
-    flight_numbers: list[str] | None = None,
+    flight_numbers: list[str],
     progress_callback: Callable | None = None,
 ) -> dict:
-    """Compare Sabre vs OTP data for all flights on a given date.
+    """Compare Sabre vs OTP data for the named flights on a given date.
 
     Returns a structured comparison report.
     """
+    flight_numbers = parse_flight_numbers(flight_numbers)
     sabre_df = load_sabre_flights(date, flight_numbers)
     otp_df = load_otp_flights(date, flight_numbers)
 
@@ -272,13 +304,14 @@ def compare_flights_for_date(
 
 def compare_passengers_across_flights(
     date: str,
-    flight_numbers: list[str] | None = None,
+    flight_numbers: list[str],
 ) -> dict:
-    """Detailed passenger-level comparison across multiple flights.
+    """Detailed passenger-level comparison across the named flights.
 
     Uses Polars for vectorized aggregation of cabin distribution,
     check-in rates, boarding rates, etc.
     """
+    flight_numbers = parse_flight_numbers(flight_numbers)
     pax_df = load_sabre_passengers(date, flight_numbers)
 
     if pax_df.is_empty():
