@@ -11,7 +11,6 @@ import {
   Plane,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { EChart } from "@/components/ui/echarts";
 import { buildDonutChartOption } from "@/components/dashboard/echarts-option-builders";
@@ -79,9 +78,6 @@ export function RevenueTab({ dashboard }: RevenueTabProps) {
     const jClasses = sortedEntries(classMix).filter(([c]) => J_CABIN_CLASSES.has(c));
     const yClasses = sortedEntries(classMix).filter(([c]) => !J_CABIN_CLASSES.has(c));
 
-    const companies = sortedEntries(insights.corporateTravel.companies).slice(0, 3);
-    const companyTotal = Object.values(insights.corporateTravel.companies).reduce((s, v) => s + v, 0);
-
     const totalPax = dashboard.passengerSummary.totalPassengers;
 
     const loyaltyCounts = dashboard.analysis.loyaltyCounts;
@@ -106,8 +102,6 @@ export function RevenueTab({ dashboard }: RevenueTabProps) {
       channelTotal,
       jClasses,
       yClasses,
-      companies,
-      companyTotal,
       totalPax,
       loyaltyCounts,
       totalLoyalty,
@@ -141,8 +135,6 @@ export function RevenueTab({ dashboard }: RevenueTabProps) {
     jCount,
     yCount,
     totalMix,
-    companies,
-    companyTotal,
     totalPax,
     loyaltyCounts,
     totalLoyalty,
@@ -264,25 +256,10 @@ export function RevenueTab({ dashboard }: RevenueTabProps) {
                 corporate ({insights.corporateTravel.corporatePct}%)
               </span>
             </div>
-            {companies.length > 0 && (
-              <div className="space-y-1.5">
-                {companies.map(([name, count]) => (
-                  <div
-                    key={name}
-                    className="flex items-center justify-between text-xs"
-                  >
-                    <span className="truncate">{name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="tabular-nums">{count}</span>
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] tabular-nums"
-                      >
-                        {pct(count, companyTotal)}%
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+            {insights.corporateTravel.accountCount > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Corporate accounts</span>
+                <span className="tabular-nums">{insights.corporateTravel.accountCount}</span>
               </div>
             )}
             {insights.corporateTravel.corporatePct >= 30 && (

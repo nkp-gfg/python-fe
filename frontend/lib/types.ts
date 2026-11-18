@@ -452,8 +452,6 @@ export interface PassengerRecord {
   destination: string;
   passengerType: string;
   isStandby: boolean;
-  corpId: string;
-  seniorityDate: string;
   bagCount: number;
   isCheckedIn: boolean;
   isBoarded: boolean;
@@ -568,8 +566,6 @@ export interface StandbyEntry {
   cabin: string;
   seat: string;
   destination: string;
-  corpId: string;
-  seniorityDate: string;
   isCheckedIn: boolean;
   boardingPassIssued: boolean;
   isRevenue: boolean;
@@ -1306,7 +1302,7 @@ export interface InsightsFlightInfo {
 export interface InsightsCorporateTravel {
   totalCorporate: number;
   corporatePct: number;
-  companies: Record<string, number>;
+  accountCount: number;
 }
 
 export interface InsightsPriority {

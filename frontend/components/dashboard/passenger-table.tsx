@@ -732,11 +732,6 @@ export function PassengerTable({
                           {p.groupCode}
                         </Badge>
                       )}
-                      {p.corpId && (
-                        <Badge variant="outline" className="text-[9px] px-1 border-cyan-300 text-cyan-600" title={`Corporate ID: ${p.corpId}`}>
-                          CORP
-                        </Badge>
-                      )}
                     </div>
                   </TableCell>
                   <TableCell>

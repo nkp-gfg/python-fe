@@ -75,7 +75,6 @@ function QueueTable({
           <TableHead>Current</TableHead>
           <TableHead>Requested</TableHead>
           <TableHead>Status</TableHead>
-          <TableHead>Seniority</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -123,9 +122,6 @@ function QueueTable({
                   <span className="text-[9px] text-emerald-500" title="Boarding pass issued">BP</span>
                 )}
               </div>
-            </TableCell>
-            <TableCell className="text-xs text-muted-foreground">
-              {e.seniorityDate || "—"}
             </TableCell>
           </TableRow>
         ))}

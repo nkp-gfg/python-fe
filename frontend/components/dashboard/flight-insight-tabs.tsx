@@ -646,7 +646,6 @@ export function CommercialInsightsTab({ insights, totalPassengers, onOpenInfo }:
       { label: "Over 90d", shortLabel: "90d+", value: distribution.over90d, fill: palette[4] },
     ];
   }, [insights.bookingLeadTime]);
-  const companyData = useMemo(() => toChartData(Object.entries(insights.corporateTravel.companies).sort((a, b) => b[1] - a[1]), 6), [insights.corporateTravel.companies]);
   const progressStages = useMemo(() => [
     { label: "Sold", value: totalPassengers, fill: palette[0], helper: "Current passenger base on this departure." },
     { label: "Ticketed", value: insights.ticketStatus.withTicket, fill: palette[2], helper: `${insights.ticketStatus.ticketPct}% with ticket records.` },
@@ -671,7 +670,7 @@ export function CommercialInsightsTab({ insights, totalPassengers, onOpenInfo }:
         <SummaryCard label="Avg Lead Time" value={insights.bookingLeadTime ? `${insights.bookingLeadTime.avgDays}d` : "—"} helper={insights.bookingLeadTime ? `Median ${insights.bookingLeadTime.medianDays}d` : "Booking window not available."} accent="text-sky-500" />
         <SummaryCard label="Top Channel" value={topChannel?.label ?? "—"} helper={topChannel ? `${topChannel.value} passengers` : "No booking-channel data."} accent="text-violet-500" />
         <SummaryCard label="Top Class" value={topClass?.label ?? "—"} helper={topClass ? `${topClass.value} passengers` : "No class mix available."} accent="text-emerald-500" />
-        <SummaryCard label="Corporate Mix" value={`${insights.corporateTravel.corporatePct}%`} helper={`${insights.corporateTravel.totalCorporate} passengers with corporate IDs`} accent="text-amber-500" />
+        <SummaryCard label="Corporate Mix" value={`${insights.corporateTravel.corporatePct}%`} helper={`${insights.corporateTravel.totalCorporate} passengers across ${insights.corporateTravel.accountCount} accounts`} accent="text-amber-500" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
@@ -685,16 +684,13 @@ export function CommercialInsightsTab({ insights, totalPassengers, onOpenInfo }:
         <CompositionCard icon={Briefcase} title="Channel Family Mix" description="Aggregate sales mix by online, agency, corporate, and other sources." segments={channelFamilySegments} onInfo={onOpenInfo ? () => onOpenInfo("bookingChannels") : undefined} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <RankedBarsCard icon={Briefcase} title="Corporate Accounts" description="Largest corporate identifiers on this flight." data={companyData} onInfo={onOpenInfo ? () => onOpenInfo("corporateTravel") : undefined} />
-        <FunnelProgressCard
-          icon={TrendingUp}
-          title="Passenger Progress Funnel"
-          description="Progression from sold inventory to boarded passengers for this departure."
-          stages={progressStages}
-          onInfo={onOpenInfo ? () => onOpenInfo("boardingRate") : undefined}
-        />
-      </div>
+      <FunnelProgressCard
+        icon={TrendingUp}
+        title="Passenger Progress Funnel"
+        description="Progression from sold inventory to boarded passengers for this departure."
+        stages={progressStages}
+        onInfo={onOpenInfo ? () => onOpenInfo("boardingRate") : undefined}
+      />
     </div>
   );
 }
