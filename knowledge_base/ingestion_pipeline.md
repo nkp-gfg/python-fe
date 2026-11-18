@@ -17,7 +17,7 @@
 | `origin`               | str  | 3-letter IATA uppercase                        |
 | `departureDate`        | str  | YYYY-MM-DD                                     |
 | `departureDateTime`    | str  | ISO datetime                                   |
-| `flightSequenceNumber` | str? | Optional, looked up from PostgreSQL if missing |
+| `flightSequenceNumber` | int? | Optional, ignored — always resolved from PostgreSQL |
 | `serviceTypeCode`      | str? | Optional                                       |
 
 Batch: `SabreBatchRequest` wraps 1–50 `SabreIngestRequest` items.
@@ -82,9 +82,9 @@ Before processing, `_validate_live_flight_payload()` rejects payloads where Sabr
 
 Rejected flights skip all remaining API calls. Raises `IngestionPayloadRejectedError`.
 
-### Flight Sequence Number Fallback
+### Flight Sequence Number Resolution
 
-If `flightSequenceNumber` is not provided, `_lookup_flight_sequence_number()` queries PostgreSQL `otp.flight_xml_current` table for the value.
+`_lookup_flight_sequence_number()` queries PostgreSQL `otp.flight_xml_current` for the flight number, origin and date once per flight, and only that value is written to the `flights` document. A `flightSequenceNumber` in the request is never persisted; if it differs from the operational row an `ignored_caller_flight_seq` warning is logged. When no operational row exists (or PostgreSQL is unavailable), no sequence is stored.
 
 ### Error Handling
 

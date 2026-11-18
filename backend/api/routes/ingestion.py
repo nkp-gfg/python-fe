@@ -74,7 +74,8 @@ class SabreIngestRequest(BaseModel):
     )
     flightSequenceNumber: int | None = Field(
         default=None,
-        description="PostgreSQL flight_sequence_number from otp.flight_xml_current",
+        description="Not persisted. The stored sequence is always resolved from "
+                    "otp.flight_xml_current for this flight number, origin and date.",
     )
     serviceTypeCode: str | None = Field(
         default=None,
