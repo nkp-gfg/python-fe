@@ -130,8 +130,10 @@ class SabreClient:
                     http_status=resp.status_code, duration_ms=duration_ms,
                     endpoint=target_endpoint)
         if resp.status_code != 200:
-            raise SabreError(
-                f"{action} returned HTTP {resp.status_code}: {resp.text[:500]}")
+            logger.error("sabre_api_http_error", action=action,
+                         http_status=resp.status_code,
+                         response=resp.text[:500])
+            raise SabreError(f"{action} returned HTTP {resp.status_code}")
         return resp.text, resp.status_code, duration_ms, body
 
     @staticmethod
@@ -173,8 +175,9 @@ class SabreClient:
             xml_text, re.IGNORECASE,
         )
         if not match:
-            raise SabreError(
-                f"Session creation failed. Response: {xml_text[:500]}")
+            logger.error("sabre_session_create_failed",
+                         response=xml_text[:500])
+            raise SabreError("Session creation failed")
         self._token = match.group(1).strip()
         logger.info("sabre_session_created",
                     token_prefix=self._token[:20],
