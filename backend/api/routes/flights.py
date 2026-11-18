@@ -1473,10 +1473,7 @@ def _flight_key(doc):
 def _latest_per_flight_agg(match: dict, extra_project: dict | None = None):
     """Build a MongoDB aggregation pipeline that returns the latest doc per
     (airline, flightNumber, origin, departureDate), excluding _raw."""
-    pipeline = []
-    if match:
-        pipeline.append({"$match": match})
-    pipeline.append({"$sort": {"fetchedAt": -1}})
+    pipeline = [{"$match": match}, {"$sort": {"fetchedAt": -1}}]
     pipeline.append({
         "$group": {
             "_id": {
@@ -1496,10 +1493,7 @@ def _latest_per_flight_agg(match: dict, extra_project: dict | None = None):
 
 def _latest_schedule_agg(match: dict):
     """Aggregation for schedules keyed by (airline, flightNumber, departureDate)."""
-    pipeline = []
-    if match:
-        pipeline.append({"$match": match})
-    pipeline.append({"$sort": {"fetchedAt": -1}})
+    pipeline = [{"$match": match}, {"$sort": {"fetchedAt": -1}}]
     pipeline.append({
         "$group": {
             "_id": {
@@ -1609,12 +1603,12 @@ def _summarize_flight_for_list_fast(flight_status_doc, passenger_doc):
 
 @router.get("")
 def list_flights(
-    date: str = Query(None, description="Filter by departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
-    """List all distinct flights in the database with their latest status."""
+    """List the distinct flights departing on one date with their latest status."""
     validate_date(date)
     db = get_db()
-    match = {"departureDate": date} if date else {}
+    match = {"departureDate": date}
 
     # ── Parallel aggregation: latest doc per flight key from each collection ──
     def _agg_flight_status():
@@ -1622,17 +1616,14 @@ def list_flights(
         return {
             (d["_id"]["airline"], d["_id"]["flightNumber"],
              d["_id"]["origin"], d["_id"]["departureDate"]): d["doc"]
-            for d in db["flight_status"].aggregate(pipeline, allowDiskUse=True)
+            for d in db["flight_status"].aggregate(pipeline, allowDiskUse=False)
         }
 
     def _agg_passenger_list():
         """Return latest passenger_list per flight key with pre-computed status
         counts.  The aggregation computes checkedIn/boarded/notCheckedIn and
         soul counts server-side so we don't transfer the full passengers array."""
-        pipeline = []
-        if match:
-            pipeline.append({"$match": match})
-        pipeline.append({"$sort": {"fetchedAt": -1}})
+        pipeline = [{"$match": match}, {"$sort": {"fetchedAt": -1}}]
         pipeline.append({
             "$group": {
                 "_id": {
@@ -1709,7 +1700,7 @@ def list_flights(
         # Strip the heavy arrays — we only need top-level counts + computed fields
         pipeline.append({"$project": {"doc.passengers": 0, "doc._raw": 0}})
         result = {}
-        for d in db["passenger_list"].aggregate(pipeline, allowDiskUse=True):
+        for d in db["passenger_list"].aggregate(pipeline, allowDiskUse=False):
             key = (d["_id"]["airline"], d["_id"]["flightNumber"],
                    d["_id"]["origin"], d["_id"]["departureDate"])
             result[key] = d["doc"]
@@ -1720,14 +1711,13 @@ def list_flights(
         return {
             (d["_id"]["airline"], d["_id"]["flightNumber"],
              d["_id"]["departureDate"]): d["doc"]
-            for d in db["flight_schedules"].aggregate(pipeline, allowDiskUse=True)
+            for d in db["flight_schedules"].aggregate(pipeline, allowDiskUse=False)
         }
 
     def _agg_flight_meta():
         """Fetch flightSequenceNumber from the flights collection."""
-        fq = {"departureDate": date} if date else {}
         result = {}
-        for doc in db["flights"].find(fq, {"airline": 1, "flightNumber": 1, "origin": 1, "departureDate": 1, "flightSequenceNumber": 1}):
+        for doc in db["flights"].find(match, {"airline": 1, "flightNumber": 1, "origin": 1, "departureDate": 1, "flightSequenceNumber": 1}):
             k = (doc.get("airline", "GF"), doc.get("flightNumber", ""),
                  doc.get("origin", ""), doc.get("departureDate", ""))
             result[k] = doc.get("flightSequenceNumber")

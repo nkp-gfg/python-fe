@@ -73,9 +73,25 @@ def _drop_index_if_exists(collection, index_name: str):
         pass
 
 
+def _ensure_departure_date_indexes(db):
+    """Indexes behind GET /flights, which reads one departure date at a time
+    and sorts by fetchedAt without spilling to disk."""
+    for name, collection in (
+        ("fs_date_fetched", "flight_status"),
+        ("pax_date_fetched", "passenger_list"),
+        ("schedule_date_fetched", "flight_schedules"),
+    ):
+        db[collection].create_index(
+            [("departureDate", 1), ("fetchedAt", -1)], name=name)
+    db["flights"].create_index([("departureDate", 1)], name="flight_date")
+
+
 def ensure_indexes():
     """Create indexes for all collections (skipped if already present)."""
     db = get_db()
+
+    # Not covered by the skip below so existing deployments also get them.
+    _ensure_departure_date_indexes(db)
 
     # Quick check: if main indexes already exist, skip the entire operation
     # to avoid slow dropIndex/createIndex on every startup.
