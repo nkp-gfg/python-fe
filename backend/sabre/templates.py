@@ -159,7 +159,7 @@ DISPLAY_CODES_ALL = (
     '                    <v4:DisplayCode>AE</v4:DisplayCode>'
 )
 
-RESERVATION = """<?xml version="1.0" encoding="UTF-8"?>
+_TRIP_SEARCH_ENVELOPE_HEAD = """<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                   xmlns:eb="http://www.ebxml.org/namespaces/messageHeader"
                   xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/12/secext">
@@ -180,26 +180,9 @@ RESERVATION = """<?xml version="1.0" encoding="UTF-8"?>
             <wsse:BinarySecurityToken>{token}</wsse:BinarySecurityToken>
         </wsse:Security>
     </soapenv:Header>
-    <soapenv:Body>
-        <Trip_SearchRQ Version="4.5.0"
-                       xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07"
-                       xmlns="http://webservices.sabre.com/triprecord">
-            <ReadRequests>
-                <ReservationReadRequest>
-                    <FlightCriteria>
-                        <Flight>
-                            <FlightNumber>{flight_number}</FlightNumber>
-                            <DepartureAirport>{departure_airport}</DepartureAirport>
-                            <DepartureDateTime Is="{departure_datetime}"/>
-                            <AirlineCode>{airline}</AirlineCode>
-                        </Flight>
-                    </FlightCriteria>
-                    <PosCriteria AirlineCode="{airline}"/>
-                    <ReturnOptions ViewName="TripSearchBlob"
-                                  ResponseFormat="STL"
-                                  SearchType="ACTIVE"
-                                  MaxItemsReturned="800">
-                        <SubjectAreas>
+"""
+
+_TRIP_SEARCH_SUBJECT_AREAS = """                        <SubjectAreas>
                             <SubjectArea>HEADER</SubjectArea>
                             <SubjectArea>NAME</SubjectArea>
                             <SubjectArea>PASSENGERDETAILS</SubjectArea>
@@ -229,12 +212,65 @@ RESERVATION = """<?xml version="1.0" encoding="UTF-8"?>
                             <SubjectArea>ANCILLARY_SERVICES</SubjectArea>
                             <SubjectArea>DELIVERY_ADDRESS</SubjectArea>
                         </SubjectAreas>
-                    </ReturnOptions>
+"""
+
+RESERVATION = (
+    _TRIP_SEARCH_ENVELOPE_HEAD
+    + """    <soapenv:Body>
+        <Trip_SearchRQ Version="4.5.0"
+                       xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07"
+                       xmlns="http://webservices.sabre.com/triprecord">
+            <ReadRequests>
+                <ReservationReadRequest>
+                    <FlightCriteria>
+                        <Flight>
+                            <FlightNumber>{flight_number}</FlightNumber>
+                            <DepartureAirport>{departure_airport}</DepartureAirport>
+                            <DepartureDateTime Is="{departure_datetime}"/>
+                            <AirlineCode>{airline}</AirlineCode>
+                        </Flight>
+                    </FlightCriteria>
+                    <PosCriteria AirlineCode="{airline}"/>
+                    <ReturnOptions ViewName="TripSearchBlob"
+                                  ResponseFormat="STL"
+                                  SearchType="ACTIVE"
+                                  MaxItemsReturned="800">
+"""
+    + _TRIP_SEARCH_SUBJECT_AREAS
+    + """                    </ReturnOptions>
                 </ReservationReadRequest>
             </ReadRequests>
         </Trip_SearchRQ>
     </soapenv:Body>
 </soapenv:Envelope>"""
+)
+
+# Follow-up page of a Trip_SearchRQ result, addressed by the Token that the
+# first response returned on ReservationsList.
+RESERVATION_PAGE = (
+    _TRIP_SEARCH_ENVELOPE_HEAD
+    + """    <soapenv:Body>
+        <Trip_SearchRQ Version="4.5.0"
+                       xmlns:ns2="http://webservices.sabre.com/sabreXML/2003/07"
+                       xmlns="http://webservices.sabre.com/triprecord">
+            <ReadRequests>
+                <ReservationReadRequest>
+                    <TokenCriteria>
+                        <Token>{page_token}</Token>
+                        <Page>{page}</Page>
+                    </TokenCriteria>
+                    <ReturnOptions ViewName="TripSearchBlob"
+                                  ResponseFormat="STL"
+                                  SearchType="ACTIVE">
+"""
+    + _TRIP_SEARCH_SUBJECT_AREAS
+    + """                    </ReturnOptions>
+                </ReservationReadRequest>
+            </ReadRequests>
+        </Trip_SearchRQ>
+    </soapenv:Body>
+</soapenv:Envelope>"""
+)
 
 PASSENGER_DATA = """<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"

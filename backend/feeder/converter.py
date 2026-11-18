@@ -404,8 +404,8 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
     """Convert Trip_SearchRS dict into a clean MongoDB document."""
     data = _strip_ns(raw_data)
     res_list_wrapper = data.get("ReservationsList", {})
-    total = _safe_int(res_list_wrapper.get("@NumberResults",
-                      res_list_wrapper.get("@TotalResults", 0)))
+    total = _safe_int(res_list_wrapper.get("@TotalResults",
+                      res_list_wrapper.get("@NumberResults", 0)))
     raw_reservations = _ensure_list(
         (res_list_wrapper.get("Reservations") or {}).get("Reservation", [])
     )
