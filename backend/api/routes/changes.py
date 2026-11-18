@@ -507,6 +507,10 @@ def _describe_event(change: dict) -> str:
         return f"Terminal changed: {old_val} → {new_val}"
 
     if change_type == "BOARDING_TIME_CHANGE":
+        # Changes recorded before the converter stored the element text hold
+        # the parsed element ({"@boardingIndicator": ..., "#text": ...}).
+        if isinstance(new_val, dict):
+            new_val = new_val.get("#text") or ""
         return f"Boarding time updated: {new_val}"
 
     if change_type == "PRIORITY_CHANGE":

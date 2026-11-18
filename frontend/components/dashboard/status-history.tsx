@@ -77,7 +77,10 @@ function formatTs(ts: string): string {
 }
 
 /** Extract time portion (HH:mm) from "YYYY-MM-DDTHH:mm" or "HH:mm:ss" */
-function fmtTime(v: string | undefined): string {
+function fmtTime(v: string | { "#text"?: string } | undefined): string {
+  // Snapshots stored before the converter kept only the element text hold the
+  // parsed BoardingTime element instead of a string.
+  if (v && typeof v === "object") v = v["#text"];
   if (!v) return "—";
   // Full ISO with T
   const tIdx = v.indexOf("T");
