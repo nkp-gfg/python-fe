@@ -15,6 +15,9 @@ from backend.api.postgres import query_all
 
 logger = logging.getLogger(__name__)
 
+# otp.flight_xml_current has no carrier column; it holds the home carrier's flights.
+OTP_AIRLINE = "GF"
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -22,10 +25,11 @@ def _now_iso() -> str:
 
 # ── Data Loaders ──────────────────────────────────────────────────────────
 
-def load_sabre_flights(date: str, flight_numbers: list[str] | None = None) -> pl.DataFrame:
+def load_sabre_flights(date: str, flight_numbers: list[str] | None = None,
+                       airline: str = OTP_AIRLINE) -> pl.DataFrame:
     """Load latest Sabre flight data from MongoDB into a Polars DataFrame."""
     db = get_db()
-    query = {"departureDate": date}
+    query = {"airline": airline, "departureDate": date}
     if flight_numbers:
         query["flightNumber"] = {"$in": flight_numbers}
 
@@ -128,10 +132,11 @@ def load_otp_flights(date: str, flight_numbers: list[str] | None = None) -> pl.D
     return pl.DataFrame(result)
 
 
-def load_sabre_passengers(date: str, flight_numbers: list[str] | None = None) -> pl.DataFrame:
+def load_sabre_passengers(date: str, flight_numbers: list[str] | None = None,
+                          airline: str = OTP_AIRLINE) -> pl.DataFrame:
     """Load latest Sabre passenger lists from MongoDB into Polars."""
     db = get_db()
-    query = {"departureDate": date}
+    query = {"airline": airline, "departureDate": date}
     if flight_numbers:
         query["flightNumber"] = {"$in": flight_numbers}
 
