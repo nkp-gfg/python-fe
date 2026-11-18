@@ -44,7 +44,7 @@ def run_batch_ingestion(self, job_id: str, payloads: list[dict]) -> dict:
         }
     except Exception as exc:
         logger.exception("Batch ingestion job %s failed", job_id)
-        set_job_failed(job_id, str(exc))
+        set_job_failed(job_id, "Ingestion failed")
         raise self.retry(exc=exc)
 
 

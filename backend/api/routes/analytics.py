@@ -624,10 +624,9 @@ async def get_analytics_filters(
     try:
         result = await run_in_threadpool(_get_filter_options, date_from, date_to)
         return result
-    except Exception as exc:
-        logger.error("analytics_filters_error", error=str(exc))
-        raise HTTPException(
-            status_code=500, detail=f"Failed to load filters: {str(exc)}")
+    except Exception:
+        logger.exception("analytics_filters_error")
+        raise HTTPException(status_code=500, detail="Failed to load filters")
 
 
 @router.get("/network")
@@ -657,7 +656,7 @@ async def get_network_analytics(
             destination=destination,
         )
         return result
-    except Exception as exc:
-        logger.error("analytics_error", error=str(exc))
+    except Exception:
+        logger.exception("analytics_error")
         raise HTTPException(
-            status_code=500, detail=f"Analytics computation failed: {str(exc)}")
+            status_code=500, detail="Analytics computation failed")

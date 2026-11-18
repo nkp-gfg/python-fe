@@ -500,13 +500,13 @@ def run_feeder(flights, progress_callback=None):
                         "calls": pax_call_statuses,
                         **details,
                     }
-                except Exception as e:
-                    logger.error("passenger_list_convert_failed",
-                                 flight=f"{airline}{fn}", error=str(e))
+                except Exception:
+                    logger.exception("passenger_list_convert_failed",
+                                     flight=f"{airline}{fn}")
                     flight_result["success"] = False
                     flight_result["apis"]["passengerList"] = {
                         "status": "error",
-                        "error": str(e),
+                        "error": "Passenger list processing failed",
                         "calls": pax_call_statuses,
                     }
             else:

@@ -21,6 +21,8 @@ from backend.api.redis_client import create_job, get_job
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["ingestion"])
 
+INGESTION_FAILED_MESSAGE = "Ingestion failed"
+
 
 def _new_job_id() -> str:
     return str(uuid.uuid4())
@@ -33,7 +35,7 @@ def _utc_now() -> str:
 def _extract_ingest_error(flight_result: dict | None) -> str:
     """Return the first API error from a feeder result."""
     if not flight_result:
-        return "Ingestion failed"
+        return INGESTION_FAILED_MESSAGE
 
     apis = flight_result.get("apis") or {}
     for api_name in ("flightStatus", "passengerList", "reservations", "tripReports", "schedule"):
@@ -172,13 +174,10 @@ async def ingest_flight(payload: SabreIngestRequest):
     feeder_payload = payload.model_dump(mode="json")
     try:
         result = await run_in_threadpool(run_feeder, [feeder_payload])
-    except Exception as exc:
-        logger.exception("Ingestion failed for %s%s",
-                         payload.airline, payload.flightNumber)
-        raise HTTPException(
-            status_code=502,
-            detail=f"Ingestion pipeline error: {exc}",
-        )
+    except Exception:
+        logger.exception("ingestion_failed",
+                         flight=f"{payload.airline}{payload.flightNumber}")
+        raise HTTPException(status_code=502, detail=INGESTION_FAILED_MESSAGE)
     flight_result = result["results"][0] if result["results"] else None
 
     if flight_result is None:
