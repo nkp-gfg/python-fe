@@ -141,6 +141,11 @@ class ReservationPassenger(BaseModel):
     seatNumber: str = ""
     frequentFlyerNumber: str = ""
     frequentFlyerAirline: str = ""
+    email: str = ""
+    hasEmergencyContact: bool = False
+    emergencyContactName: str = ""
+    emergencyContactPhone: str = ""
+    emergencyContactCountry: str = ""
 
 
 class SsrRequest(BaseModel):
@@ -158,6 +163,7 @@ class PhoneEntry(BaseModel):
 
     number: str = ""
     type: str = ""
+    cityCode: str = ""
 
 
 class RemarkEntry(BaseModel):

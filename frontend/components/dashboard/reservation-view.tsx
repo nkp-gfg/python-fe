@@ -157,9 +157,17 @@ function ReservationCard({
                             {p.wheelchairCode}
                           </Badge>
                         )}
-                        {p.hasEmergencyContact && (
-                          <Badge variant="outline" className="text-[9px] px-1 border-rose-300 text-rose-600" title="Has Emergency Contact">
-                            ECnt
+                        {(p.hasEmergencyContact || p.emergencyContactPhone) && (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] px-1 border-rose-300 text-rose-600"
+                            title={
+                              p.emergencyContactPhone
+                                ? `Emergency Contact: ${[p.emergencyContactName, p.emergencyContactPhone].filter(Boolean).join(" ")}`
+                                : "Has Emergency Contact"
+                            }
+                          >
+                            ECnt{p.emergencyContactPhone && <span className="ml-1 font-mono">{p.emergencyContactPhone}</span>}
                           </Badge>
                         )}
                       </div>
@@ -274,6 +282,7 @@ function ReservationCard({
                 {r.phones?.map((ph, i) => (
                   <Badge key={`p-${i}`} variant="secondary" className="text-[10px] px-2">
                     <Phone className="h-3 w-3 mr-1" />
+                    {ph.cityCode && <span className="mr-1 opacity-60">{ph.cityCode}</span>}
                     {ph.number}
                     {ph.type && <span className="ml-1 opacity-60">({ph.type})</span>}
                   </Badge>
