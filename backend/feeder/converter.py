@@ -51,7 +51,9 @@ def _combine_datetime(date_val, time_val):
 
 
 def _now_iso():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Millisecond precision: "latest" lookups sort on fetchedAt, and two
+    # ingests of the same flight can land within one second.
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 # ── Flight Status ──────────────────────────────────────────────────────────
