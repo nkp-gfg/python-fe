@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
-from backend.api.validators import validate_date, validate_origin
+from backend.api.validators import normalize_airline, validate_date, validate_origin
 from backend.sabre.models import ReservationsResponse
 
 logger = structlog.get_logger(__name__)
@@ -28,12 +28,14 @@ def get_reservations(
         ge=1,
         description="Load historical view as-of this snapshot sequence number",
     ),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Get the latest reservations document for a flight."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["departureAirport"] = origin
     if date:
@@ -42,6 +44,7 @@ def get_reservations(
     if snapshot_sequence:
         doc = get_snapshot_data_as_of(
             db,
+            airline=airline,
             flight_number=flight_number,
             snapshot_type="reservations",
             snapshot_sequence=snapshot_sequence,
@@ -60,11 +63,13 @@ def get_reservation_by_pnr(
     flight_number: str,
     pnr: str,
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Find a specific reservation by PNR locator."""
     validate_date(date)
+    airline = normalize_airline(airline)
     db = get_db()
-    query = {"flightNumber": flight_number, "reservations.pnr": pnr}
+    query = {"airline": airline, "flightNumber": flight_number, "reservations.pnr": pnr}
     if date:
         query["departureDate"] = date
 

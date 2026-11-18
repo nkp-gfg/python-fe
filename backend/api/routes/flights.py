@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import PyMongoError
 from backend.api.database import get_db
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
-from backend.api.validators import validate_date, validate_origin
+from backend.api.validators import normalize_airline, validate_date, validate_origin
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["flights"])
@@ -18,8 +18,8 @@ _dashboard_cache = {}
 _cache_ttl = 30  # seconds
 
 
-def _get_cache_key(flight_number, origin, date, snapshot_sequence):
-    return f"{flight_number}:{origin}:{date}:{snapshot_sequence}"
+def _get_cache_key(airline, flight_number, origin, date, snapshot_sequence):
+    return f"{airline}:{flight_number}:{origin}:{date}:{snapshot_sequence}"
 
 
 def _get_cached(key):
@@ -1906,31 +1906,31 @@ def _compute_transitions(prev_passengers, curr_passengers):
 # ─── End Phase Journey helpers ──────────────────────────────────────
 
 
-def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_sequence=None):
+def _fetch_dashboard_data_parallel(db, airline, flight_number, origin, date, snapshot_sequence=None):
     """Fetch all dashboard data in parallel using ThreadPoolExecutor."""
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
         query["departureDate"] = date
 
-    res_query = {"flightNumber": flight_number}
+    res_query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         res_query["departureAirport"] = origin
     if date:
         res_query["departureDate"] = date
 
-    report_query = {"flightNumber": flight_number}
+    report_query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         report_query["origin"] = origin
     if date:
         report_query["departureDate"] = date
 
-    sched_query = {"flightNumber": flight_number}
+    sched_query = {"airline": airline, "flightNumber": flight_number}
     if date:
         sched_query["departureDate"] = date
 
-    change_match = {"flightNumber": flight_number}
+    change_match = {"airline": airline, "flightNumber": flight_number}
     if origin:
         change_match["origin"] = origin
     if date:
@@ -1940,19 +1940,28 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
 
     def fetch_flight_status():
         if snapshot_sequence:
-            return get_snapshot_data_as_of(db, flight_number, "flight_status", snapshot_sequence, origin, date)
+            return get_snapshot_data_as_of(
+                db, airline=airline, flight_number=flight_number,
+                snapshot_type="flight_status", snapshot_sequence=snapshot_sequence,
+                origin=origin, departure_date=date)
         doc = db["flight_status"].find_one(query, sort=[("fetchedAt", -1)])
         return _strip_id(doc)
 
     def fetch_passenger_list():
         if snapshot_sequence:
-            return get_snapshot_data_as_of(db, flight_number, "passenger_list", snapshot_sequence, origin, date)
+            return get_snapshot_data_as_of(
+                db, airline=airline, flight_number=flight_number,
+                snapshot_type="passenger_list", snapshot_sequence=snapshot_sequence,
+                origin=origin, departure_date=date)
         doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
         return _strip_id(doc)
 
     def fetch_reservations():
         if snapshot_sequence:
-            return get_snapshot_data_as_of(db, flight_number, "reservations", snapshot_sequence, origin, date)
+            return get_snapshot_data_as_of(
+                db, airline=airline, flight_number=flight_number,
+                snapshot_type="reservations", snapshot_sequence=snapshot_sequence,
+                origin=origin, departure_date=date)
         doc = db["reservations"].find_one(res_query, sort=[("fetchedAt", -1)])
         return _strip_id(doc)
 
@@ -1976,7 +1985,7 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
 
     def fetch_flight_meta():
         """Fetch flight-level metadata (e.g. flightSequenceNumber) from the flights collection."""
-        fq = {"flightNumber": flight_number}
+        fq = {"airline": airline, "flightNumber": flight_number}
         if origin:
             fq["origin"] = origin
         if date:
@@ -2016,16 +2025,19 @@ def get_flight_dashboard(
         ge=1,
         description="Load historical view as-of this snapshot sequence number",
     ),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """
     Combined dashboard endpoint — returns flight status + deep passenger
     analysis in a single response for the frontend dashboard view.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
 
     # Check cache first
-    cache_key = _get_cache_key(flight_number, origin, date, snapshot_sequence)
+    cache_key = _get_cache_key(
+        airline, flight_number, origin, date, snapshot_sequence)
     cached = _get_cached(cache_key)
     if cached:
         return cached
@@ -2034,7 +2046,7 @@ def get_flight_dashboard(
 
     # Fetch all data in parallel
     data = _fetch_dashboard_data_parallel(
-        db, flight_number, origin, date, snapshot_sequence)
+        db, airline, flight_number, origin, date, snapshot_sequence)
 
     fs = data.get("flight_status")
     pl = data.get("passenger_list")
@@ -2072,13 +2084,16 @@ def get_flight_tree(
         ge=1,
         description="Load historical view as-of this snapshot sequence number",
     ),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Return a dedicated tree payload for the selected flight."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
 
     # Tree uses same cache as dashboard
-    cache_key = _get_cache_key(flight_number, origin, date, snapshot_sequence)
+    cache_key = _get_cache_key(
+        airline, flight_number, origin, date, snapshot_sequence)
     cached = _get_cached(cache_key)
     if cached:
         return cached.get("tree") or {
@@ -2095,7 +2110,7 @@ def get_flight_tree(
 
     # Reuse parallel data fetching (only need fs, pl, reservations, trip_reports for tree)
     data = _fetch_dashboard_data_parallel(
-        db, flight_number, origin, date, snapshot_sequence)
+        db, airline, flight_number, origin, date, snapshot_sequence)
 
     fs = data.get("flight_status")
     pl = data.get("passenger_list")
@@ -2128,15 +2143,17 @@ def get_flight_status(
         ge=1,
         description="Load historical view as-of this snapshot sequence number",
     ),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """
     Get the latest flight status for a flight.
     Optionally filter by origin and/or date.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -2145,6 +2162,7 @@ def get_flight_status(
     if snapshot_sequence:
         doc = get_snapshot_data_as_of(
             db,
+            airline=airline,
             flight_number=flight_number,
             snapshot_type="flight_status",
             snapshot_sequence=snapshot_sequence,
@@ -2164,12 +2182,14 @@ def get_flight_status_history(
     origin: str = Query(None),
     date: str = Query(None),
     limit: int = Query(20, ge=1, le=100),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Get historical flight status snapshots (newest first)."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -2184,6 +2204,7 @@ def get_phase_journey(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Return per-phase passenger snapshots and inter-phase transition flows.
 
@@ -2193,12 +2214,14 @@ def get_phase_journey(
     Also computes Sankey-style transition flows between consecutive phases.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
 
     db = get_db()
 
     # ── 1. Fetch all passenger_list snapshots for this flight ────
     snap_query = {
+        "airline": airline,
         "flightNumber": flight_number,
         "snapshotType": "passenger_list",
     }
@@ -2223,7 +2246,7 @@ def get_phase_journey(
     )
 
     # ── 3. Also fetch the reservations doc for gender lookup ──────
-    res_query = {"flightNumber": flight_number}
+    res_query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         res_query["departureAirport"] = origin
     if date:
@@ -2288,7 +2311,7 @@ def get_phase_journey(
     # If we have zero PL snapshots but do have current data, use it as a single phase
     if not phase_snapshots:
         # Fall back to current passenger_list
-        query = {"flightNumber": flight_number}
+        query = {"airline": airline, "flightNumber": flight_number}
         if origin:
             query["origin"] = origin
         if date:

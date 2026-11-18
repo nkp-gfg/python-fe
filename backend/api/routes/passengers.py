@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
-from backend.api.validators import validate_date, validate_origin
+from backend.api.validators import normalize_airline, validate_date, validate_origin
 from backend.sabre.client import SabreClient, SabreError
 from backend.feeder.converter import convert_passenger_data
 
@@ -19,11 +19,12 @@ def _strip_id(doc):
     return doc
 
 
-def _build_nationality_lookup(db, flight_number, date, origin=None, snapshot_sequence=None):
+def _build_nationality_lookup(db, airline, flight_number, date, origin=None, snapshot_sequence=None):
     """Build PNR+lastName → {nationality, specialMeal, wheelchairCode, ffTier...} lookup from reservations."""
     if snapshot_sequence:
         res_doc = get_snapshot_data_as_of(
             db,
+            airline=airline,
             flight_number=flight_number,
             snapshot_type="reservations",
             snapshot_sequence=snapshot_sequence,
@@ -31,7 +32,7 @@ def _build_nationality_lookup(db, flight_number, date, origin=None, snapshot_seq
             departure_date=date,
         )
     else:
-        res_query = {"flightNumber": flight_number}
+        res_query = {"airline": airline, "flightNumber": flight_number}
         if date:
             res_query["departureDate"] = date
         res_doc = db["reservations"].find_one(
@@ -76,12 +77,14 @@ def get_passengers(
         ge=1,
         description="Load historical view as-of this snapshot sequence number",
     ),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Get the latest passenger list for a flight."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -90,6 +93,7 @@ def get_passengers(
     if snapshot_sequence:
         doc = get_snapshot_data_as_of(
             db,
+            airline=airline,
             flight_number=flight_number,
             snapshot_type="passenger_list",
             snapshot_sequence=snapshot_sequence,
@@ -104,6 +108,7 @@ def get_passengers(
     # Enrich passengers with reservation data (nationality, meals, FF tier, etc.)
     nat_lookup = _build_nationality_lookup(
         db,
+        airline,
         flight_number,
         date,
         origin=origin,
@@ -134,12 +139,14 @@ def get_passenger_summary(
     flight_number: str,
     origin: str = Query(None),
     date: str = Query(None),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Get a summary of passenger counts (checked-in, boarded, revenue, etc.)."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -193,6 +200,7 @@ def get_standby_list(
         ge=1,
         description="Load historical view as-of this snapshot sequence number",
     ),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Return the prioritized standby and upgrade queue for a flight.
 
@@ -205,9 +213,10 @@ def get_standby_list(
     Only passengers who are NOT yet checked-in are included (pending clearance).
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -216,6 +225,7 @@ def get_standby_list(
     if snapshot_sequence:
         doc = get_snapshot_data_as_of(
             db,
+            airline=airline,
             flight_number=flight_number,
             snapshot_type="passenger_list",
             snapshot_sequence=snapshot_sequence,
@@ -299,6 +309,7 @@ def get_group_bookings(
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
     snapshot_sequence: int = Query(None, ge=1),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Get all group bookings for a flight with per-group details.
 
@@ -307,9 +318,10 @@ def get_group_bookings(
     Unnamed group members (Sabre placeholder "PAX") are flagged explicitly.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -318,6 +330,7 @@ def get_group_bookings(
     if snapshot_sequence:
         doc = get_snapshot_data_as_of(
             db,
+            airline=airline,
             flight_number=flight_number,
             snapshot_type="passenger_list",
             snapshot_sequence=snapshot_sequence,
@@ -452,11 +465,13 @@ def get_passenger_by_pnr(
     flight_number: str,
     pnr: str,
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Find a specific passenger by PNR locator within a flight."""
     validate_date(date)
+    airline = normalize_airline(airline)
     db = get_db()
-    query = {"flightNumber": flight_number, "passengers.pnr": pnr}
+    query = {"airline": airline, "flightNumber": flight_number, "passengers.pnr": pnr}
     if date:
         query["departureDate"] = date
 
@@ -492,10 +507,11 @@ def get_passenger_detail(
     stored passenger list automatically.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
     # Look up last name from stored passenger list
-    query = {"flightNumber": flight_number, "passengers.pnr": pnr}
+    query = {"airline": airline, "flightNumber": flight_number, "passengers.pnr": pnr}
     if date:
         query["departureDate"] = date
     pl_doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])

@@ -734,6 +734,7 @@ export interface PassengerDetailResponse {
 // --- Change Types ---
 
 export interface ChangeRecord {
+  airline?: string | null;
   flightNumber: string;
   origin: string;
   departureDate: string;
@@ -1134,6 +1135,7 @@ export interface FlightTimelineResponse {
 
 export interface ActivityFeedEvent {
   timestamp: string;
+  airline?: string | null;
   flightNumber: string;
   origin: string;
   date: string;
@@ -1429,6 +1431,7 @@ export interface AuditAlert {
 }
 
 export interface AuditResponse {
+  airline: string;
   flightNumber: string;
   origin: string;
   departureDate: string;

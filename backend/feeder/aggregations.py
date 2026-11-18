@@ -31,7 +31,8 @@ def find_missing_pnrs(date: str) -> dict:
         {"$match": {"departureDate": date}},
         {"$sort": {"fetchedAt": -1}},
         {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin"},
+            "_id": {"airline": "$airline", "flightNumber": "$flightNumber",
+                    "origin": "$origin"},
             "paxDoc": {"$first": "$$ROOT"},
         }},
         # Unwind passengers to get PNR list
@@ -44,6 +45,7 @@ def find_missing_pnrs(date: str) -> dict:
         {"$lookup": {
             "from": "reservations",
             "let": {
+                "al": "$_id.airline",
                 "fn": "$_id.flightNumber",
                 "orig": "$_id.origin",
             },
@@ -51,6 +53,7 @@ def find_missing_pnrs(date: str) -> dict:
                 {"$match": {
                     "$expr": {
                         "$and": [
+                            {"$eq": ["$airline", "$$al"]},
                             {"$eq": ["$flightNumber", "$$fn"]},
                             {"$eq": ["$departureDate", date]},
                         ]
@@ -66,12 +69,14 @@ def find_missing_pnrs(date: str) -> dict:
         }},
         # Compute set differences
         {"$project": {
+            "airline": "$_id.airline",
             "flightNumber": "$_id.flightNumber",
             "origin": "$_id.origin",
             "paxPnrs": 1,
             "resPnrs": {"$ifNull": [{"$arrayElemAt": ["$resData.resPnrs", 0]}, []]},
         }},
         {"$project": {
+            "airline": 1,
             "flightNumber": 1,
             "origin": 1,
             "inPaxNotRes": {"$setDifference": ["$paxPnrs", "$resPnrs"]},
@@ -101,6 +106,7 @@ def find_missing_pnrs(date: str) -> dict:
         total_res_only += len(res_only)
 
         flights_with_mismatches.append({
+            "airline": r.get("airline", ""),
             "flightNumber": r.get("flightNumber", ""),
             "origin": r.get("origin", ""),
             "totalPaxPnrs": r.get("totalPaxPnrs", 0),
@@ -131,12 +137,14 @@ def passenger_status_distribution(date: str) -> dict:
         {"$match": {"departureDate": date}},
         {"$sort": {"fetchedAt": -1}},
         {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin"},
+            "_id": {"airline": "$airline", "flightNumber": "$flightNumber",
+                    "origin": "$origin"},
             "doc": {"$first": "$$ROOT"},
         }},
         {"$unwind": "$doc.passengers"},
         {"$group": {
             "_id": {
+                "airline": "$_id.airline",
                 "flightNumber": "$_id.flightNumber",
                 "cabin": "$doc.passengers.cabin",
             },
@@ -188,7 +196,7 @@ def change_type_summary(date: str) -> dict:
         {"$group": {
             "_id": "$changeType",
             "count": {"$sum": 1},
-            "flights": {"$addToSet": "$flightNumber"},
+            "flights": {"$addToSet": {"airline": "$airline", "flightNumber": "$flightNumber"}},
         }},
         {"$project": {
             "changeType": "$_id",

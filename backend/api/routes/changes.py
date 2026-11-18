@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
-from backend.api.validators import validate_date, validate_origin
+from backend.api.validators import normalize_airline, validate_date, validate_origin
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["changes"])
@@ -16,8 +16,9 @@ def _now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def _find_snapshot_as_of(db, flight_number, origin, date, snapshot_type, sequence):
+def _find_snapshot_as_of(db, airline, flight_number, origin, date, snapshot_type, sequence):
     query = {
+        "airline": airline,
         "flightNumber": flight_number,
         "snapshotType": snapshot_type,
         "sequenceNumber": {"$lte": sequence},
@@ -29,8 +30,9 @@ def _find_snapshot_as_of(db, flight_number, origin, date, snapshot_type, sequenc
     return db["snapshots"].find_one(query, sort=[("sequenceNumber", -1)])
 
 
-def _find_latest_snapshot(db, flight_number, origin, date, snapshot_type):
+def _find_latest_snapshot(db, airline, flight_number, origin, date, snapshot_type):
     query = {
+        "airline": airline,
         "flightNumber": flight_number,
         "snapshotType": snapshot_type,
     }
@@ -105,12 +107,14 @@ def get_changes(
     change_type: str = Query(
         None, description="Filter by change type (e.g. BOARDED, CHECKED_IN)"),
     limit: int = Query(100, ge=1, le=1000),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Get detected changes for a flight, newest first."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -133,12 +137,14 @@ def get_changes_summary(
     flight_number: str,
     origin: str = Query(None),
     date: str = Query(None),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Get a summary of change counts by type for a flight."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    match = {"flightNumber": flight_number}
+    match = {"airline": airline, "flightNumber": flight_number}
     if origin:
         match["origin"] = origin
     if date:
@@ -166,12 +172,14 @@ def get_snapshots(
     snapshot_type: str = Query(
         None, description="flight_status, passenger_list, or reservations"),
     limit: int = Query(20, ge=1, le=100),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """List snapshot metadata for a flight (without full data)."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -199,9 +207,11 @@ def compare_snapshot_against_latest(
     snapshot_sequence: int = Query(..., ge=1),
     origin: str = Query(None),
     date: str = Query(None),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Compare selected sequence against latest snapshots for key data types."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
 
@@ -222,9 +232,9 @@ def compare_snapshot_against_latest(
 
     for snapshot_type in snapshot_types:
         selected_snap = _find_snapshot_as_of(
-            db, flight_number, origin, date, snapshot_type, snapshot_sequence)
+            db, airline, flight_number, origin, date, snapshot_type, snapshot_sequence)
         latest_snap = _find_latest_snapshot(
-            db, flight_number, origin, date, snapshot_type)
+            db, airline, flight_number, origin, date, snapshot_type)
 
         if not selected_snap or not latest_snap:
             result["types"][snapshot_type] = {
@@ -256,9 +266,11 @@ def restore_snapshot_version(
     snapshot_sequence: int,
     origin: str = Query(None),
     date: str = Query(None),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Restore selected snapshot version by writing it as newest legacy documents."""
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     if snapshot_sequence < 1:
         raise HTTPException(
@@ -276,7 +288,7 @@ def restore_snapshot_version(
     restored = []
     for snapshot_type, target_collection in restore_plan:
         snap = _find_snapshot_as_of(
-            db, flight_number, origin, date, snapshot_type, snapshot_sequence)
+            db, airline, flight_number, origin, date, snapshot_type, snapshot_sequence)
         if not snap:
             continue
 
@@ -315,11 +327,13 @@ def get_passenger_changes(
     pnr: str,
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
     limit: int = Query(100, ge=1, le=1000),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Get all changes for a specific passenger by PNR."""
     validate_date(date)
+    airline = normalize_airline(airline)
     db = get_db()
-    query = {"flightNumber": flight_number, "passenger.pnr": pnr}
+    query = {"airline": airline, "flightNumber": flight_number, "passenger.pnr": pnr}
     if date:
         query["departureDate"] = date
 
@@ -340,6 +354,7 @@ def get_passenger_timeline(
     pnr: str,
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
     origin: str = Query(None, description="Departure airport code"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """
     Get a formatted timeline of all events for a passenger.
@@ -348,11 +363,12 @@ def get_passenger_timeline(
     categories and human-readable descriptions.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
 
     # Get all changes for this passenger
-    query = {"flightNumber": flight_number, "passenger.pnr": pnr}
+    query = {"airline": airline, "flightNumber": flight_number, "passenger.pnr": pnr}
     if date:
         query["departureDate"] = date
     if origin:
@@ -419,7 +435,7 @@ def get_passenger_timeline(
 
     # Get current passenger state from latest snapshot
     current_state = _get_current_passenger_state(
-        db, flight_number, pnr, date, origin)
+        db, airline, flight_number, pnr, date, origin)
 
     return {
         "flightNumber": flight_number,
@@ -545,10 +561,11 @@ def _describe_event(change: dict) -> str:
     return f"{change_type}: {old_val} → {new_val}"
 
 
-def _get_current_passenger_state(db, flight_number: str, pnr: str,
+def _get_current_passenger_state(db, airline: str, flight_number: str, pnr: str,
                                  date: str = None, origin: str = None) -> dict:
     """Get current passenger state from latest snapshot."""
     query = {
+        "airline": airline,
         "flightNumber": flight_number,
         "snapshotType": "passenger_list",
     }
@@ -589,6 +606,7 @@ def get_flight_timeline(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """
     Get a comprehensive timeline of all flight events.
@@ -597,11 +615,12 @@ def get_flight_timeline(
     into a chronological feed showing the flight's lifecycle.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
 
     # Build query
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -613,29 +632,8 @@ def get_flight_timeline(
     if not changes:
         raise HTTPException(status_code=404, detail="No timeline data found")
 
-    # Get snapshots for context
-    snapshots = list(db["snapshots"].find(
-        query,
-        projection={"data": 0}
-    ).sort("fetchedAt", 1))
-
-    # Build timeline events
+    # Snapshot history is served by GET /{flight_number}/snapshots.
     events = []
-
-    # Add snapshot fetch events
-    for snap in snapshots:
-        events.append({
-            "timestamp": snap.get("fetchedAt"),
-            "category": "snapshot",
-            "eventType": "SNAPSHOT_TAKEN",
-            "description": f"Data snapshot #{snap.get('sequenceNumber')} ({snap.get('snapshotType')})",
-            "details": {
-                "snapshotType": snap.get("snapshotType"),
-                "sequenceNumber": snap.get("sequenceNumber"),
-            },
-        })
-
-    # Add change events
     for change in changes:
         change.pop("_id", None)
         change_type = change.get("changeType", "")
@@ -755,6 +753,7 @@ def get_activity_feed(
         change.pop("_id", None)
         events.append({
             "timestamp": change.get("detectedAt"),
+            "airline": change.get("airline"),
             "flightNumber": change.get("flightNumber"),
             "origin": change.get("origin"),
             "departureDate": change.get("departureDate"),
@@ -777,6 +776,7 @@ def get_boarding_progress(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """
     Get check-in and boarding progress over time.
@@ -784,10 +784,11 @@ def get_boarding_progress(
     Returns time-series data for charting the boarding curve.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
 
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if origin:
         query["origin"] = origin
     if date:
@@ -872,6 +873,7 @@ def get_passengers_history_badges(
     flight_number: str,
     origin: str = Query(None),
     date: str = Query(None),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """
     Get a summary of change counts per passenger for badge display.
@@ -879,10 +881,12 @@ def get_passengers_history_badges(
     Returns PNR -> change count map for showing indicators in passenger list.
     """
     validate_date(date)
+    airline = normalize_airline(airline)
     validate_origin(origin)
     db = get_db()
 
-    query = {"flightNumber": flight_number, "passenger.pnr": {"$exists": True}}
+    query = {"airline": airline, "flightNumber": flight_number,
+             "passenger.pnr": {"$exists": True}}
     if origin:
         query["origin"] = origin
     if date:

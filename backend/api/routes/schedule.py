@@ -11,9 +11,10 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.database import get_db
-from backend.api.validators import validate_date, validate_flight_number
+from backend.api.validators import normalize_airline, validate_date, validate_flight_number
 from backend.feeder.converter import convert_schedule
 from backend.feeder import storage
+from backend.feeder.runner import ResponseCarrierMismatchError, _verify_response_carrier
 from backend.sabre.client import SabreClient, SabreError
 
 logger = structlog.get_logger(__name__)
@@ -92,12 +93,14 @@ class ScheduleResponse(BaseModel):
 def get_flight_schedule(
     flight_number: str,
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Get the stored schedule for a flight from MongoDB."""
     validate_flight_number(flight_number)
     validate_date(date)
+    airline = normalize_airline(airline)
     db = get_db()
-    query = {"flightNumber": flight_number}
+    query = {"airline": airline, "flightNumber": flight_number}
     if date:
         query["departureDate"] = date
 
@@ -125,6 +128,12 @@ async def lookup_schedule(payload: ScheduleLookupRequest):
                 origin="",
                 destination="",
             )
+            _verify_response_carrier("schedule", raw, {
+                "airline": payload.airline,
+                "flightNumber": payload.flightNumber,
+                "origin": "",
+                "departureDate": payload.departureDate,
+            })
             schedule_doc = convert_schedule(
                 raw, payload.airline, payload.flightNumber, payload.departureDate)
 
@@ -157,6 +166,8 @@ async def lookup_schedule(payload: ScheduleLookupRequest):
 
     try:
         result = await run_in_threadpool(_do_lookup)
+    except ResponseCarrierMismatchError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except SabreError as e:
         logger.exception("Schedule lookup failed for %s%s",
                          payload.airline, payload.flightNumber)

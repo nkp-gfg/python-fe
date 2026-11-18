@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from backend.api.database import get_db
 from backend.api.postgres import query_all
-from backend.api.validators import validate_date, validate_flight_number
+from backend.api.validators import normalize_airline, validate_date, validate_flight_number
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/data-audit", tags=["data-audit"])
@@ -147,12 +147,12 @@ def _fetch_pg(flight_number: str, flight_date: str | None,
         return None
 
 
-def _fetch_mongo(flight_number: str, flight_date: str | None,
+def _fetch_mongo(airline: str, flight_number: str, flight_date: str | None,
                  origin: str | None) -> dict | None:
     """Fetch flight_status doc from MongoDB."""
     try:
         db = get_db()
-        query: dict = {"flightNumber": flight_number}
+        query: dict = {"airline": airline, "flightNumber": flight_number}
         if origin:
             query["origin"] = origin
         if flight_date:
@@ -248,16 +248,19 @@ def compare_flight_data(
     origin: str = Query(None, description="Departure airport code (e.g. BAH)"),
     date: str = Query(None, description="Flight date YYYY-MM-DD"),
     seq: int = Query(None, description="Flight sequence number"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Compare flight data between PostgreSQL OTP and MongoDB Sabre side-by-side."""
     validate_flight_number(flight_number)
+    airline = normalize_airline(airline)
     if date:
         validate_date(date)
 
     # Query both databases in parallel
     with ThreadPoolExecutor(max_workers=2) as pool:
         pg_future = pool.submit(_fetch_pg, flight_number, date, origin, seq)
-        mongo_future = pool.submit(_fetch_mongo, flight_number, date, origin)
+        mongo_future = pool.submit(
+            _fetch_mongo, airline, flight_number, date, origin)
         pg_row = pg_future.result()
         mongo_doc = mongo_future.result()
 
@@ -304,12 +307,12 @@ def _parse_pg_pax_counts(counts) -> dict:
     return result
 
 
-def _fetch_mongo_pax(flight_number: str, flight_date: str | None,
+def _fetch_mongo_pax(airline: str, flight_number: str, flight_date: str | None,
                      origin: str | None) -> dict | None:
     """Fetch passenger_list doc from MongoDB."""
     try:
         db = get_db()
-        query: dict = {"flightNumber": flight_number}
+        query: dict = {"airline": airline, "flightNumber": flight_number}
         if origin:
             query["origin"] = origin
         if flight_date:
@@ -576,16 +579,18 @@ def compare_passenger_data(
     date: str = Query(None, description="Flight date YYYY-MM-DD"),
     seq: int = Query(
         None, description="Flight sequence number (for PG lookup)"),
+    airline: str = Query("GF", description="Airline code"),
 ):
     """Compare passenger data between PostgreSQL OTP and MongoDB Sabre."""
     validate_flight_number(flight_number)
+    airline = normalize_airline(airline)
     if date:
         validate_date(date)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         pg_future = pool.submit(_fetch_pg, flight_number, date, origin, seq)
         mongo_future = pool.submit(
-            _fetch_mongo_pax, flight_number, date, origin)
+            _fetch_mongo_pax, airline, flight_number, date, origin)
         pg_row = pg_future.result()
         mongo_doc = mongo_future.result()
 
