@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
-from backend.sabre.models import ReservationsResponse
+from backend.sabre.models import ReservationLookupResponse, ReservationsResponse
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["reservations"])
@@ -55,7 +55,7 @@ def get_reservations(
     return _strip_id(doc)
 
 
-@router.get("/{flight_number}/reservations/{pnr}")
+@router.get("/{flight_number}/reservations/{pnr}", response_model=ReservationLookupResponse)
 def get_reservation_by_pnr(
     flight_number: str,
     pnr: str,

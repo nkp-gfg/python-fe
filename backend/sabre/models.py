@@ -210,6 +210,15 @@ class ReservationsResponse(BaseModel):
     reservations: list[ReservationRecord] = Field(default_factory=lambda: [])
 
 
+class ReservationLookupResponse(BaseModel):
+    """Reservations matching a single PNR on a flight."""
+
+    flightNumber: str
+    departureAirport: str = ""
+    departureDate: str = ""
+    reservations: list[ReservationRecord] = Field(default_factory=lambda: [])
+
+
 # ── Trip Report (Trip_ReportsRS) ──────────────────────────────────────────
 
 
