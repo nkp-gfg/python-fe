@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query
+from backend.api.change_counts import count_change_types
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_origin
 
@@ -132,23 +133,17 @@ def get_changes(
 def get_changes_summary(
     flight_number: str,
     origin: str = Query(None),
-    date: str = Query(None),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """Get a summary of change counts by type for a flight."""
     validate_date(date)
     validate_origin(origin)
     db = get_db()
-    match = {"flightNumber": flight_number}
+    match = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         match["origin"] = origin
-    if date:
-        match["departureDate"] = date
 
-    counts = {}
-    for doc in db["changes"].find(match, {"changeType": 1}):
-        ct = doc.get("changeType")
-        if ct:
-            counts[ct] = counts.get(ct, 0) + 1
+    counts = count_change_types(db, match)
     if not counts:
         raise HTTPException(status_code=404, detail="No changes found")
     return {
@@ -338,7 +333,7 @@ def get_passenger_changes(
 def get_passenger_timeline(
     flight_number: str,
     pnr: str,
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
     origin: str = Query(None, description="Departure airport code"),
 ):
     """
@@ -352,9 +347,8 @@ def get_passenger_timeline(
     db = get_db()
 
     # Get all changes for this passenger
-    query = {"flightNumber": flight_number, "passenger.pnr": pnr}
-    if date:
-        query["departureDate"] = date
+    query = {"flightNumber": flight_number,
+             "passenger.pnr": pnr, "departureDate": date}
     if origin:
         query["origin"] = origin
 
@@ -588,7 +582,7 @@ def _get_current_passenger_state(db, flight_number: str, pnr: str,
 def get_flight_timeline(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
     Get a comprehensive timeline of all flight events.
@@ -601,11 +595,9 @@ def get_flight_timeline(
     db = get_db()
 
     # Build query
-    query = {"flightNumber": flight_number}
+    query = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     # Get all changes for this flight
     changes = list(db["changes"].find(query).sort("detectedAt", 1))
@@ -776,7 +768,7 @@ def get_activity_feed(
 def get_boarding_progress(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
     Get check-in and boarding progress over time.
@@ -787,11 +779,9 @@ def get_boarding_progress(
     validate_origin(origin)
     db = get_db()
 
-    query = {"flightNumber": flight_number}
+    query = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     # Get check-in and boarding events
     checkin_query = {**query, "changeType": "CHECKED_IN"}
@@ -871,7 +861,7 @@ def get_boarding_progress(
 def get_passengers_history_badges(
     flight_number: str,
     origin: str = Query(None),
-    date: str = Query(None),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
     Get a summary of change counts per passenger for badge display.
@@ -882,25 +872,34 @@ def get_passengers_history_badges(
     validate_origin(origin)
     db = get_db()
 
-    query = {"flightNumber": flight_number, "passenger.pnr": {"$exists": True}}
+    query = {
+        "flightNumber": flight_number,
+        "departureDate": date,
+        "passenger.pnr": {"$exists": True},
+    }
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
-    UPGRADE_TYPES = {"CABIN_CHANGE", "CLASS_CHANGE", "UPGRADE_CONFIRMED"}
+    upgrade_types = ["CABIN_CHANGE", "CLASS_CHANGE", "UPGRADE_CONFIRMED"]
+    pipeline = [
+        {"$match": query},
+        {"$group": {
+            "_id": "$passenger.pnr",
+            "changeCount": {"$sum": 1},
+            "hasUpgrade": {"$max": {"$in": ["$changeType", upgrade_types]}},
+            "lastChange": {"$max": "$detectedAt"},
+        }},
+    ]
+
     badges = {}
-    for doc in db["changes"].find(query, {"passenger.pnr": 1, "changeType": 1, "detectedAt": 1}):
-        pnr = (doc.get("passenger") or {}).get("pnr")
+    for row in db["changes"].aggregate(pipeline):
+        pnr = row.get("_id")
         if not pnr:
             continue
-        if pnr not in badges:
-            badges[pnr] = {"changeCount": 0, "hasUpgrade": False, "lastChange": None}
-        badges[pnr]["changeCount"] += 1
-        if doc.get("changeType") in UPGRADE_TYPES:
-            badges[pnr]["hasUpgrade"] = True
-        detected = doc.get("detectedAt")
-        if detected and (badges[pnr]["lastChange"] is None or detected > badges[pnr]["lastChange"]):
-            badges[pnr]["lastChange"] = detected
+        badges[pnr] = {
+            "changeCount": row.get("changeCount", 0),
+            "hasUpgrade": bool(row.get("hasUpgrade")),
+            "lastChange": row.get("lastChange"),
+        }
 
     return badges

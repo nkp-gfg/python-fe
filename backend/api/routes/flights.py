@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import PyMongoError
+from backend.api.change_counts import count_change_types
 from backend.api.database import get_db
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
@@ -1906,7 +1907,8 @@ def _compute_transitions(prev_passengers, curr_passengers):
 # ─── End Phase Journey helpers ──────────────────────────────────────
 
 
-def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_sequence=None):
+def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_sequence=None,
+                                   include_change_summary=True):
     """Fetch all dashboard data in parallel using ThreadPoolExecutor."""
     query = {"flightNumber": flight_number}
     if origin:
@@ -1967,12 +1969,7 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
         return _strip_id(doc)
 
     def fetch_change_summary():
-        counts = {}
-        for doc in db["changes"].find(change_match, {"changeType": 1}):
-            ct = doc.get("changeType")
-            if ct:
-                counts[ct] = counts.get(ct, 0) + 1
-        return counts
+        return count_change_types(db, change_match)
 
     def fetch_flight_meta():
         """Fetch flight-level metadata (e.g. flightSequenceNumber) from the flights collection."""
@@ -1992,9 +1989,10 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
             executor.submit(fetch_reservations): "reservations",
             executor.submit(fetch_trip_reports): "trip_reports",
             executor.submit(fetch_schedule): "schedule",
-            executor.submit(fetch_change_summary): "change_summary",
             executor.submit(fetch_flight_meta): "flight_meta",
         }
+        if include_change_summary:
+            futures[executor.submit(fetch_change_summary)] = "change_summary"
         for future in as_completed(futures):
             key = futures[future]
             try:
@@ -2010,7 +2008,7 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
 def get_flight_dashboard(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
     snapshot_sequence: int = Query(
         None,
         ge=1,
@@ -2066,7 +2064,7 @@ def get_flight_dashboard(
 def get_flight_tree(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
     snapshot_sequence: int = Query(
         None,
         ge=1,
@@ -2095,7 +2093,8 @@ def get_flight_tree(
 
     # Reuse parallel data fetching (only need fs, pl, reservations, trip_reports for tree)
     data = _fetch_dashboard_data_parallel(
-        db, flight_number, origin, date, snapshot_sequence)
+        db, flight_number, origin, date, snapshot_sequence,
+        include_change_summary=False)
 
     fs = data.get("flight_status")
     pl = data.get("passenger_list")
