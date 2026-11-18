@@ -400,6 +400,44 @@ def convert_passenger_list(raw_data, airline, flight_number, departure_date, ori
 
 # ── Reservations ───────────────────────────────────────────────────────────
 
+def _apis_text(value):
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _collect_apis(apis_requests):
+    """Gather every DOCSEntry and every DOCA free text across all APISRequests.
+
+    Returns (docs_entries, doca_address). Documents carrying a gender come
+    first so identity fields prefer the primary passport record; the other
+    documents only fill fields it lacks. DOCA texts are de-duplicated and
+    joined in document order.
+    """
+    docs_entries = []
+    doca_texts = []
+    for apis_request in _ensure_list(apis_requests):
+        if not isinstance(apis_request, dict):
+            continue
+        for doc_entry in _ensure_list(apis_request.get("DOCSEntry")):
+            if isinstance(doc_entry, dict):
+                docs_entries.append(doc_entry)
+        for doca_entry in _ensure_list(apis_request.get("DOCAEntry")):
+            if not isinstance(doca_entry, dict):
+                continue
+            text = _apis_text(doca_entry.get("FreeText"))
+            if text and text not in doca_texts:
+                doca_texts.append(text)
+    docs_entries.sort(key=lambda d: not _apis_text(d.get("Gender")))
+    return docs_entries, "; ".join(doca_texts)
+
+
+def _first_apis_value(docs_entries, field):
+    for doc_entry in docs_entries:
+        value = _apis_text(doc_entry.get(field))
+        if value:
+            return value
+    return ""
+
+
 def convert_reservations(raw_data, airline, flight_number, departure_airport, departure_date):
     """Convert Trip_SearchRS dict into a clean MongoDB document."""
     data = _strip_ns(raw_data)
@@ -425,34 +463,15 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
         )
         passengers = []
         for px in raw_passengers:
-            # Extract APIS DOCSEntry for gender/DOB/nationality
+            # APIS data: Sabre sends DOCS (passport) and DOCA (address) as
+            # sibling APISRequest elements, each possibly repeated.
             special_requests = px.get("SpecialRequests", {})
-            apis_request = special_requests.get("APISRequest", {})
-            if isinstance(apis_request, list):
-                apis_request = apis_request[0] if apis_request else {}
-            if not isinstance(apis_request, dict):
-                apis_request = {}
-            docs_entries = _ensure_list(apis_request.get("DOCSEntry", []))
-            gender = ""
-            date_of_birth = ""
-            nationality = ""
-            for doc_entry in docs_entries:
-                if isinstance(doc_entry, dict):
-                    g = doc_entry.get("Gender", "")
-                    if g:
-                        gender = g
-                        date_of_birth = doc_entry.get("DateOfBirth", "")
-                        nationality = doc_entry.get(
-                            "DocumentNationalityCountry", "")
-                        break
-
-            # DOCA — destination address (APIS requirement)
-            doca_entry = apis_request.get("DOCAEntry", {})
-            if isinstance(doca_entry, list):
-                doca_entry = doca_entry[0] if doca_entry else {}
-            doca_address = ""
-            if isinstance(doca_entry, dict):
-                doca_address = doca_entry.get("FreeText", "")
+            docs_entries, doca_address = _collect_apis(
+                special_requests.get("APISRequest"))
+            gender = _first_apis_value(docs_entries, "Gender")
+            date_of_birth = _first_apis_value(docs_entries, "DateOfBirth")
+            nationality = _first_apis_value(
+                docs_entries, "DocumentNationalityCountry")
 
             # Extract pre-reserved seat (expanded)
             seats = px.get("Seats") or {}
