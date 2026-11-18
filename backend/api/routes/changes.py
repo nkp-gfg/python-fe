@@ -11,6 +11,39 @@ from backend.api.validators import validate_date, validate_origin
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["changes"])
 
+HISTORY_PAGE_SIZE = 100
+
+_CHANGE_EVENT_PROJECTION = {
+    "_id": 0,
+    "changeType": 1,
+    "detectedAt": 1,
+    "field": 1,
+    "oldValue": 1,
+    "newValue": 1,
+    "metadata": 1,
+    "passenger.pnr": 1,
+    "passenger.lastName": 1,
+    "passenger.firstName": 1,
+}
+
+
+def _departure_query(flight_number, origin, date):
+    validate_date(date)
+    validate_origin(origin)
+    return {"flightNumber": flight_number, "origin": origin, "departureDate": date}
+
+
+def _read_page(collection, query, sort, limit, offset, projection=None):
+    """Read one bounded page of a sorted cursor and whether another page follows."""
+    # PyMongo treats limit=0 as "no limit", so the cap is enforced here too.
+    limit = min(max(int(limit), 1), HISTORY_PAGE_SIZE)
+    offset = max(int(offset), 0)
+    docs = list(collection.find(
+        query, projection, sort=sort, skip=offset, limit=limit))
+    has_more = len(docs) == limit and collection.find_one(
+        query, {"_id": 1}, sort=sort, skip=offset + limit) is not None
+    return docs, has_more
+
 
 def _now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -338,33 +371,28 @@ def get_passenger_changes(
 def get_passenger_timeline(
     flight_number: str,
     pnr: str,
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
-    origin: str = Query(None, description="Departure airport code"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
+    origin: str = Query(..., description="Departure airport code"),
+    limit: int = Query(HISTORY_PAGE_SIZE, ge=1, le=HISTORY_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
 ):
     """
-    Get a formatted timeline of all events for a passenger.
+    Get a formatted timeline of events for a passenger on one departure.
     
     Combines change records into a chronological timeline with event 
-    categories and human-readable descriptions.
+    categories and human-readable descriptions, one page at a time.
     """
-    validate_date(date)
-    validate_origin(origin)
+    query = {**_departure_query(flight_number, origin, date), "passenger.pnr": pnr}
     db = get_db()
 
-    # Get all changes for this passenger
-    query = {"flightNumber": flight_number, "passenger.pnr": pnr}
-    if date:
-        query["departureDate"] = date
-    if origin:
-        query["origin"] = origin
+    changes, has_more = _read_page(
+        db["changes"], query, [("detectedAt", 1), ("_id", 1)], limit, offset,
+        _CHANGE_EVENT_PROJECTION)
 
-    cursor = db["changes"].find(query).sort("detectedAt", 1)  # Chronological
-    changes = list(cursor)
-
-    # Also get initial appearance from PASSENGER_ADDED
-    added_record = next(
-        (c for c in changes if c.get("changeType") == "PASSENGER_ADDED"),
-        None
+    added_record = db["changes"].find_one(
+        {**query, "changeType": "PASSENGER_ADDED"},
+        {"_id": 0, "metadata": 1},
+        sort=[("detectedAt", 1), ("_id", 1)],
     )
 
     # Build timeline events
@@ -413,7 +441,7 @@ def get_passenger_timeline(
 
         timeline.append(event)
 
-    if not timeline:
+    if not timeline and offset == 0:
         raise HTTPException(
             status_code=404, detail="No timeline events found for this PNR")
 
@@ -433,6 +461,9 @@ def get_passenger_timeline(
         "currentState": current_state,
         "events": timeline,
         "eventCount": len(timeline),
+        "limit": limit,
+        "offset": offset,
+        "hasMore": has_more,
     }
 
 
@@ -546,16 +577,12 @@ def _describe_event(change: dict) -> str:
 
 
 def _get_current_passenger_state(db, flight_number: str, pnr: str,
-                                 date: str = None, origin: str = None) -> dict:
-    """Get current passenger state from latest snapshot."""
+                                 date: str, origin: str) -> dict:
+    """Get current passenger state from the departure's latest snapshot."""
     query = {
-        "flightNumber": flight_number,
+        **_departure_query(flight_number, origin, date),
         "snapshotType": "passenger_list",
     }
-    if date:
-        query["departureDate"] = date
-    if origin:
-        query["origin"] = origin
 
     # Get latest snapshot
     snapshot = db["snapshots"].find_one(
@@ -587,37 +614,33 @@ def _get_current_passenger_state(db, flight_number: str, pnr: str,
 @router.get("/{flight_number}/timeline")
 def get_flight_timeline(
     flight_number: str,
-    origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    origin: str = Query(..., description="Departure airport code"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
+    limit: int = Query(HISTORY_PAGE_SIZE, ge=1, le=HISTORY_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
 ):
     """
-    Get a comprehensive timeline of all flight events.
+    Get a timeline of flight events for one departure.
     
     Combines flight status changes, passenger events, and operational updates
-    into a chronological feed showing the flight's lifecycle.
+    into a chronological feed showing the flight's lifecycle. Changes and
+    snapshots are each paged with the same ``limit``/``offset``; ``hasMore``
+    is true when either has another page.
     """
-    validate_date(date)
-    validate_origin(origin)
+    query = _departure_query(flight_number, origin, date)
     db = get_db()
 
-    # Build query
-    query = {"flightNumber": flight_number}
-    if origin:
-        query["origin"] = origin
-    if date:
-        query["departureDate"] = date
+    changes, changes_more = _read_page(
+        db["changes"], query, [("detectedAt", 1), ("_id", 1)], limit, offset,
+        _CHANGE_EVENT_PROJECTION)
 
-    # Get all changes for this flight
-    changes = list(db["changes"].find(query).sort("detectedAt", 1))
-
-    if not changes:
+    if not changes and offset == 0:
         raise HTTPException(status_code=404, detail="No timeline data found")
 
-    # Get snapshots for context
-    snapshots = list(db["snapshots"].find(
-        query,
-        projection={"data": 0}
-    ).sort("fetchedAt", 1))
+    snapshots, snapshots_more = _read_page(
+        db["snapshots"], query, [("fetchedAt", 1), ("_id", 1)], limit, offset,
+        {"_id": 0, "fetchedAt": 1, "capturedAt": 1,
+         "snapshotType": 1, "sequenceNumber": 1})
 
     # Build timeline events
     events = []
@@ -625,7 +648,7 @@ def get_flight_timeline(
     # Add snapshot fetch events
     for snap in snapshots:
         events.append({
-            "timestamp": snap.get("fetchedAt"),
+            "timestamp": snap.get("fetchedAt") or snap.get("capturedAt"),
             "category": "snapshot",
             "eventType": "SNAPSHOT_TAKEN",
             "description": f"Data snapshot #{snap.get('sequenceNumber')} ({snap.get('snapshotType')})",
@@ -674,6 +697,9 @@ def get_flight_timeline(
         "events": events,
         "eventCount": len(events),
         "stats": stats,
+        "limit": limit,
+        "offset": offset,
+        "hasMore": changes_more or snapshots_more,
     }
 
 
@@ -775,34 +801,40 @@ def get_activity_feed(
 @router.get("/{flight_number}/boarding-progress")
 def get_boarding_progress(
     flight_number: str,
-    origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    origin: str = Query(..., description="Departure airport code"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
+    limit: int = Query(HISTORY_PAGE_SIZE, ge=1, le=HISTORY_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
 ):
     """
-    Get check-in and boarding progress over time.
+    Get check-in and boarding progress over time for one departure.
     
-    Returns time-series data for charting the boarding curve.
+    Returns time-series data for charting the boarding curve. The check-in,
+    boarding, and status series are each paged with the same
+    ``limit``/``offset``; ``hasMore`` is true when any has another page.
     """
-    validate_date(date)
-    validate_origin(origin)
+    query = _departure_query(flight_number, origin, date)
     db = get_db()
 
-    query = {"flightNumber": flight_number}
-    if origin:
-        query["origin"] = origin
-    if date:
-        query["departureDate"] = date
-
-    # Get check-in and boarding events
-    checkin_query = {**query, "changeType": "CHECKED_IN"}
-    boarding_query = {**query, "changeType": "BOARDED"}
-
-    checkins = list(db["changes"].find(checkin_query).sort("detectedAt", 1))
-    boardings = list(db["changes"].find(boarding_query).sort("detectedAt", 1))
+    event_sort = [("detectedAt", 1), ("_id", 1)]
+    series_projection = {
+        "_id": 0,
+        "detectedAt": 1,
+        "passenger.pnr": 1,
+        "passenger.lastName": 1,
+        "passenger.firstName": 1,
+    }
+    checkins, checkins_more = _read_page(
+        db["changes"], {**query, "changeType": "CHECKED_IN"},
+        event_sort, limit, offset, series_projection)
+    boardings, boardings_more = _read_page(
+        db["changes"], {**query, "changeType": "BOARDED"},
+        event_sort, limit, offset, series_projection)
 
     # Get total passenger count from latest snapshot
     snapshot = db["snapshots"].find_one(
         {**query, "snapshotType": "passenger_list"},
+        {"_id": 0, "data.totalPassengers": 1},
         sort=[("sequenceNumber", -1)]
     )
 
@@ -812,7 +844,7 @@ def get_boarding_progress(
 
     # Build time series
     checkin_series = []
-    cumulative = 0
+    cumulative = offset
     for c in checkins:
         cumulative += 1
         checkin_series.append({
@@ -822,7 +854,7 @@ def get_boarding_progress(
         })
 
     boarding_series = []
-    cumulative = 0
+    cumulative = offset
     for b in boardings:
         cumulative += 1
         boarding_series.append({
@@ -832,9 +864,10 @@ def get_boarding_progress(
         })
 
     # Get flight status transitions
-    status_changes = list(db["changes"].find(
-        {**query, "changeType": "STATUS_CHANGE"}
-    ).sort("detectedAt", 1))
+    status_changes, status_more = _read_page(
+        db["changes"], {**query, "changeType": "STATUS_CHANGE"},
+        event_sort, limit, offset,
+        {"_id": 0, "detectedAt": 1, "oldValue": 1, "newValue": 1})
 
     milestones = []
     for sc in status_changes:
@@ -850,18 +883,21 @@ def get_boarding_progress(
         "departureDate": date,
         "totalPassengers": total_passengers,
         "checkinProgress": {
-            "current": len(checkins),
+            "current": offset + len(checkins),
             "total": total_passengers,
-            "percentage": round(len(checkins) / total_passengers * 100, 1) if total_passengers else 0,
+            "percentage": round((offset + len(checkins)) / total_passengers * 100, 1) if total_passengers else 0,
             "series": checkin_series,
         },
         "boardingProgress": {
-            "current": len(boardings),
+            "current": offset + len(boardings),
             "total": total_passengers,
-            "percentage": round(len(boardings) / total_passengers * 100, 1) if total_passengers else 0,
+            "percentage": round((offset + len(boardings)) / total_passengers * 100, 1) if total_passengers else 0,
             "series": boarding_series,
         },
         "milestones": milestones,
+        "limit": limit,
+        "offset": offset,
+        "hasMore": checkins_more or boardings_more or status_more,
     }
 
 
@@ -870,23 +906,19 @@ def get_boarding_progress(
 @router.get("/{flight_number}/passengers/history-badges")
 def get_passengers_history_badges(
     flight_number: str,
-    origin: str = Query(None),
-    date: str = Query(None),
+    origin: str = Query(...),
+    date: str = Query(...),
 ):
     """
     Get a summary of change counts per passenger for badge display.
     
     Returns PNR -> change count map for showing indicators in passenger list.
     """
-    validate_date(date)
-    validate_origin(origin)
+    query = {
+        **_departure_query(flight_number, origin, date),
+        "passenger.pnr": {"$exists": True},
+    }
     db = get_db()
-
-    query = {"flightNumber": flight_number, "passenger.pnr": {"$exists": True}}
-    if origin:
-        query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     UPGRADE_TYPES = {"CABIN_CHANGE", "CLASS_CHANGE", "UPGRADE_CONFIRMED"}
     badges = {}

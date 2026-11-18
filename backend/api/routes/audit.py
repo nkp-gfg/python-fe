@@ -13,11 +13,11 @@ router = APIRouter(prefix="/flights", tags=["audit"])
 @router.get("/{flight_number}/audit")
 def get_flight_audit(
     flight_number: str,
-    origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    origin: str = Query(..., description="Departure airport code"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
-    Run process audit rules against the latest flight data.
+    Run process audit rules against the latest data for one departure.
 
     Returns alerts for process violations, discrepancies, and compliance issues.
     Uses the latest passenger_list, reservations, and change history.
@@ -26,23 +26,20 @@ def get_flight_audit(
     validate_origin(origin)
     db = get_db()
 
-    # Build query
-    query = {"flightNumber": flight_number}
-    if origin:
-        query["origin"] = origin
-    if date:
-        query["departureDate"] = date
+    query = {"flightNumber": flight_number, "origin": origin, "departureDate": date}
 
     # Fetch latest passenger_list
     pax_doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
 
     # Fetch latest reservations
-    res_query = {"flightNumber": flight_number}
-    if date:
-        res_query["departureDate"] = date
+    res_query = {
+        "flightNumber": flight_number,
+        "departureAirport": origin,
+        "departureDate": date,
+    }
     res_doc = db["reservations"].find_one(res_query, sort=[("fetchedAt", -1)])
 
-    # Fetch all changes for this flight
+    # Fetch all changes for this departure
     changes_cursor = db["changes"].find(
         query, {"_id": 0}).sort("sequenceNumber", 1)
     # Flatten: each doc may have a "changes" array or be a single change record
