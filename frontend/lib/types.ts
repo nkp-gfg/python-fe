@@ -482,6 +482,9 @@ export interface PassengerRecord {
   specialMeal?: string;
   wheelchairCode?: string;
   hasEmergencyContact?: boolean;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  email?: string;
   ffTierLevel?: string;
   ffTierName?: string;
   ffStatus?: string;
@@ -846,6 +849,10 @@ export interface ReservationPassenger {
   specialMeal?: string;
   wheelchairCode?: string;
   hasEmergencyContact?: boolean;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactCountry?: string;
+  email?: string;
   docaAddress?: string;
   seatStatusCode?: string;
   seatTypeCode?: string;
@@ -888,6 +895,7 @@ export interface SsrRequest {
 export interface PhoneEntry {
   number: string;
   type: string;
+  cityCode?: string;
 }
 
 export interface RemarkEntry {

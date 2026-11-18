@@ -757,8 +757,8 @@ export function PassengerTable({
                         </Badge>
                       )}
                       {p.hasEmergencyContact && (
-                        <Badge variant="outline" className="text-[9px] px-1 border-rose-300 text-rose-500" title="Emergency contact on file">
-                          EC
+                        <Badge variant="outline" className="text-[9px] px-1 border-rose-300 text-rose-500" title={p.emergencyContactPhone ? `Emergency contact: ${[p.emergencyContactName, p.emergencyContactPhone].filter(Boolean).join(" ")}` : "Emergency contact on file"}>
+                          EC{p.emergencyContactPhone && <span className="ml-1 font-mono">{p.emergencyContactPhone}</span>}
                         </Badge>
                       )}
                     </div>
