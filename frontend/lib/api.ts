@@ -97,9 +97,8 @@ export function getIngestFailureMessage(result: SabreFlightIngestResult): string
   return `Ingestion failed for ${flight.airline ?? "GF"}${flight.flightNumber} ${flight.origin} ${flight.departureDate}.`;
 }
 
-export function fetchFlights(date?: string): Promise<FlightListItem[]> {
-  const qs = date ? `?date=${date}` : "";
-  return get<FlightListItem[]>(`/flights${qs}`);
+export function fetchFlights(date: string): Promise<FlightListItem[]> {
+  return get<FlightListItem[]>(`/flights?date=${encodeURIComponent(date)}`);
 }
 
 export function fetchOtpFlights(date: string): Promise<OtpFlight[]> {

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { format, subDays, parseISO, parse } from "date-fns";
+import { addDays, differenceInCalendarDays, format, subDays, parseISO } from "date-fns";
 import {
   ArrowLeft,
   ArrowRight,
@@ -35,12 +35,15 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getStatusColor } from "@/components/dashboard/workbench-utils";
-import { FlightFilters } from "@/components/dashboard/flight-filters";
+import { DEFAULT_DATE_FILTER, FlightFilters, resolveDateFilter } from "@/components/dashboard/flight-filters";
 
 /* ─────────── lazy chart components ─────────── */
 import { EChart } from "@/components/ui/echarts";
 
 /* ─────────── constants ─────────── */
+
+/** Must match MAX_RANGE_DAYS in backend/api/routes/analytics.py. */
+const MAX_ANALYTICS_RANGE_DAYS = 93;
 
 const COUNTRY_NAMES: Record<string, string> = {
   IN: "India", PH: "Philippines", MA: "Morocco", PK: "Pakistan", BD: "Bangladesh",
@@ -341,78 +344,28 @@ export default function AnalyticsPage() {
 
   /* ── flight list filters (same as main screen) ── */
   const [flightSearch, setFlightSearch] = useState("");
-  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>(urlDate || DEFAULT_DATE_FILTER);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   const dateFromStr = format(dateFrom, "yyyy-MM-dd");
   const dateToStr = format(dateTo, "yyyy-MM-dd");
+  const listDate = resolveDateFilter(dateFilter);
 
-  /* ── fetch flights (same data as main screen) ── */
+  /* ── fetch flights for one day (same data as main screen) ── */
   const { data: flights, isLoading: flightsLoading, refetch: refetchFlights, isFetching: flightsFetching } = useQuery({
-    queryKey: ["flights"],
-    queryFn: fetchFlights,
+    queryKey: ["flights", listDate],
+    queryFn: () => fetchFlights(listDate),
     staleTime: 60_000,
   });
 
-  /* ── flights filtered to date range ── */
-  const flightsInRange = useMemo(() => {
-    if (!flights) return [];
-    return flights.filter((f) => f.departureDate >= dateFromStr && f.departureDate <= dateToStr);
-  }, [flights, dateFromStr, dateToStr]);
-
-  /* ── relative date map ── */
-  const relativeDateMap = useMemo(() => {
-    const toIso = (d: Date) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const dy = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${dy}`;
-    };
-    const now = new Date(); now.setHours(0, 0, 0, 0);
-    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-    const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
-    return { yesterday: toIso(yesterday), today: toIso(now), tomorrow: toIso(tomorrow) };
-  }, []);
-
-  const calendarSelectedDate = useMemo(() => {
-    if (dateFilter === "all") return undefined;
-    const resolved = (relativeDateMap as Record<string, string>)[dateFilter] ?? dateFilter;
-    return parse(resolved, "yyyy-MM-dd", new Date());
-  }, [dateFilter, relativeDateMap]);
-
-  const availableDateSet = useMemo(() =>
-    new Set(flightsInRange.map((f) => f.departureDate)),
-  [flightsInRange]);
-
   const availableStatuses = useMemo(() =>
-    [...new Set(flightsInRange.map((f) => f.status).filter(Boolean))].sort(),
-  [flightsInRange]);
-
-  const quickDateFilterItems = useMemo(() => {
-    const presets = [
-      { key: "yesterday", label: "Yesterday" },
-      { key: "today", label: "Today" },
-      { key: "tomorrow", label: "Tomorrow" },
-    ] as const;
-    return presets
-      .map((item) => {
-        const date = relativeDateMap[item.key];
-        const count = flightsInRange.filter((f) => f.departureDate === date).length;
-        return { ...item, count };
-      })
-      .filter((item) => item.count > 0);
-  }, [flightsInRange, relativeDateMap]);
+    [...new Set((flights ?? []).map((f) => f.status).filter(Boolean))].sort(),
+  [flights]);
 
   /* ── filtered flight list for sidebar ── */
   const filteredFlights = useMemo(() => {
-    const list = flightsInRange.filter((flight) => {
-      if (dateFilter !== "all") {
-        const relDate = relativeDateMap[dateFilter as keyof typeof relativeDateMap];
-        if (relDate) {
-          if (flight.departureDate !== relDate) return false;
-        } else if (flight.departureDate !== dateFilter) return false;
-      }
+    const list = (flights ?? []).filter((flight) => {
       if (statusFilter !== "all" && flight.status !== statusFilter) return false;
       if (flightSearch) {
         const hay = [flight.airline, flight.flightNumber, flight.origin, flight.destination, flight.status]
@@ -426,7 +379,7 @@ export default function AnalyticsPage() {
       return dc !== 0 ? dc : a.flightNumber.localeCompare(b.flightNumber);
     });
     return list;
-  }, [flightsInRange, dateFilter, statusFilter, flightSearch, relativeDateMap]);
+  }, [flights, statusFilter, flightSearch]);
 
   /* ── fetch analytics data with filters ── */
   const filters = useMemo(() => ({
@@ -453,15 +406,22 @@ export default function AnalyticsPage() {
     setFlightSearch("");
   };
 
-  /* ── the full FlightListItem for the selected flight ── */
+  /* ── the full FlightListItem for the selected flight (shares the list query when on the listed day) ── */
+  const selectedFlightDate = selectedDate || listDate;
+  const { data: selectedDayFlights } = useQuery({
+    queryKey: ["flights", selectedFlightDate],
+    queryFn: () => fetchFlights(selectedFlightDate),
+    enabled: Boolean(selectedFlight),
+    staleTime: 60_000,
+  });
+
   const selectedFlightItem = useMemo(() => {
-    if (!selectedFlight || !flights) return null;
-    return flights.find((f) =>
+    if (!selectedFlight || !selectedDayFlights) return null;
+    return selectedDayFlights.find((f) =>
       f.flightNumber === selectedFlight &&
-      f.origin === selectedOrigin &&
-      (!selectedDate || f.departureDate === selectedDate)
+      f.origin === selectedOrigin
     ) ?? null;
-  }, [flights, selectedFlight, selectedOrigin, selectedDate]);
+  }, [selectedDayFlights, selectedFlight, selectedOrigin]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -522,7 +482,13 @@ export default function AnalyticsPage() {
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start" side="right">
-                    <Calendar mode="single" selected={dateFrom} onSelect={(d) => { if (d) { setDateFrom(d); setFromOpen(false); } }} />
+                    <Calendar mode="single" selected={dateFrom} onSelect={(d) => {
+                      if (d) {
+                        setDateFrom(d);
+                        if (differenceInCalendarDays(dateTo, d) >= MAX_ANALYTICS_RANGE_DAYS) setDateTo(addDays(d, MAX_ANALYTICS_RANGE_DAYS - 1));
+                        setFromOpen(false);
+                      }
+                    }} />
                   </PopoverContent>
                 </Popover>
                 <span className="text-[10px] text-muted-foreground">→</span>
@@ -537,7 +503,13 @@ export default function AnalyticsPage() {
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start" side="right">
-                    <Calendar mode="single" selected={dateTo} onSelect={(d) => { if (d) { setDateTo(d); setToOpen(false); } }} />
+                    <Calendar mode="single" selected={dateTo} onSelect={(d) => {
+                      if (d) {
+                        setDateTo(d);
+                        if (differenceInCalendarDays(d, dateFrom) >= MAX_ANALYTICS_RANGE_DAYS) setDateFrom(subDays(d, MAX_ANALYTICS_RANGE_DAYS - 1));
+                        setToOpen(false);
+                      }
+                    }} />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -575,7 +547,7 @@ export default function AnalyticsPage() {
             <div className="flex items-center gap-2 pt-1">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">
                 Flights
-                {flightsInRange.length > 0 && (
+                {(flights?.length ?? 0) > 0 && (
                   <span className="ml-1.5 text-[10px] font-normal text-muted-foreground/70">
                     ({filteredFlights.length})
                   </span>
@@ -596,10 +568,7 @@ export default function AnalyticsPage() {
               setStatusFilter={setStatusFilter}
               calendarOpen={calendarOpen}
               setCalendarOpen={setCalendarOpen}
-              calendarSelectedDate={calendarSelectedDate}
-              availableDateSet={availableDateSet}
               availableStatuses={availableStatuses}
-              quickDateFilterItems={quickDateFilterItems}
             />
           </div>
 
