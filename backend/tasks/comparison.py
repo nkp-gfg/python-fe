@@ -11,14 +11,19 @@ logger = logging.getLogger(__name__)
 
 
 @app.task(bind=True, name="falconeye.compare_flights", max_retries=1, default_retry_delay=60)
-def run_flight_comparison(self, job_id: str, date: str, flight_numbers: list[str] | None = None) -> dict:
-    """Compare Sabre (MongoDB) passenger data against OTP (PostgreSQL) for a date.
+def run_flight_comparison(self, job_id: str, date: str, flight_numbers: list[str]) -> dict:
+    """Compare Sabre (MongoDB) flight data against OTP (PostgreSQL) for named flights.
 
-    If flight_numbers is provided, only those flights are compared.
-    Otherwise, all flights for the date are compared.
+    flight_numbers must name a bounded set of flights; see parse_flight_numbers.
     """
-    from backend.feeder.comparison import compare_flights_for_date
+    from backend.feeder.comparison import compare_flights_for_date, parse_flight_numbers
     from backend.feeder import storage
+
+    try:
+        flight_numbers = parse_flight_numbers(flight_numbers)
+    except ValueError as exc:
+        set_job_failed(job_id, str(exc))
+        return {"jobId": job_id, "error": str(exc)}
 
     set_job_running(job_id)
 

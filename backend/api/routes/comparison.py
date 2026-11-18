@@ -26,19 +26,29 @@ class ComparisonJobAccepted(BaseModel):
     sseUrl: str
 
 
+def _bounded_flight_list(flight_numbers: str) -> list[str]:
+    from backend.feeder.comparison import parse_flight_numbers
+
+    try:
+        return parse_flight_numbers(flight_numbers)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+_FLIGHT_NUMBERS_DESC = "Comma-separated flight numbers (required, bounded count)"
+
+
 # ── Synchronous endpoints (small result sets) ────────────────────────────
 
 @router.get("/flights")
 async def compare_flights_sync(
     date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    flight_numbers: str = Query(
-        default=None, description="Comma-separated flight numbers"),
+    flight_numbers: str = Query(..., description=_FLIGHT_NUMBERS_DESC),
 ):
     """Synchronous Sabre vs OTP flight comparison (fast, for small sets)."""
     from backend.feeder.comparison import compare_flights_for_date
 
-    fn_list = [f.strip() for f in flight_numbers.split(",")
-               ] if flight_numbers else None
+    fn_list = _bounded_flight_list(flight_numbers)
 
     result = await run_in_threadpool(compare_flights_for_date, date, fn_list)
     return result
@@ -47,14 +57,12 @@ async def compare_flights_sync(
 @router.get("/passengers")
 async def compare_passengers_sync(
     date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    flight_numbers: str = Query(
-        default=None, description="Comma-separated flight numbers"),
+    flight_numbers: str = Query(..., description=_FLIGHT_NUMBERS_DESC),
 ):
     """Passenger-level aggregation across flights using Polars."""
     from backend.feeder.comparison import compare_passengers_across_flights
 
-    fn_list = [f.strip() for f in flight_numbers.split(",")
-               ] if flight_numbers else None
+    fn_list = _bounded_flight_list(flight_numbers)
 
     result = await run_in_threadpool(compare_passengers_across_flights, date, fn_list)
     return result
@@ -101,14 +109,13 @@ async def change_type_summary(
 @router.post("/flights/async", response_model=ComparisonJobAccepted, status_code=202)
 async def compare_flights_async(
     date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    flight_numbers: str = Query(default=None),
+    flight_numbers: str = Query(..., description=_FLIGHT_NUMBERS_DESC),
 ):
-    """Submit a large flight comparison job to Celery."""
+    """Submit a flight comparison job to Celery."""
     from backend.tasks.comparison import run_flight_comparison
 
+    fn_list = _bounded_flight_list(flight_numbers)
     job_id = str(uuid.uuid4())
-    fn_list = [f.strip() for f in flight_numbers.split(",")
-               ] if flight_numbers else None
 
     create_job(job_id, 1, job_type="comparison")
     run_flight_comparison.delay(job_id, date, fn_list)
