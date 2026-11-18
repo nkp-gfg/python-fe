@@ -573,12 +573,12 @@ function RevenueOpportunities({ insights, noShows, total }: { insights: FlightIn
 
     // Corporate account service
     if (insights.corporateTravel.corporatePct >= 30) {
-      const topCompany = Object.entries(insights.corporateTravel.companies).sort((a, b) => b[1] - a[1])[0];
+      const accounts = insights.corporateTravel.accountCount;
       ops.push({
         label: "VIP Corporate Service",
         value: `${insights.corporateTravel.totalCorporate} corp pax`,
-        detail: topCompany
-          ? `Top account: ${topCompany[0]} (${topCompany[1]} pax) — ensure premium handling`
+        detail: accounts
+          ? `${accounts} corporate account${accounts === 1 ? "" : "s"} on board — ensure premium handling`
           : `${insights.corporateTravel.corporatePct}% corporate travelers on board`,
         accent: "text-blue-500",
       });

@@ -164,8 +164,6 @@ function getTypeBadge(p: PassengerRecord) {
     badges.push(<Badge key="inf" className="bg-teal-500/15 text-teal-600 border-transparent text-[10px]">+Infant</Badge>);
   if (p.isStandby)
     badges.push(<Badge key="sb" className="bg-rose-500/15 text-rose-600 border-transparent text-[10px]">Standby</Badge>);
-  if (p.corpId)
-    badges.push(<Badge key="corp" className="bg-cyan-500/15 text-cyan-600 border-transparent text-[10px]" title={`Corporate ID: ${p.corpId}`}>Corp</Badge>);
   return badges.length > 0 ? <div className="flex gap-1 flex-wrap">{badges}</div> : null;
 }
 

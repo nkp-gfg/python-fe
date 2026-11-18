@@ -2,7 +2,9 @@
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from backend.api.database import get_db
+from backend.api.passenger_fields import public_passenger
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
 from backend.sabre.client import SabreClient, SabreError
@@ -125,6 +127,7 @@ def get_passengers(
             p["ffTierName"] = enrichment.get("ffTierName", "")
         if "ffStatus" in enrichment:
             p["ffStatus"] = enrichment["ffStatus"]
+    doc["passengers"] = [public_passenger(p) for p in passengers]
 
     return _strip_id(doc)
 
@@ -183,7 +186,48 @@ def get_passenger_summary(
     }
 
 
-@router.get("/{flight_number}/passengers/standby-list")
+class StandbyEntry(BaseModel):
+    lastName: str | None = ""
+    firstName: str | None = ""
+    pnr: str | None = ""
+    lineNumber: int | None = 0
+    priorityCode: str | None = ""
+    bookingClass: str | None = ""
+    desiredBookingClass: str | None = ""
+    cabin: str | None = ""
+    seat: str | None = ""
+    destination: str | None = ""
+    isCheckedIn: bool | None = False
+    boardingPassIssued: bool | None = False
+    isRevenue: bool | None = True
+
+
+class StandbyQueue(BaseModel):
+    total: int
+    passengers: list[StandbyEntry]
+
+
+class CabinAvailability(BaseModel):
+    cabin: str | None = ""
+    destination: str | None = ""
+    authorized: int | None = 0
+    available: int | None = 0
+
+
+class StandbyListResponse(BaseModel):
+    flightNumber: str
+    origin: str | None = ""
+    departureDate: str | None = ""
+    fetchedAt: str | None = ""
+    cabinAvailability: list[CabinAvailability]
+    upgrade: StandbyQueue
+    standby: StandbyQueue
+
+
+@router.get(
+    "/{flight_number}/passengers/standby-list",
+    response_model=StandbyListResponse,
+)
 def get_standby_list(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
@@ -200,7 +244,8 @@ def get_standby_list(
     - **upgrade**: Revenue passengers with a PriorityCode indicating upgrade
       (e.g. UPG). Sorted by lineNumber.
     - **standby**: Non-revenue / staff passengers on the standby list
-      (PriorityCode like B01, B02, etc.). Sorted by seniorityDate then lineNumber.
+      (PriorityCode like B01, B02, etc.). Ordered by seniority then lineNumber;
+      the seniority date and corporate ID themselves are not returned.
 
     Only passengers who are NOT yet checked-in are included (pending clearance).
     """
@@ -229,42 +274,27 @@ def get_standby_list(
 
     passengers = doc.get("passengers", [])
 
-    upgrade_list = []
-    standby_list = []
+    upgrade_rows = []
+    standby_rows = []
 
     for p in passengers:
         priority = p.get("priorityCode", "")
         if not priority:
             continue
 
-        entry = {
-            "lastName": p.get("lastName", ""),
-            "firstName": p.get("firstName", ""),
-            "pnr": p.get("pnr", ""),
-            "lineNumber": p.get("lineNumber", 0),
-            "priorityCode": priority,
-            "bookingClass": p.get("bookingClass", ""),
-            "desiredBookingClass": p.get("desiredBookingClass", ""),
-            "cabin": p.get("cabin", ""),
-            "seat": p.get("seat", ""),
-            "destination": p.get("destination", ""),
-            "corpId": p.get("corpId", ""),
-            "seniorityDate": p.get("seniorityDate", ""),
-            "isCheckedIn": p.get("isCheckedIn", False),
-            "boardingPassIssued": p.get("boardingPassIssued", False),
-            "isRevenue": p.get("isRevenue", True),
-        }
-
         if priority == "UPG":
-            upgrade_list.append(entry)
+            upgrade_rows.append(p)
         else:
-            standby_list.append(entry)
+            standby_rows.append(p)
 
     # Sort upgrade list by lineNumber
-    upgrade_list.sort(key=lambda x: x.get("lineNumber", 0))
+    upgrade_rows.sort(key=lambda p: p.get("lineNumber", 0))
     # Sort standby list by seniorityDate (earliest first), then lineNumber
-    standby_list.sort(key=lambda x: (
-        x.get("seniorityDate", "") or "9999", x.get("lineNumber", 0)))
+    standby_rows.sort(key=lambda p: (
+        p.get("seniorityDate", "") or "9999", p.get("lineNumber", 0)))
+
+    upgrade_list = [StandbyEntry.model_validate(p) for p in upgrade_rows]
+    standby_list = [StandbyEntry.model_validate(p) for p in standby_rows]
 
     # Cabin availability from cabinSummary
     cabin_availability = []
@@ -465,7 +495,8 @@ def get_passenger_by_pnr(
         raise HTTPException(
             status_code=404, detail="PNR not found in passenger list")
 
-    matching = [p for p in doc.get("passengers", []) if p.get("pnr") == pnr]
+    matching = [public_passenger(p)
+                for p in doc.get("passengers", []) if p.get("pnr") == pnr]
     return {
         "flightNumber": flight_number,
         "origin": doc.get("origin", ""),

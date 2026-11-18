@@ -306,14 +306,7 @@ export function FlightInsightsPanel({ insights, totalPassengers, onOpenInfo }: F
         <Card className="shadow-sm"><CardContent className="p-3">
           <SectionHeader icon={Briefcase} title="Corporate Travel" onInfo={() => onOpenInfo?.("corporateTravel")} />
           <div className="space-y-1.5">
-            {Object.entries(insights.corporateTravel?.companies ?? {}).slice(0, 6).map(([id, cnt]) => (
-              <HBarRow key={id} label={id} value={cnt} max={Object.values(insights.corporateTravel?.companies ?? {})[0] || 1} color="bg-purple-500" />
-            ))}
-            {Object.keys(insights.corporateTravel?.companies ?? {}).length === 0 && (
-              <p className="text-xs text-muted-foreground">No corporate IDs</p>
-            )}
-          </div>
-          <div className="mt-2">
+            <KVPill label="Corporate accounts" value={insights.corporateTravel?.accountCount ?? 0} color="text-purple-500" />
             <KVPill label="Total corporate pax" value={insights.corporateTravel?.totalCorporate ?? 0} color="text-purple-500" />
           </div>
         </CardContent></Card>

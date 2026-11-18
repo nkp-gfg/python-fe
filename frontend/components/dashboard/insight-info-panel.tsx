@@ -632,7 +632,7 @@ function CorporateTravelInfo() {
         <h3 className="text-lg font-semibold">Corporate Travel</h3>
         <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
           Passengers with a corporate ID (<FieldBadge name="corpId" />) indicating they&apos;re traveling
-          under a corporate travel agreement. Grouped by company code.
+          under a corporate travel agreement. Only counts are shown; the account identifiers stay on the server.
         </p>
       </div>
       <Section title="Data Source" icon={<Database className="h-4 w-4 text-amber-500" />}>
@@ -644,7 +644,8 @@ function CorporateTravelInfo() {
         <CodeBlock>{`for each passenger:
   cid = passenger.corpId
   if cid: corp_ids[cid] += 1
-corporatePct = sum(corp_ids) / total × 100`}</CodeBlock>
+corporatePct = sum(corp_ids) / total × 100
+accountCount = len(corp_ids)`}</CodeBlock>
       </Section>
     </div>
   );
