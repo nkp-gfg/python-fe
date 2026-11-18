@@ -4,6 +4,7 @@
 # Or manually in separate terminals:
 uvicorn backend.api.main:app --reload
 celery -A backend.celery_app worker --loglevel=info --pool=threads --concurrency=4
+celery -A backend.celery_app worker -Q comparison -n comparison@%h --loglevel=info --pool=threads --concurrency=1
 
 npm run dev
 
