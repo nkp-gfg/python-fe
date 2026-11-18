@@ -214,7 +214,7 @@ def create_feature(req: FeatureRequest):
 1. Edit `backend/sabre/templates.py` to change XML request shape
 2. Update `backend/sabre/client.py` method signature if needed
 3. Update `backend/feeder/converter.py` to handle new response fields
-4. Test with sample XML in `sample_xmlfiles/` folder
+4. Test with synthetic sample XML; never commit captured Sabre responses or passenger extracts (`python scripts/check_passenger_data.py` runs in CI and rejects them)
 
 ## Key Files to Know
 
