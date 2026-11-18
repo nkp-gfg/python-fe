@@ -1,10 +1,11 @@
 """Change tracking API endpoints."""
 
+import uuid
 from copy import deepcopy
 from datetime import datetime, timezone
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_origin
 
@@ -250,14 +251,25 @@ def compare_snapshot_against_latest(
     return result
 
 
+RESTORE_COLLECTION = "snapshot_restores"
+
+
 @router.post("/{flight_number}/snapshots/{snapshot_sequence}/restore")
 def restore_snapshot_version(
+    request: Request,
     flight_number: str,
     snapshot_sequence: int,
-    origin: str = Query(None),
-    date: str = Query(None),
+    origin: str = Query(...),
+    date: str = Query(...),
 ):
-    """Restore selected snapshot version by writing it as newest legacy documents."""
+    """Record a restore of a snapshot version.
+
+    flight_status, passenger_list, and reservations hold only what Sabre
+    returned; readers treat the newest fetchedAt there as the current flight.
+    Restores are kept in their own collection and never written there, so
+    historical data cannot be presented as a fresh fetch. Use the
+    snapshot_sequence query parameter on read endpoints to view a version.
+    """
     validate_date(date)
     validate_origin(origin)
     if snapshot_sequence < 1:
@@ -267,46 +279,47 @@ def restore_snapshot_version(
     db = get_db()
     now_iso = _now_iso()
 
-    restore_plan = [
-        ("flight_status", "flight_status"),
-        ("passenger_list", "passenger_list"),
-        ("reservations", "reservations"),
-    ]
-
     restored = []
-    for snapshot_type, target_collection in restore_plan:
+    for snapshot_type in ("flight_status", "passenger_list", "reservations"):
         snap = _find_snapshot_as_of(
             db, flight_number, origin, date, snapshot_type, snapshot_sequence)
-        if not snap:
+        if not snap or not isinstance(snap.get("data"), dict):
             continue
-
-        data = deepcopy(snap.get("data", {}))
-        if not isinstance(data, dict):
-            continue
-
-        data.pop("_id", None)
-        data.pop("_raw", None)
-        data["fetchedAt"] = now_iso
-
-        db[target_collection].insert_one(data)
         restored.append({
             "snapshotType": snapshot_type,
-            "targetCollection": target_collection,
+            "targetCollection": RESTORE_COLLECTION,
+            "snapshotId": snap.get("snapshotId"),
             "sourceSequence": snap.get("sequenceNumber"),
+            "capturedAt": snap.get("capturedAt"),
         })
 
     if not restored:
         raise HTTPException(
             status_code=404, detail="No snapshots found to restore")
 
-    return {
+    record = {
+        "restoreId": str(uuid.uuid4()),
         "flightNumber": flight_number,
         "origin": origin,
         "departureDate": date,
         "requestedSequence": snapshot_sequence,
         "restoredAt": now_iso,
+        "requestedBy": {
+            "clientHost": request.client.host if request.client else None,
+            "requestId": getattr(request.state, "request_id", None),
+        },
         "restored": restored,
     }
+    db[RESTORE_COLLECTION].insert_one(deepcopy(record))
+    logger.info(
+        "snapshot_restore_recorded",
+        restore_id=record["restoreId"],
+        flight_number=flight_number,
+        origin=origin,
+        departure_date=date,
+        requested_sequence=snapshot_sequence,
+    )
+    return record
 
 
 @router.get("/{flight_number}/changes/passenger/{pnr}")

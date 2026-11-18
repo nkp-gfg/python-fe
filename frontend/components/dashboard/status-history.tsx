@@ -600,7 +600,7 @@ export function StatusHistory({
   async function handleRestore() {
     if (!selectedSnapshotSequence || restoring) return;
     const ok = window.confirm(
-      `Restore snapshot #${selectedSnapshotSequence} as latest data for this flight? This writes new latest documents.`,
+      `Record a restore of snapshot #${selectedSnapshotSequence} for this flight? The live view keeps showing the newest Sabre data.`,
     );
     if (!ok) return;
     try {
