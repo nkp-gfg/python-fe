@@ -796,15 +796,22 @@ export interface SnapshotCompareResponse {
 export interface SnapshotRestoreResultItem {
   snapshotType: string;
   targetCollection: string;
+  snapshotId?: string;
   sourceSequence: number;
+  capturedAt?: string;
 }
 
 export interface SnapshotRestoreResponse {
+  restoreId: string;
   flightNumber: string;
-  origin?: string;
-  departureDate?: string;
+  origin: string;
+  departureDate: string;
   requestedSequence: number;
   restoredAt: string;
+  requestedBy: {
+    clientHost?: string | null;
+    requestId?: string | null;
+  };
   restored: SnapshotRestoreResultItem[];
 }
 

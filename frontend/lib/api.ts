@@ -366,14 +366,11 @@ export function compareSnapshot(
 export function restoreSnapshotVersion(
   flightNumber: string,
   snapshotSequence: number,
-  origin?: string,
-  date?: string,
+  origin: string,
+  date: string,
 ): Promise<SnapshotRestoreResponse> {
-  const params = new URLSearchParams();
-  if (origin) params.set("origin", origin);
-  if (date) params.set("date", date);
-  const qs = params.toString() ? `?${params}` : "";
-  return post<SnapshotRestoreResponse>(`/flights/${flightNumber}/snapshots/${snapshotSequence}/restore${qs}`);
+  const params = new URLSearchParams({ origin, date });
+  return post<SnapshotRestoreResponse>(`/flights/${flightNumber}/snapshots/${snapshotSequence}/restore?${params}`);
 }
 
 // --- Reservations ---
