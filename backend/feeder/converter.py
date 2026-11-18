@@ -30,6 +30,17 @@ def _ensure_list(val):
     return [val]
 
 
+def _element_text(val):
+    """Text of an xmltodict element: plain string, or '#text' when it has attributes."""
+    if isinstance(val, list):
+        val = val[0] if val else None
+    if isinstance(val, dict):
+        val = val.get("#text")
+    if val is None:
+        return ""
+    return str(val).strip()
+
+
 def _safe_int(val, default=0):
     try:
         return int(val)
@@ -576,17 +587,25 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                     "eTicket": str(air.get("Eticket", "false")).lower() == "true",
                 })
 
-        # Tickets
+        # Tickets — PNRB TicketingInfo carries issued serials as
+        # TicketDetails/TicketNumber elements, not as attributes.
         raw_tickets = _ensure_list(
-            (pax_res.get("TicketingInfo") or {}).get("Ticketing", [])
+            (pax_res.get("TicketingInfo") or {}).get("TicketDetails", [])
         )
         tickets = []
         for tkt in raw_tickets:
-            if isinstance(tkt, dict):
-                tickets.append({
-                    "ticketNumber": tkt.get("@RPH", ""),
-                    "eTicket": tkt.get("@eTicketNumber", ""),
-                })
+            if not isinstance(tkt, dict):
+                continue
+            ticket_number = _element_text(tkt.get("TicketNumber"))
+            if not ticket_number:
+                continue
+            transaction = _element_text(tkt.get("TransactionIndicator"))
+            tickets.append({
+                "ticketNumber": ticket_number,
+                "passengerName": _element_text(tkt.get("PassengerName")),
+                "transactionIndicator": transaction,
+                "eTicket": "true" if transaction == "TE" else "false",
+            })
 
         # SSR — Special Service Requests (wheelchair, meal, medical, etc.)
         raw_ssrs = _ensure_list(

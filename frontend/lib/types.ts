@@ -912,7 +912,12 @@ export interface Reservation {
   updatedAt: string;
   passengers: ReservationPassenger[];
   segments: ReservationSegment[];
-  tickets: { ticketNumber: string; eTicket: string }[];
+  tickets: {
+    ticketNumber: string;
+    passengerName?: string;
+    transactionIndicator?: string;
+    eTicket: string;
+  }[];
   ssrRequests?: SsrRequest[];
   emails?: string[];
   phones?: PhoneEntry[];
