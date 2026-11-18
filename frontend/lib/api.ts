@@ -38,8 +38,14 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function get<T>(path: string): Promise<T> {
+function analyticsAuthHeaders(): HeadersInit {
+  const token = process.env.NEXT_PUBLIC_FALCONEYE_API_TOKEN;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function get<T>(path: string, headers?: HeadersInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
+    headers,
     signal: withTimeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
@@ -492,12 +498,15 @@ export function fetchNetworkAnalytics(
   if (filters?.cabin) params.set("cabin", filters.cabin);
   if (filters?.flightNumber) params.set("flight_number", filters.flightNumber);
   if (filters?.destination) params.set("destination", filters.destination);
-  return get<NetworkAnalyticsResponse>(`/analytics/network?${params}`);
+  return get<NetworkAnalyticsResponse>(`/analytics/network?${params}`, analyticsAuthHeaders());
 }
 
 export function fetchAnalyticsFilters(
   dateFrom: string,
   dateTo: string,
 ): Promise<AnalyticsFiltersResponse> {
-  return get<AnalyticsFiltersResponse>(`/analytics/filters?date_from=${dateFrom}&date_to=${dateTo}`);
+  return get<AnalyticsFiltersResponse>(
+    `/analytics/filters?date_from=${dateFrom}&date_to=${dateTo}`,
+    analyticsAuthHeaders(),
+  );
 }

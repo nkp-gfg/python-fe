@@ -4,19 +4,79 @@ Aggregates flight, passenger, reservation, and change data across all flights
 for a given date range to produce operational & business intelligence dashboards.
 """
 
-from datetime import datetime
+import time
+from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Optional
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pymongo.errors import ExecutionTimeout
 from starlette.concurrency import run_in_threadpool
 from backend.api.database import get_db
+from backend.api.security import (
+    SlidingWindowLimiter,
+    enforce_rate_limit,
+    require_api_token,
+)
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
+MAX_RANGE_DAYS = 31
+AGGREGATE_MAX_TIME_MS = 10_000
+REQUEST_TIME_BUDGET_MS = 25_000
+RATE_LIMIT_REQUESTS = 4
+RATE_LIMIT_WINDOW_S = 60
+
+_network_limiter = SlidingWindowLimiter(RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW_S)
+_filters_limiter = SlidingWindowLimiter(RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW_S)
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class DateWindow:
+    date_from: str
+    date_to: str
+
+
+def _parse_date_window(date_from: str, date_to: str) -> DateWindow:
+    """Validate a departure-date range and return the only values to query."""
+    try:
+        start = date.fromisoformat(date_from)
+        end = date.fromisoformat(date_to)
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail="date_from and date_to must be valid calendar dates")
+    days = (end - start).days + 1
+    if days < 1:
+        raise HTTPException(
+            status_code=400, detail="date_from must be before date_to")
+    if days > MAX_RANGE_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Date range may span at most {MAX_RANGE_DAYS} days")
+    return DateWindow(start.isoformat(), end.isoformat())
+
+
+class AnalyticsTimeBudgetExceeded(Exception):
+    pass
+
+
+class _Deadline:
+    """Shared time budget for every aggregation issued by one request."""
+
+    def __init__(self, budget_ms: int = REQUEST_TIME_BUDGET_MS):
+        self._end = time.monotonic() + budget_ms / 1000
+
+    def aggregate(self, collection, pipeline: list, **kwargs) -> list:
+        remaining_ms = int((self._end - time.monotonic()) * 1000)
+        if remaining_ms < 1:
+            raise AnalyticsTimeBudgetExceeded()
+        return list(collection.aggregate(
+            pipeline, maxTimeMS=min(AGGREGATE_MAX_TIME_MS, remaining_ms), **kwargs))
+
 
 def _flight_match(date_from: str, date_to: str, origin: Optional[str],
                   flight_number: Optional[str],
@@ -74,13 +134,15 @@ def _change_match(date_from: str, date_to: str, origin: Optional[str],
     return m
 
 
-def _run_network_analytics(date_from: str, date_to: str,
+def _run_network_analytics(window: DateWindow,
                            origin: Optional[str] = None,
                            cabin: Optional[str] = None,
                            flight_number: Optional[str] = None,
                            destination: Optional[str] = None):
     """Run all analytics aggregations for a date range and return combined result."""
     db = get_db()
+    deadline = _Deadline()
+    date_from, date_to = window.date_from, window.date_to
 
     fm = _flight_match(date_from, date_to, origin, flight_number, destination)
     pm = _pax_match(date_from, date_to, origin, flight_number, destination)
@@ -105,7 +167,7 @@ def _run_network_analytics(date_from: str, date_to: str,
             "daysTracked": {"$size": "$dates"},
         }},
     ]
-    overview_result = list(db.flights.aggregate(overview_pipeline))
+    overview_result = deadline.aggregate(db.flights, overview_pipeline)
     overview = overview_result[0] if overview_result else {
         "totalFlights": 0, "uniqueRoutes": 0, "uniqueStations": 0, "daysTracked": 0
     }
@@ -136,7 +198,7 @@ def _run_network_analytics(date_from: str, date_to: str,
             "cabinSummaries": {"$push": "$cabinSummary"},
         }},
     ]
-    pax_result = list(db.passenger_list.aggregate(pax_pipeline))
+    pax_result = deadline.aggregate(db.passenger_list, pax_pipeline)
     pax_totals = pax_result[0] if pax_result else {
         "totalPassengers": 0, "totalAdults": 0, "totalChildren": 0, "totalInfants": 0,
         "totalSouls": 0, "flightCount": 0, "maxPax": 0, "avgPax": 0, "cabinSummaries": []
@@ -163,7 +225,7 @@ def _run_network_analytics(date_from: str, date_to: str,
 
     overview["totalPassengers"] = pax_totals.get("totalPassengers", 0)
     overview["totalSouls"] = pax_totals.get("totalSouls", 0)
-    overview["avgPassengersPerFlight"] = round(pax_totals.get("avgPax", 0), 1)
+    overview["avgPassengersPerFlight"] = round(pax_totals.get("avgPax") or 0, 1)
     overview["maxPassengersOnFlight"] = pax_totals.get("maxPax", 0)
     overview["economyPassengers"] = economy_pax
     overview["businessPassengers"] = business_pax
@@ -188,10 +250,10 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$sort": {"totalPassengers": -1}},
         {"$limit": 20},
     ]
-    route_performance = list(db.passenger_list.aggregate(route_pipeline))
+    route_performance = deadline.aggregate(db.passenger_list, route_pipeline)
     for r in route_performance:
         r["origin"] = r.pop("_id")
-        r["avgPassengers"] = round(r["avgPassengers"], 1)
+        r["avgPassengers"] = round(r["avgPassengers"] or 0, 1)
 
     # ── 4. Booking Class Distribution ─────────────────────────────────────
     class_pipeline = [
@@ -212,8 +274,8 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$sort": {"count": -1}},
         {"$limit": 20},
     ]
-    class_dist = list(db.passenger_list.aggregate(
-        class_pipeline, allowDiskUse=True))
+    class_dist = deadline.aggregate(
+        db.passenger_list, class_pipeline, allowDiskUse=True)
     booking_class_distribution = []
     for c in class_dist:
         booking_class_distribution.append({
@@ -238,8 +300,8 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$sort": {"count": -1}},
         {"$limit": 15},
     ]
-    nationality_dist = list(db.reservations.aggregate(
-        nationality_pipeline, allowDiskUse=True))
+    nationality_dist = deadline.aggregate(
+        db.reservations, nationality_pipeline, allowDiskUse=True)
     nationality_distribution = [
         {"nationality": n["_id"], "count": n["count"]} for n in nationality_dist if n["_id"]]
 
@@ -257,8 +319,8 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$group": {"_id": "$reservations.passengers.ffTierLevel", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
     ]
-    loyalty_result = list(db.reservations.aggregate(
-        loyalty_pipeline, allowDiskUse=True))
+    loyalty_result = deadline.aggregate(
+        db.reservations, loyalty_pipeline, allowDiskUse=True)
     loyalty_distribution = []
     tier_labels = {"1": "Gold", "2": "Silver",
                    "4": "Bronze", "8": "Blue", "": "Unknown"}
@@ -286,8 +348,8 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$sort": {"count": -1}},
         {"$limit": 15},
     ]
-    meals_result = list(db.reservations.aggregate(
-        meals_pipeline, allowDiskUse=True))
+    meals_result = deadline.aggregate(
+        db.reservations, meals_pipeline, allowDiskUse=True)
     meal_distribution = [{"mealCode": m["_id"], "count": m["count"]}
                          for m in meals_result if m["_id"]]
 
@@ -306,8 +368,8 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$group": {"_id": "$reservations.passengers.wheelchairCode", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
     ]
-    wheelchair_result = list(db.reservations.aggregate(
-        wheelchair_pipeline, allowDiskUse=True))
+    wheelchair_result = deadline.aggregate(
+        db.reservations, wheelchair_pipeline, allowDiskUse=True)
     wheelchair_distribution = [
         {"code": w["_id"], "count": w["count"]} for w in wheelchair_result if w["_id"]]
 
@@ -317,7 +379,7 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$group": {"_id": "$changeType", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
     ]
-    changes_result = list(db.changes.aggregate(changes_pipeline))
+    changes_result = deadline.aggregate(db.changes, changes_pipeline)
     change_distribution = [{"changeType": c["_id"],
                             "count": c["count"]} for c in changes_result]
     total_changes = sum(c["count"] for c in change_distribution)
@@ -328,7 +390,7 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$group": {"_id": "$departureDate", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
     ]
-    daily_flights = list(db.flights.aggregate(daily_flights_pipeline))
+    daily_flights = deadline.aggregate(db.flights, daily_flights_pipeline)
 
     daily_pax_pipeline = [
         {"$match": pm},
@@ -345,14 +407,14 @@ def _run_network_analytics(date_from: str, date_to: str,
         }},
         {"$sort": {"_id": 1}},
     ]
-    daily_pax = list(db.passenger_list.aggregate(daily_pax_pipeline))
+    daily_pax = deadline.aggregate(db.passenger_list, daily_pax_pipeline)
 
     daily_changes_pipeline = [
         {"$match": cm},
         {"$group": {"_id": "$departureDate", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
     ]
-    daily_changes = list(db.changes.aggregate(daily_changes_pipeline))
+    daily_changes = deadline.aggregate(db.changes, daily_changes_pipeline)
 
     daily_trends = []
     pax_by_date = {d["_id"]: d for d in daily_pax}
@@ -379,8 +441,8 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$group": {"_id": "$reservations.numberInParty", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
     ]
-    party_result = list(db.reservations.aggregate(
-        party_pipeline, allowDiskUse=True))
+    party_result = deadline.aggregate(
+        db.reservations, party_pipeline, allowDiskUse=True)
     party_size_distribution = [
         {"partySize": p["_id"], "count": p["count"]} for p in party_result]
 
@@ -397,8 +459,8 @@ def _run_network_analytics(date_from: str, date_to: str,
         {"$sort": {"count": -1}},
         {"$limit": 15},
     ]
-    pos_result = list(db.reservations.aggregate(
-        pos_pipeline, allowDiskUse=True))
+    pos_result = deadline.aggregate(
+        db.reservations, pos_pipeline, allowDiskUse=True)
     point_of_sale_distribution = [
         {"country": p["_id"], "count": p["count"]} for p in pos_result if p["_id"]]
 
@@ -424,8 +486,8 @@ def _run_network_analytics(date_from: str, date_to: str,
             "standby": {"$sum": {"$cond": [{"$eq": ["$passengers.isStandby", True]}, 1, 0]}},
         }},
     ]
-    checkin_result = list(db.passenger_list.aggregate(
-        checkin_pipeline, allowDiskUse=True))
+    checkin_result = deadline.aggregate(
+        db.passenger_list, checkin_pipeline, allowDiskUse=True)
     if checkin_result:
         ci = checkin_result[0]
         operational_rates = {
@@ -453,7 +515,7 @@ def _run_network_analytics(date_from: str, date_to: str,
             "count": {"$sum": 1},
         }},
     ]
-    upgrade_result = list(db.changes.aggregate(upgrade_pipeline))
+    upgrade_result = deadline.aggregate(db.changes, upgrade_pipeline)
     upgrade_analytics = {"cabinChanges": 0, "upgradesConfirmed": 0}
     for u in upgrade_result:
         if u["_id"] == "CABIN_CHANGE":
@@ -478,8 +540,8 @@ def _run_network_analytics(date_from: str, date_to: str,
             "bookedDate": "$reservations.segments.segmentBookedDate",
         }},
     ]
-    lead_time_docs = list(db.reservations.aggregate(
-        lead_time_pipeline, allowDiskUse=True))
+    lead_time_docs = deadline.aggregate(
+        db.reservations, lead_time_pipeline, allowDiskUse=True)
 
     lead_time_buckets = {"sameDay": 0, "within7d": 0,
                          "within30d": 0, "within90d": 0, "over90d": 0}
@@ -528,26 +590,28 @@ def _run_network_analytics(date_from: str, date_to: str,
 
 # ── Filter options endpoint ───────────────────────────────────────────────
 
-def _get_filter_options(date_from: str, date_to: str):
+def _get_filter_options(window: DateWindow):
     """Return available filter values for the given date range."""
     db = get_db()
-    date_match = {"departureDate": {"$gte": date_from, "$lte": date_to}}
+    deadline = _Deadline()
+    date_match = {"departureDate": {
+        "$gte": window.date_from, "$lte": window.date_to}}
 
     origins_pipeline = [
         {"$match": date_match},
         {"$group": {"_id": "$origin"}},
         {"$sort": {"_id": 1}},
     ]
-    origins = [d["_id"]
-               for d in db.flights.aggregate(origins_pipeline) if d["_id"]]
+    origins = [d["_id"] for d in deadline.aggregate(
+        db.flights, origins_pipeline) if d["_id"]]
 
     flight_numbers_pipeline = [
         {"$match": date_match},
         {"$group": {"_id": "$flightNumber"}},
         {"$sort": {"_id": 1}},
     ]
-    flight_numbers = [d["_id"] for d in db.flights.aggregate(
-        flight_numbers_pipeline) if d["_id"]]
+    flight_numbers = [d["_id"] for d in deadline.aggregate(
+        db.flights, flight_numbers_pipeline) if d["_id"]]
 
     # Group flights by route — destination comes from passenger_list
     routes_pipeline = [
@@ -603,7 +667,7 @@ def _get_filter_options(date_from: str, date_to: str):
         }},
         {"$sort": {"flightNumber": 1, "origin": 1}},
     ]
-    routes = list(db.flights.aggregate(routes_pipeline))
+    routes = deadline.aggregate(db.flights, routes_pipeline)
 
     return {
         "origins": origins,
@@ -619,11 +683,18 @@ async def get_analytics_filters(
                            description="Start date (YYYY-MM-DD)"),
     date_to: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$",
                          description="End date (YYYY-MM-DD)"),
+    caller: str = Depends(require_api_token),
 ):
     """Return available filter options for analytics within a date range."""
+    window = _parse_date_window(date_from, date_to)
+    enforce_rate_limit(_filters_limiter, caller)
     try:
-        result = await run_in_threadpool(_get_filter_options, date_from, date_to)
+        result = await run_in_threadpool(_get_filter_options, window)
         return result
+    except (AnalyticsTimeBudgetExceeded, ExecutionTimeout):
+        logger.warning("analytics_filters_timeout", **vars(window))
+        raise HTTPException(
+            status_code=503, detail="Filter query exceeded its time limit")
     except Exception as exc:
         logger.error("analytics_filters_error", error=str(exc))
         raise HTTPException(
@@ -644,19 +715,23 @@ async def get_network_analytics(
         None, description="Filter by flight number"),
     destination: Optional[str] = Query(
         None, description="Filter by arrival airport (IATA code)"),
+    caller: str = Depends(require_api_token),
 ):
     """Comprehensive network-wide analytics for all flights in a date range."""
-    if date_from > date_to:
-        raise HTTPException(
-            status_code=400, detail="date_from must be before date_to")
+    window = _parse_date_window(date_from, date_to)
+    enforce_rate_limit(_network_limiter, caller)
 
     try:
         result = await run_in_threadpool(
-            _run_network_analytics, date_from, date_to,
+            _run_network_analytics, window,
             origin=origin, cabin=cabin, flight_number=flight_number,
             destination=destination,
         )
         return result
+    except (AnalyticsTimeBudgetExceeded, ExecutionTimeout):
+        logger.warning("analytics_timeout", **vars(window))
+        raise HTTPException(
+            status_code=503, detail="Analytics query exceeded its time limit")
     except Exception as exc:
         logger.error("analytics_error", error=str(exc))
         raise HTTPException(
