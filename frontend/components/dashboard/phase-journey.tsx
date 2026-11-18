@@ -21,7 +21,7 @@ export function PhaseJourney({ flightNumber, origin, date }: PhaseJourneyProps) 
   const { data, isLoading, error } = useQuery({
     queryKey: ["phase-journey", flightNumber, origin, date],
     queryFn: () => fetchPhaseJourney(flightNumber, origin, date),
-    enabled: Boolean(flightNumber),
+    enabled: Boolean(flightNumber && origin && date),
     refetchInterval: 60_000,
   });
 
