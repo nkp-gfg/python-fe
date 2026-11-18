@@ -113,9 +113,11 @@ def _build_gender_lookup(reservation_doc):
     return lookup
 
 
-def _analyze_passengers(passengers, gender_lookup=None):
-    """Deep passenger analysis: cabin × gender/age/staff breakdown."""
-    result = {
+LOYALTY_TIERS = ("FF", "BLU", "SLV", "GLD", "BLK")
+
+
+def _new_passenger_analysis():
+    return {
         "economy": {
             "total": 0,
             "passengers": {"total": 0, "male": 0, "female": 0, "children": 0, "infants": 0},
@@ -138,18 +140,85 @@ def _analyze_passengers(passengers, gender_lookup=None):
             "checkedIn": _empty_state_bucket(),
             "boarded": _empty_state_bucket(),
         },
-        "loyaltyCounts": {"FF": 0, "BLU": 0, "SLV": 0, "GLD": 0, "BLK": 0},
+        "loyaltyCounts": {tier: 0 for tier in LOYALTY_TIERS},
         "nationalityCounts": {},
     }
+
+
+def _add_passenger_counts(result, *, is_checked_in, is_boarded, is_business,
+                          is_staff, is_child, is_male, is_female, has_infant,
+                          is_revenue, count=1):
+    """Add `count` passengers sharing the same flags to an analysis dict."""
+    souls = count * (2 if has_infant else 1)
+
+    if is_checked_in:
+        result["checkedIn"] += count
+    if is_boarded:
+        result["boarded"] += count
+    if not is_checked_in:
+        result["notCheckedIn"] += count
+    if is_revenue:
+        result["revenue"] += count
+    else:
+        result["nonRevenue"] += count
+
+    if is_child:
+        result["totalChildren"] += count
+    elif is_male:
+        result["totalMale"] += count
+    elif is_female:
+        result["totalFemale"] += count
+
+    if has_infant:
+        result["totalInfants"] += count
+
+    cabin_key = "business" if is_business else "economy"
+    result[cabin_key]["total"] += count
+    result["cabinTotals"][cabin_key]["passengers"] += count
+    result["cabinTotals"][cabin_key]["souls"] += souls
+    cat = "staff" if is_staff else "passengers"
+    result[cabin_key][cat]["total"] += count
+
+    if is_child:
+        result[cabin_key][cat]["children"] += count
+    elif is_male:
+        result[cabin_key][cat]["male"] += count
+    elif is_female:
+        result[cabin_key][cat]["female"] += count
+    if has_infant:
+        if cat == "passengers":
+            result[cabin_key][cat]["infants"] += count
+
+    state_key = "boarded" if is_boarded else "checkedIn" if is_checked_in else "booked"
+    bucket = result["stateBreakdown"][state_key]
+    bucket["totalPassengers"] += count
+    bucket["totalSouls"] += souls
+    bucket[cabin_key] += count
+    bucket[cabin_key + "Souls"] += souls
+    if is_child:
+        bucket["children"] += count
+    else:
+        bucket["adults"] += count
+    if has_infant:
+        bucket["infants"] += count
+    # Per-cabin detail: adults, children, infants, staff
+    detail = bucket[cabin_key + "Detail"]
+    if is_staff:
+        detail["staff"] += count
+    elif is_child:
+        detail["children"] += count
+    else:
+        detail["adults"] += count
+    if has_infant:
+        detail["infants"] += count
+
+
+def _analyze_passengers(passengers, gender_lookup=None):
+    """Deep passenger analysis: cabin × gender/age/staff breakdown."""
+    result = _new_passenger_analysis()
     for p in passengers:
-        cabin = p.get("cabin", "Y")
         is_revenue = p.get("isRevenue", True)
-        # Staff = employee type OR non-revenue indicator.
-        # Note: "S" = Standby (can be revenue), not staff.
-        is_staff = p.get("passengerType") == "E" or not is_revenue
         edit_codes = p.get("editCodes", [])
-        is_child = p.get("isChild", False)
-        has_infant = p.get("hasInfant", False)
         # Note: Sabre edit codes "M" and "F" are meal/fare codes,
         # NOT gender indicators. Gender is resolved from Trip_SearchRS
         # DOCSEntry (passport data) via cross-reference lookup.
@@ -162,71 +231,23 @@ def _analyze_passengers(passengers, gender_lookup=None):
             is_male = gender == "M"
             is_female = gender in ("F", "FI")
 
-        if p.get("isCheckedIn"):
-            result["checkedIn"] += 1
-        if p.get("isBoarded"):
-            result["boarded"] += 1
-        if not p.get("isCheckedIn"):
-            result["notCheckedIn"] += 1
-        if is_revenue:
-            result["revenue"] += 1
-        else:
-            result["nonRevenue"] += 1
-
-        if is_child:
-            result["totalChildren"] += 1
-        elif is_male:
-            result["totalMale"] += 1
-        elif is_female:
-            result["totalFemale"] += 1
-
-        if has_infant:
-            result["totalInfants"] += 1
-
-        cabin_key = "business" if cabin == "J" else "economy"
-        result[cabin_key]["total"] += 1
-        result["cabinTotals"][cabin_key]["passengers"] += 1
-        result["cabinTotals"][cabin_key]["souls"] += 1 + \
-            (1 if has_infant else 0)
-        cat = "staff" if is_staff else "passengers"
-        result[cabin_key][cat]["total"] += 1
-
-        if is_child:
-            result[cabin_key][cat]["children"] += 1
-        elif is_male:
-            result[cabin_key][cat]["male"] += 1
-        elif is_female:
-            result[cabin_key][cat]["female"] += 1
-        if has_infant:
-            if cat == "passengers":
-                result[cabin_key][cat]["infants"] += 1
-
-        state_key = "boarded" if p.get("isBoarded") else "checkedIn" if p.get(
-            "isCheckedIn") else "booked"
-        bucket = result["stateBreakdown"][state_key]
-        bucket["totalPassengers"] += 1
-        bucket["totalSouls"] += 1 + (1 if has_infant else 0)
-        bucket[cabin_key] += 1
-        bucket[cabin_key + "Souls"] += 1 + (1 if has_infant else 0)
-        if is_child:
-            bucket["children"] += 1
-        else:
-            bucket["adults"] += 1
-        if has_infant:
-            bucket["infants"] += 1
-        # Per-cabin detail: adults, children, infants, staff
-        detail = bucket[cabin_key + "Detail"]
-        if is_staff:
-            detail["staff"] += 1
-        elif is_child:
-            detail["children"] += 1
-        else:
-            detail["adults"] += 1
-        if has_infant:
-            detail["infants"] += 1
+        _add_passenger_counts(
+            result,
+            is_checked_in=bool(p.get("isCheckedIn")),
+            is_boarded=bool(p.get("isBoarded")),
+            is_business=p.get("cabin", "Y") == "J",
+            # Staff = employee type OR non-revenue indicator.
+            # Note: "S" = Standby (can be revenue), not staff.
+            is_staff=p.get("passengerType") == "E" or not is_revenue,
+            is_child=bool(p.get("isChild", False)),
+            is_male=is_male,
+            is_female=is_female,
+            has_infant=bool(p.get("hasInfant", False)),
+            is_revenue=bool(is_revenue),
+        )
 
         # Loyalty tier counts
-        for tier in ("FF", "BLU", "SLV", "GLD", "BLK"):
+        for tier in LOYALTY_TIERS:
             if tier in edit_codes:
                 result["loyaltyCounts"][tier] += 1
 
@@ -1822,17 +1843,19 @@ def _derive_phase_from_snapshot(fs_data, pl_data):
     return phase_info.get("phase", "SCHEDULED")
 
 
-def _compute_phase_summary(passengers, gender_lookup=None):
-    """Run _analyze_passengers and build a summary dict for a phase snapshot."""
-    analysis = _analyze_passengers(passengers, gender_lookup)
+def _phase_summary_from_analysis(analysis):
+    """Build the phase-journey summary dict from a passenger analysis."""
     state = analysis.get("stateBreakdown", {})
+    total = analysis["economy"]["total"] + analysis["business"]["total"]
+    children = analysis["totalChildren"]
+    infants = analysis["totalInfants"]
     return {
-        "totalPassengers": len(passengers),
-        "adults": sum(1 for p in passengers if not p.get("isChild") and not p.get("hasInfant", False) or True) - 0,
-        "adultCount": len(passengers) - sum(1 for p in passengers if p.get("isChild")),
-        "childCount": sum(1 for p in passengers if p.get("isChild")),
-        "infantCount": sum(1 for p in passengers if p.get("hasInfant")),
-        "totalSouls": len(passengers) + sum(1 for p in passengers if p.get("hasInfant")),
+        "totalPassengers": total,
+        "adults": total,
+        "adultCount": total - children,
+        "childCount": children,
+        "infantCount": infants,
+        "totalSouls": total + infants,
         "booked": state.get("booked", _empty_state_bucket()),
         "checkedIn": state.get("checkedIn", _empty_state_bucket()),
         "boarded": state.get("boarded", _empty_state_bucket()),
@@ -1850,57 +1873,335 @@ def _compute_phase_summary(passengers, gender_lookup=None):
     }
 
 
-def _compute_transitions(prev_passengers, curr_passengers):
-    """Compute state transition flows between two passenger snapshots.
+def _compute_phase_summary(passengers, gender_lookup=None):
+    """Run _analyze_passengers and build a summary dict for a phase snapshot."""
+    return _phase_summary_from_analysis(_analyze_passengers(passengers, gender_lookup))
 
-    Returns a list of {fromState, toState, count} dicts.
+
+def _phase_entry(phase, sequence_number, captured_at, summary):
+    return {
+        "phase": phase,
+        "label": PHASE_LABELS.get(phase, phase),
+        "sequenceNumber": sequence_number,
+        "capturedAt": captured_at,
+        "summary": summary,
+        "passengerSummary": {
+            "totalPassengers": summary["totalPassengers"],
+            "adultCount": summary["adultCount"],
+            "childCount": summary["childCount"],
+            "infantCount": summary["infantCount"],
+            "totalSouls": summary["totalSouls"],
+        },
+    }
+
+
+# Upper bound on passenger_list snapshots a single phase-journey request scans.
+MAX_PHASE_JOURNEY_SNAPSHOTS = 500
+
+_PAX_KEY_SEP = "\x1f"
+_PAX_STATES = ("booked", "checkedIn", "boarded")
+
+
+def _mongo_truthy(expr):
+    """Python truthiness of a stored value, evaluated inside MongoDB."""
+    return {"$not": [{"$in": [{"$ifNull": [expr, False]}, [False, 0, "", []]]}]}
+
+
+def _mongo_str(expr):
+    return {"$toString": {"$ifNull": [expr, ""]}}
+
+
+def _gender_key_sets(gender_lookup):
+    male, female = [], []
+    for (pnr, last_name), gender in (gender_lookup or {}).items():
+        key = f"{pnr}{_PAX_KEY_SEP}{last_name}"
+        if gender == "M":
+            male.append(key)
+        elif gender in ("F", "FI"):
+            female.append(key)
+    return male, female
+
+
+def _phase_journey_pipeline(flight_number, origin, date, gender_lookup):
+    """Aggregate phase-journey counts and transition flows inside MongoDB.
+
+    Returns a single document; passenger arrays never leave the database.
+    Only the first passenger_list snapshot of each phase is analysed.
     """
-    def _pax_key(p):
-        return (p.get("pnr", ""), p.get("lastName", "").upper(), p.get("firstName", "").upper())
+    scope = {"flightNumber": flight_number, "origin": origin, "departureDate": date}
+    male_keys, female_keys = _gender_key_sets(gender_lookup)
 
-    def _pax_state(p):
-        if p.get("isBoarded"):
-            return "boarded"
-        if p.get("isCheckedIn"):
-            return "checkedIn"
-        return "booked"
+    # Mirrors _derive_flight_phase for the inputs _derive_phase_from_snapshot gives it.
+    has_pax = {"$gt": ["$total", 0]}
+    phase_expr = {"$switch": {
+        "branches": [
+            {"case": {"$eq": ["$status", "PDC"]}, "then": "DEPARTED"},
+            {"case": {"$eq": ["$status", "FINAL"]}, "then": "CLOSED"},
+            {"case": {"$eq": ["$status", "OPENCI"]}, "then": {"$cond": [
+                {"$or": [{"$eq": ["$indicator", "BDG"]}, {"$gt": ["$boarded", 0]}]},
+                "BOARDING", "CHECK_IN"]}},
+            {"case": {"$and": [
+                has_pax, {"$gt": ["$boarded", 0]},
+                {"$gt": [{"$divide": ["$boarded", {"$max": ["$total", 1]}]}, 0.8]},
+            ]}, "then": "DEPARTED"},
+            {"case": {"$and": [has_pax, {"$gt": ["$checkedInNotBoarded", 0]}]},
+             "then": {"$cond": [{"$gt": ["$boarded", 0]}, "BOARDING", "CHECK_IN"]}},
+        ],
+        "default": "SCHEDULED",
+    }}
 
-    prev_map = {}
-    for p in prev_passengers:
-        prev_map[_pax_key(p)] = _pax_state(p)
-
-    curr_map = {}
-    for p in curr_passengers:
-        curr_map[_pax_key(p)] = _pax_state(p)
-
-    flow_counts = {}
-    # Passengers present in both snapshots
-    for key in prev_map:
-        if key in curr_map:
-            from_s = prev_map[key]
-            to_s = curr_map[key]
-            pair = (from_s, to_s)
-            flow_counts[pair] = flow_counts.get(pair, 0) + 1
-
-    # New passengers (added between phases)
-    for key in curr_map:
-        if key not in prev_map:
-            to_s = curr_map[key]
-            pair = ("new", to_s)
-            flow_counts[pair] = flow_counts.get(pair, 0) + 1
-
-    # Removed passengers (disappeared between phases)
-    for key in prev_map:
-        if key not in curr_map:
-            from_s = prev_map[key]
-            pair = (from_s, "removed")
-            flow_counts[pair] = flow_counts.get(pair, 0) + 1
+    is_revenue = {"$cond": [
+        {"$eq": [{"$type": "$$p.isRevenue"}, "missing"]},
+        True,
+        _mongo_truthy("$$p.isRevenue"),
+    ]}
+    gender_key = {"$concat": [
+        _mongo_str("$$p.pnr"), _PAX_KEY_SEP, {"$toUpper": _mongo_str("$$p.lastName")},
+    ]}
+    compact_passenger = {
+        "key": {"$concat": [
+            _mongo_str("$$p.pnr"), _PAX_KEY_SEP,
+            {"$toUpper": _mongo_str("$$p.lastName")}, _PAX_KEY_SEP,
+            {"$toUpper": _mongo_str("$$p.firstName")},
+        ]},
+        "checkedIn": _mongo_truthy("$$p.isCheckedIn"),
+        "boarded": _mongo_truthy("$$p.isBoarded"),
+        "business": {"$eq": ["$$p.cabin", "J"]},
+        "staff": {"$or": [{"$eq": ["$$p.passengerType", "E"]}, {"$not": [is_revenue]}]},
+        "child": _mongo_truthy("$$p.isChild"),
+        "male": {"$in": [gender_key, {"$literal": male_keys}]},
+        "female": {"$in": [gender_key, {"$literal": female_keys}]},
+        "infant": _mongo_truthy("$$p.hasInfant"),
+        "revenue": is_revenue,
+        "nationality": {"$cond": [
+            _mongo_truthy("$$p.nationality"),
+            "$$p.nationality",
+            {"$ifNull": ["$$p.countryCode", ""]},
+        ]},
+        "loyalty": {"$filter": {
+            "input": {"$literal": list(LOYALTY_TIERS)},
+            "as": "tier",
+            "cond": {"$in": ["$$tier", {"$cond": [
+                {"$isArray": "$$p.editCodes"}, "$$p.editCodes", []]}]},
+        }},
+    }
+    pax_state = {"$cond": ["$pax.boarded", "boarded",
+                           {"$cond": ["$pax.checkedIn", "checkedIn", "booked"]}]}
 
     return [
-        {"fromState": f, "toState": t, "count": c}
-        for (f, t), c in sorted(flow_counts.items(), key=lambda x: -x[1])
-        if c > 0
+        {"$match": {**scope, "snapshotType": "passenger_list"}},
+        {"$sort": {"sequenceNumber": 1}},
+        {"$limit": MAX_PHASE_JOURNEY_SNAPSHOTS},
+        {"$project": {
+            "_id": 0,
+            "sequenceNumber": {"$ifNull": ["$sequenceNumber", 0]},
+            "capturedAt": {"$ifNull": ["$capturedAt", ""]},
+            "pax": {"$cond": [{"$isArray": "$data.passengers"}, "$data.passengers", []]},
+        }},
+        {"$lookup": {
+            "from": "snapshots",
+            "let": {"seq": "$sequenceNumber"},
+            "pipeline": [
+                {"$match": {
+                    **scope,
+                    "snapshotType": "flight_status",
+                    "$expr": {"$lte": ["$sequenceNumber", "$$seq"]},
+                }},
+                {"$sort": {"sequenceNumber": -1}},
+                {"$limit": 1},
+                {"$project": {
+                    "_id": 0,
+                    "status": "$data.status",
+                    "indicator": "$data.boarding.indicator",
+                }},
+            ],
+            "as": "fs",
+        }},
+        {"$addFields": {
+            "status": {"$ifNull": [{"$arrayElemAt": ["$fs.status", 0]}, ""]},
+            "indicator": {"$ifNull": [{"$arrayElemAt": ["$fs.indicator", 0]}, ""]},
+            "total": {"$size": "$pax"},
+            "boarded": {"$size": {"$filter": {
+                "input": "$pax", "as": "p", "cond": _mongo_truthy("$$p.isBoarded")}}},
+            "checkedInNotBoarded": {"$size": {"$filter": {
+                "input": "$pax", "as": "p", "cond": {"$and": [
+                    _mongo_truthy("$$p.isCheckedIn"),
+                    {"$not": [_mongo_truthy("$$p.isBoarded")]},
+                ]}}}},
+        }},
+        {"$addFields": {"phase": phase_expr}},
+        {"$group": {
+            "_id": "$phase",
+            "sequenceNumber": {"$first": "$sequenceNumber"},
+            "capturedAt": {"$first": "$capturedAt"},
+            "pax": {"$first": "$pax"},
+        }},
+        {"$project": {
+            "_id": 0,
+            "phase": "$_id",
+            "phaseIdx": {"$indexOfArray": [{"$literal": PHASE_ORDER}, "$_id"]},
+            "sequenceNumber": 1,
+            "capturedAt": 1,
+            "pax": {"$map": {"input": "$pax", "as": "p", "in": compact_passenger}},
+        }},
+        {"$sort": {"phaseIdx": 1}},
+        {"$group": {"_id": None, "phases": {"$push": "$$ROOT"}}},
+        {"$addFields": {"phaseCount": {"$size": "$phases"}}},
+        {"$unwind": {"path": "$phases", "includeArrayIndex": "rank"}},
+        {"$replaceRoot": {"newRoot": {"$mergeObjects": [
+            "$phases", {"rank": "$rank", "phaseCount": "$phaseCount"}]}}},
+        {"$facet": {
+            "phases": [{"$project": {"pax": 0}}],
+            "counts": [
+                {"$unwind": "$pax"},
+                {"$group": {
+                    "_id": {
+                        "rank": "$rank",
+                        "checkedIn": "$pax.checkedIn",
+                        "boarded": "$pax.boarded",
+                        "business": "$pax.business",
+                        "staff": "$pax.staff",
+                        "child": "$pax.child",
+                        "male": "$pax.male",
+                        "female": "$pax.female",
+                        "infant": "$pax.infant",
+                        "revenue": "$pax.revenue",
+                    },
+                    "count": {"$sum": 1},
+                }},
+            ],
+            "loyalty": [
+                {"$unwind": "$pax"},
+                {"$unwind": "$pax.loyalty"},
+                {"$group": {
+                    "_id": {"rank": "$rank", "tier": "$pax.loyalty"},
+                    "count": {"$sum": 1},
+                }},
+            ],
+            "nationalities": [
+                {"$unwind": "$pax"},
+                {"$match": {"$expr": _mongo_truthy("$pax.nationality")}},
+                {"$group": {
+                    "_id": {"rank": "$rank", "nationality": "$pax.nationality"},
+                    "count": {"$sum": 1},
+                }},
+            ],
+            "flows": [
+                {"$match": {"$expr": {"$gt": ["$phaseCount", 1]}}},
+                {"$unwind": {"path": "$pax", "includeArrayIndex": "position"}},
+                {"$sort": {"rank": 1, "position": 1}},
+                # Last occurrence of a passenger key within a snapshot wins.
+                {"$group": {
+                    "_id": {"rank": "$rank", "key": "$pax.key"},
+                    "phaseCount": {"$first": "$phaseCount"},
+                    "state": {"$last": pax_state},
+                }},
+                {"$project": {
+                    "_id": 0,
+                    "key": "$_id.key",
+                    "phaseCount": 1,
+                    "sides": [
+                        {"pair": "$_id.rank", "prev": "$state"},
+                        {"pair": {"$subtract": ["$_id.rank", 1]}, "curr": "$state"},
+                    ],
+                }},
+                {"$unwind": "$sides"},
+                {"$match": {"$expr": {"$and": [
+                    {"$gte": ["$sides.pair", 0]},
+                    {"$lt": ["$sides.pair", {"$subtract": ["$phaseCount", 1]}]},
+                ]}}},
+                {"$group": {
+                    "_id": {"pair": "$sides.pair", "key": "$key"},
+                    "prev": {"$max": "$sides.prev"},
+                    "curr": {"$max": "$sides.curr"},
+                }},
+                {"$group": {
+                    "_id": {
+                        "pair": "$_id.pair",
+                        "fromState": {"$ifNull": ["$prev", "new"]},
+                        "toState": {"$ifNull": ["$curr", "removed"]},
+                    },
+                    "count": {"$sum": 1},
+                }},
+            ],
+        }},
     ]
+
+
+def _flow_sort_key(flow):
+    from_state, to_state = flow["fromState"], flow["toState"]
+    section = 1 if from_state == "new" else 2 if to_state == "removed" else 0
+    return (
+        -flow["count"],
+        section,
+        _PAX_STATES.index(from_state) if from_state in _PAX_STATES else -1,
+        _PAX_STATES.index(to_state) if to_state in _PAX_STATES else -1,
+    )
+
+
+def _phase_journey_from_aggregate(result):
+    """Turn the aggregated document into (phase_snapshots, transitions)."""
+    phases = sorted(result.get("phases", []), key=lambda doc: doc["rank"])
+    analyses = [_new_passenger_analysis() for _ in phases]
+
+    for row in result.get("counts", []):
+        key = row["_id"]
+        _add_passenger_counts(
+            analyses[key["rank"]],
+            is_checked_in=key["checkedIn"],
+            is_boarded=key["boarded"],
+            is_business=key["business"],
+            is_staff=key["staff"],
+            is_child=key["child"],
+            is_male=key["male"],
+            is_female=key["female"],
+            has_infant=key["infant"],
+            is_revenue=key["revenue"],
+            count=row["count"],
+        )
+    for row in result.get("loyalty", []):
+        key = row["_id"]
+        analyses[key["rank"]]["loyaltyCounts"][key["tier"]] += row["count"]
+    nationality_rows = sorted(
+        result.get("nationalities", []),
+        key=lambda row: (-row["count"], str(row["_id"]["nationality"])),
+    )
+    for row in nationality_rows:
+        key = row["_id"]
+        analyses[key["rank"]]["nationalityCounts"][key["nationality"]] = row["count"]
+
+    phase_snapshots = [
+        _phase_entry(
+            doc["phase"],
+            doc.get("sequenceNumber", 0),
+            doc.get("capturedAt", ""),
+            _phase_summary_from_analysis(analysis),
+        )
+        for doc, analysis in zip(phases, analyses)
+    ]
+
+    flows_by_pair = {}
+    for row in result.get("flows", []):
+        key = row["_id"]
+        flows_by_pair.setdefault(key["pair"], []).append({
+            "fromState": key["fromState"],
+            "toState": key["toState"],
+            "count": row["count"],
+        })
+
+    transitions = []
+    for i in range(len(phase_snapshots) - 1):
+        flows = sorted(flows_by_pair.get(i, []), key=_flow_sort_key)
+        transitions.append({
+            "fromPhase": phase_snapshots[i]["phase"],
+            "toPhase": phase_snapshots[i + 1]["phase"],
+            "fromLabel": phase_snapshots[i]["label"],
+            "toLabel": phase_snapshots[i + 1]["label"],
+            "flows": flows,
+            "addedCount": sum(f["count"] for f in flows if f["fromState"] == "new"),
+            "removedCount": sum(f["count"] for f in flows if f["toState"] == "removed"),
+        })
+    return phase_snapshots, transitions
 
 
 # ─── End Phase Journey helpers ──────────────────────────────────────
@@ -2182,8 +2483,8 @@ def get_flight_status_history(
 @router.get("/{flight_number}/phase-journey")
 def get_phase_journey(
     flight_number: str,
-    origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    origin: str = Query(..., description="Departure airport code"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """Return per-phase passenger snapshots and inter-phase transition flows.
 
@@ -2197,102 +2498,27 @@ def get_phase_journey(
 
     db = get_db()
 
-    # ── 1. Fetch all passenger_list snapshots for this flight ────
-    snap_query = {
-        "flightNumber": flight_number,
-        "snapshotType": "passenger_list",
-    }
-    if origin:
-        snap_query["origin"] = origin
-    if date:
-        snap_query["departureDate"] = date
-
-    pl_snaps = list(
-        db["snapshots"]
-        .find(snap_query)
-        .sort("sequenceNumber", 1)
-    )
-
-    # ── 2. Fetch all flight_status snapshots (for phase detection) ──
-    fs_query = dict(snap_query)
-    fs_query["snapshotType"] = "flight_status"
-    fs_snaps = list(
-        db["snapshots"]
-        .find(fs_query)
-        .sort("sequenceNumber", 1)
-    )
-
-    # ── 3. Also fetch the reservations doc for gender lookup ──────
-    res_query = {"flightNumber": flight_number}
-    if origin:
-        res_query["departureAirport"] = origin
-    if date:
-        res_query["departureDate"] = date
     reservation_doc = db["reservations"].find_one(
-        res_query, sort=[("fetchedAt", -1)])
+        {"flightNumber": flight_number, "departureAirport": origin, "departureDate": date},
+        projection={
+            "_id": 0,
+            "reservations.pnr": 1,
+            "reservations.passengers.lastName": 1,
+            "reservations.passengers.gender": 1,
+        },
+        sort=[("fetchedAt", -1)],
+    )
     gender_lookup = _build_gender_lookup(
         reservation_doc) if reservation_doc else None
 
-    # ── 4. Build a timeline: for each pl_snapshot, resolve the flight phase ──
-    # Map fs snapshots by sequenceNumber for quick lookup
-    fs_by_seq = {}
-    for fs in fs_snaps:
-        fs_by_seq[fs.get("sequenceNumber", 0)] = fs.get("data", {})
+    aggregated = list(db["snapshots"].aggregate(
+        _phase_journey_pipeline(flight_number, origin, date, gender_lookup)))
+    phase_snapshots, transitions = _phase_journey_from_aggregate(
+        aggregated[0] if aggregated else {})
 
-    # For each PL snapshot, find the closest FS snapshot
-    # (same or most recent FS sequenceNumber <= PL sequenceNumber)
-    fs_seq_list = sorted(fs_by_seq.keys())
-
-    def _find_fs_for_seq(seq):
-        """Find the most recent flight_status data for a given sequenceNumber."""
-        best = None
-        for fs_seq in fs_seq_list:
-            if fs_seq <= seq:
-                best = fs_by_seq[fs_seq]
-            else:
-                break
-        return best
-
-    # ── 5. Walk PL snapshots and detect phase transitions ────────
-    # list of {phase, sequenceNumber, capturedAt, passengers, summary}
-    phase_snapshots = []
-    seen_phases = set()
-
-    for snap in pl_snaps:
-        seq = snap.get("sequenceNumber", 0)
-        pl_data = snap.get("data", {})
-        fs_data = _find_fs_for_seq(seq)
-        phase = _derive_phase_from_snapshot(fs_data, pl_data)
-
-        if phase not in seen_phases:
-            # First snapshot in this phase — capture it
-            seen_phases.add(phase)
-            passengers = pl_data.get("passengers", [])
-            summary = _compute_phase_summary(passengers, gender_lookup)
-            phase_snapshots.append({
-                "phase": phase,
-                "label": PHASE_LABELS.get(phase, phase),
-                "sequenceNumber": seq,
-                "capturedAt": snap.get("capturedAt", ""),
-                "summary": summary,
-                "passengerSummary": {
-                    "totalPassengers": summary["totalPassengers"],
-                    "adultCount": summary["adultCount"],
-                    "childCount": summary["childCount"],
-                    "infantCount": summary["infantCount"],
-                    "totalSouls": summary["totalSouls"],
-                },
-                "_passengers": passengers,  # internal, stripped before response
-            })
-
-    # If we have zero PL snapshots but do have current data, use it as a single phase
+    # No passenger_list snapshots yet: fall back to the current manifest as a single phase
     if not phase_snapshots:
-        # Fall back to current passenger_list
-        query = {"flightNumber": flight_number}
-        if origin:
-            query["origin"] = origin
-        if date:
-            query["departureDate"] = date
+        query = {"flightNumber": flight_number, "origin": origin, "departureDate": date}
         current_pl = db["passenger_list"].find_one(
             query, sort=[("fetchedAt", -1)])
         current_fs = db["flight_status"].find_one(
@@ -2301,46 +2527,9 @@ def get_phase_journey(
             passengers = current_pl.get("passengers", [])
             phase = _derive_phase_from_snapshot(
                 _strip_id(current_fs), _strip_id(current_pl))
-            summary = _compute_phase_summary(passengers, gender_lookup)
-            phase_snapshots.append({
-                "phase": phase,
-                "label": PHASE_LABELS.get(phase, phase),
-                "sequenceNumber": 0,
-                "capturedAt": current_pl.get("fetchedAt", ""),
-                "summary": summary,
-                "passengerSummary": {
-                    "totalPassengers": summary["totalPassengers"],
-                    "adultCount": summary["adultCount"],
-                    "childCount": summary["childCount"],
-                    "infantCount": summary["infantCount"],
-                    "totalSouls": summary["totalSouls"],
-                },
-                "_passengers": passengers,
-            })
-
-    # ── 6. Sort phases by canonical order ────────────────────────
-    phase_idx = {p: i for i, p in enumerate(PHASE_ORDER)}
-    phase_snapshots.sort(key=lambda ps: phase_idx.get(ps["phase"], 99))
-
-    # ── 7. Compute transitions between consecutive phases ────────
-    transitions = []
-    for i in range(len(phase_snapshots) - 1):
-        prev_pax = phase_snapshots[i]["_passengers"]
-        curr_pax = phase_snapshots[i + 1]["_passengers"]
-        flows = _compute_transitions(prev_pax, curr_pax)
-        transitions.append({
-            "fromPhase": phase_snapshots[i]["phase"],
-            "toPhase": phase_snapshots[i + 1]["phase"],
-            "fromLabel": phase_snapshots[i]["label"],
-            "toLabel": phase_snapshots[i + 1]["label"],
-            "flows": flows,
-            "addedCount": sum(f["count"] for f in flows if f["fromState"] == "new"),
-            "removedCount": sum(f["count"] for f in flows if f["toState"] == "removed"),
-        })
-
-    # ── 8. Strip internal _passengers field and return ───────────
-    for ps in phase_snapshots:
-        del ps["_passengers"]
+            phase_snapshots.append(_phase_entry(
+                phase, 0, current_pl.get("fetchedAt", ""),
+                _compute_phase_summary(passengers, gender_lookup)))
 
     return {
         "flightNumber": flight_number,
