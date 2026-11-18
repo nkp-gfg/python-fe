@@ -6,7 +6,7 @@
 
 **Staff fallback:** When PNR is missing (common for staff travel), falls back to `LINE:{lineNumber}|lastName|firstName`.
 
-**Cross-enrichment:** Passenger list data is enriched with reservation data via `_build_nationality_lookup()` in `passengers.py`, which builds a `(PNR, lastName) → {nationality, specialMeal, wheelchairCode, ffTier...}` map.
+**Cross-enrichment:** Passenger list data is enriched with reservation data via `_build_nationality_lookup()` in `passengers.py`, which builds a `(PNR, lastName) → nationality` map. Reservation service codes (special meal, wheelchair, emergency contact, loyalty tier) are not copied onto the flight-wide manifest.
 
 ## Passenger Types
 
