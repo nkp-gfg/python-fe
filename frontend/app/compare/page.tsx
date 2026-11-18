@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { format } from "date-fns";
 import { fetchFlights, fetchDashboard, fetchFlightTree } from "@/lib/api";
 import type { FlightListItem } from "@/lib/types";
 import { PassengerTree } from "@/components/dashboard/passenger-tree";
@@ -50,10 +51,14 @@ function ComparePageContent() {
     }),
   );
 
+  const [listDate, setListDate] = useState(
+    () => preselected[0]?.split(":")[2] || format(new Date(), "yyyy-MM-dd"),
+  );
+
   // Fetch flight list for selector
   const { data: flights, refetch: refetchFlights, isFetching: flightsFetching } = useQuery({
-    queryKey: ["flights"],
-    queryFn: () => fetchFlights(),
+    queryKey: ["flights", listDate],
+    queryFn: () => fetchFlights(listDate),
   });
 
   return (
@@ -83,6 +88,8 @@ function ComparePageContent() {
         {/* Flight Selector */}
         <FlightSelector
           flights={flights ?? []}
+          listDate={listDate}
+          onListDateChange={setListDate}
           selected={selected}
           onToggle={(f) => {
             const key = `${f.flightNumber}:${f.origin}:${f.departureDate}`;
@@ -129,10 +136,14 @@ function ComparePageContent() {
 /* ─────────── FLIGHT SELECTOR ─────────── */
 function FlightSelector({
   flights,
+  listDate,
+  onListDateChange,
   selected,
   onToggle,
 }: {
   flights: FlightListItem[];
+  listDate: string;
+  onListDateChange: (date: string) => void;
   selected: { flightNumber: string; origin: string; date: string }[];
   onToggle: (f: FlightListItem) => void;
 }) {
@@ -158,6 +169,18 @@ function FlightSelector({
             className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
+
+        {open && (
+          <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            Departure date
+            <input
+              type="date"
+              value={listDate}
+              onChange={(e) => { if (e.target.value) onListDateChange(e.target.value); }}
+              className="rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground"
+            />
+          </label>
+        )}
 
         {open && (
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">

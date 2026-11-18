@@ -52,13 +52,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { format, parse } from "date-fns";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 
-import { FlightFilters } from "@/components/dashboard/flight-filters";
+import { DEFAULT_DATE_FILTER, FlightFilters, resolveDateFilter } from "@/components/dashboard/flight-filters";
 import { StatePanels } from "@/components/dashboard/state-panels";
 import type { StateCardKey, PanelFilter } from "@/components/dashboard/state-panels";
 import { PhaseTimeline } from "@/components/dashboard/phase-timeline";
@@ -140,7 +139,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   const [activeInfo, setActiveInfo] = useState<TileInfoKey>("booked");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
-  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>(initialSelection?.date || DEFAULT_DATE_FILTER);
+  const listDate = resolveDateFilter(dateFilter);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [mobileCalendarOpen, setMobileCalendarOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -169,8 +169,8 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   };
 
   const { data: flights, isLoading: flightsLoading, error: flightsError, refetch: refetchFlights, isFetching: flightsFetching } = useQuery({
-    queryKey: ["flights"],
-    queryFn: () => fetchFlights(),
+    queryKey: ["flights", listDate],
+    queryFn: () => fetchFlights(listDate),
     refetchInterval: 60_000,
   });
 
@@ -295,8 +295,18 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     });
   }
 
+  // Same query key as the list when the selected flight is on the listed day,
+  // so this only fetches when the user has moved the list to another day.
+  const selectedDate = effectiveSelected?.date ?? "";
+  const { data: selectedDayFlights } = useQuery({
+    queryKey: ["flights", selectedDate],
+    queryFn: () => fetchFlights(selectedDate),
+    enabled: Boolean(selectedDate),
+    refetchInterval: 60_000,
+  });
+
   const selectedFlight =
-    flights?.find(
+    selectedDayFlights?.find(
       (flight) =>
         flight.flightNumber === effectiveSelected?.flightNumber &&
         flight.origin === effectiveSelected?.origin &&
@@ -322,75 +332,12 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     journey: "Journey",
   };
 
-  const availableDates = useMemo(() => {
-    const dates = [...new Set((flights ?? []).map((f) => f.departureDate))].sort().reverse();
-    return dates;
-  }, [flights]);
-
-  const availableDateSet = useMemo(() => {
-    return new Set(availableDates);
-  }, [availableDates]);
-
   const availableStatuses = useMemo(() => {
     return [...new Set((flights ?? []).map((f) => f.status).filter(Boolean))].sort();
   }, [flights]);
 
-  const relativeDateMap = useMemo(() => {
-    const toIsoDate = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    };
-
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-
-    return {
-      yesterday: toIsoDate(yesterday),
-      today: toIsoDate(now),
-      tomorrow: toIsoDate(tomorrow),
-    };
-  }, []);
-
-  const calendarSelectedDate = useMemo(() => {
-    if (dateFilter === "all") return undefined;
-    const resolved = (relativeDateMap as Record<string, string>)[dateFilter] ?? dateFilter;
-    return parse(resolved, "yyyy-MM-dd", new Date());
-  }, [dateFilter, relativeDateMap]);
-
-  const quickDateFilterItems = useMemo(() => {
-    const presets = [
-      { key: "yesterday", label: "Yesterday" },
-      { key: "today", label: "Today" },
-      { key: "tomorrow", label: "Tomorrow" },
-    ] as const;
-
-    return presets
-      .map((item) => {
-        const date = relativeDateMap[item.key];
-        const count = (flights ?? []).filter((flight) => flight.departureDate === date).length;
-        return { ...item, count };
-      })
-      .filter((item) => item.count > 0);
-  }, [flights, relativeDateMap]);
-
   const filteredFlights = useMemo(() => {
     const list = (flights ?? []).filter((flight) => {
-      if (dateFilter !== "all") {
-        const relativeDate = relativeDateMap[dateFilter as keyof typeof relativeDateMap];
-        if (relativeDate) {
-          if (flight.departureDate !== relativeDate) return false;
-        } else if (flight.departureDate !== dateFilter) {
-          return false;
-        }
-      }
       if (statusFilter !== "all" && flight.status !== statusFilter) return false;
       const haystack = [
         flight.airline,
@@ -411,7 +358,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       return a.flightNumber.localeCompare(b.flightNumber);
     });
     return list;
-  }, [flights, debouncedSearch, dateFilter, statusFilter, relativeDateMap]);
+  }, [flights, debouncedSearch, statusFilter]);
 
   function selectFlight(flight: FlightListItem) {
     const next = {
@@ -620,10 +567,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                 setStatusFilter={setStatusFilter}
                 calendarOpen={mobileCalendarOpen}
                 setCalendarOpen={setMobileCalendarOpen}
-                calendarSelectedDate={calendarSelectedDate}
-                availableDateSet={availableDateSet}
                 availableStatuses={availableStatuses}
-                quickDateFilterItems={quickDateFilterItems}
               />
             </div>
 
@@ -768,10 +712,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
                 setStatusFilter={setStatusFilter}
                 calendarOpen={calendarOpen}
                 setCalendarOpen={setCalendarOpen}
-                calendarSelectedDate={calendarSelectedDate}
-                availableDateSet={availableDateSet}
                 availableStatuses={availableStatuses}
-                quickDateFilterItems={quickDateFilterItems}
               />
             </div>
           </div>

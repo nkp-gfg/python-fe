@@ -11,9 +11,12 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from starlette.concurrency import run_in_threadpool
 from backend.api.database import get_db
+from backend.api.validators import validate_date_range
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+MAX_RANGE_DAYS = 93
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -621,6 +624,7 @@ async def get_analytics_filters(
                          description="End date (YYYY-MM-DD)"),
 ):
     """Return available filter options for analytics within a date range."""
+    validate_date_range(date_from, date_to, MAX_RANGE_DAYS)
     try:
         result = await run_in_threadpool(_get_filter_options, date_from, date_to)
         return result
@@ -646,9 +650,7 @@ async def get_network_analytics(
         None, description="Filter by arrival airport (IATA code)"),
 ):
     """Comprehensive network-wide analytics for all flights in a date range."""
-    if date_from > date_to:
-        raise HTTPException(
-            status_code=400, detail="date_from must be before date_to")
+    validate_date_range(date_from, date_to, MAX_RANGE_DAYS)
 
     try:
         result = await run_in_threadpool(
