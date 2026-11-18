@@ -1494,11 +1494,8 @@ def _latest_by_key_agg(collection: str, match: dict, key: dict, project: dict):
     ]
 
 
-def _latest_per_flight_agg(collection: str, match: dict, project: dict | None = None):
-    """Latest doc per (airline, flightNumber, origin, departureDate), excluding
-    _raw and passengers unless `project` says otherwise."""
-    if project is None:
-        project = {"_raw": 0, "passengers": 0}
+def _latest_per_flight_agg(collection: str, match: dict, project: dict):
+    """Latest doc per (airline, flightNumber, origin, departureDate)."""
     return _latest_by_key_agg(collection, match, _FLIGHT_KEY, project)
 
 
@@ -1611,8 +1608,7 @@ def list_flights(
 
     # ── Parallel aggregation: latest doc per flight key from each collection ──
     def _agg_flight_status():
-        pipeline = _latest_per_flight_agg(
-            "flight_status", match, project={"_raw": 0})
+        pipeline = _latest_per_flight_agg("flight_status", match, {"_raw": 0})
         return {
             (d["_id"]["airline"], d["_id"]["flightNumber"],
              d["_id"]["origin"], d["_id"]["departureDate"]): d["doc"]
@@ -1623,8 +1619,7 @@ def list_flights(
         """Return latest passenger_list per flight key with pre-computed status
         counts.  The aggregation computes checkedIn/boarded/notCheckedIn and
         soul counts server-side so we don't transfer the full passengers array."""
-        pipeline = _latest_per_flight_agg(
-            "passenger_list", match, project={"_raw": 0})
+        pipeline = _latest_per_flight_agg("passenger_list", match, {"_raw": 0})
         # Compute operational counts from the passengers array inside MongoDB
         # Note: checkedIn includes boarded passengers (same as _analyze_passengers)
         pipeline.append({"$addFields": {
