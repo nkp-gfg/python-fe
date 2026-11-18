@@ -77,11 +77,16 @@ async def compare_pnr_mismatches(
 @router.get("/status-distribution")
 async def passenger_status_distribution(
     date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    flight_numbers: str = Query(
+        default=None, description="Comma-separated flight numbers"),
 ):
     """Passenger status distribution by cabin across all flights (server-side agg)."""
     from backend.feeder.aggregations import passenger_status_distribution as agg_dist
 
-    result = await run_in_threadpool(agg_dist, date)
+    fn_list = [f.strip() for f in flight_numbers.split(",")
+               ] if flight_numbers else None
+
+    result = await run_in_threadpool(agg_dist, date, fn_list)
     return result
 
 

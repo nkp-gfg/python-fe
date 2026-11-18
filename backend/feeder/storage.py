@@ -73,9 +73,52 @@ def _drop_index_if_exists(collection, index_name: str):
         pass
 
 
+def latest_snapshot_stages(collection, match, key, fields):
+    """Aggregation stages that yield the newest document (by fetchedAt) per key.
+
+    The per-key pick reads only fetchedAt and _id, so whole snapshots
+    (passengers, raw payload) are never sorted or buffered in a $group. Each
+    winner is then fetched by _id with only `fields` projected.
+    """
+    return [
+        {"$match": match},
+        {"$group": {
+            "_id": key,
+            "latestId": {"$top": {
+                "sortBy": {"fetchedAt": -1, "_id": -1},
+                "output": "$_id",
+            }},
+        }},
+        {"$lookup": {
+            "from": collection,
+            "localField": "latestId",
+            "foreignField": "_id",
+            "pipeline": [{"$project": fields}],
+            "as": "latest",
+        }},
+        {"$unwind": "$latest"},
+        {"$replaceRoot": {"newRoot": "$latest"}},
+    ]
+
+
+def _ensure_latest_snapshot_indexes(db):
+    """Date-first indexes that cover the per-flight pick in latest_snapshot_stages."""
+    db["passenger_list"].create_index(
+        [("departureDate", 1), ("flightNumber", 1), ("origin", 1),
+         ("fetchedAt", -1), ("_id", -1)],
+        name="pax_date_latest")
+    db["reservations"].create_index(
+        [("departureDate", 1), ("flightNumber", 1), ("departureAirport", 1),
+         ("fetchedAt", -1), ("_id", -1)],
+        name="res_date_latest")
+
+
 def ensure_indexes():
     """Create indexes for all collections (skipped if already present)."""
     db = get_db()
+
+    # Created ahead of the skip check so existing deployments pick them up.
+    _ensure_latest_snapshot_indexes(db)
 
     # Quick check: if main indexes already exist, skip the entire operation
     # to avoid slow dropIndex/createIndex on every startup.

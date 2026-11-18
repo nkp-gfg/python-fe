@@ -10,10 +10,15 @@ from typing import Callable
 
 import polars as pl
 
-from backend.feeder.storage import get_db
+from backend.feeder.storage import get_db, latest_snapshot_stages
 from backend.api.postgres import query_all
 
 logger = logging.getLogger(__name__)
+
+_PAX_FIELDS = (
+    "pnr", "lastName", "firstName", "cabin", "bookingClass",
+    "isCheckedIn", "isBoarded", "seat",
+)
 
 
 def _now_iso() -> str:
@@ -135,20 +140,20 @@ def load_sabre_passengers(date: str, flight_numbers: list[str] | None = None) ->
     if flight_numbers:
         query["flightNumber"] = {"$in": flight_numbers}
 
-    # Get latest passenger_list per flight
-    pipeline = [
-        {"$match": {**query}},
-        {"$sort": {"fetchedAt": -1}},
-        {"$group": {
-            "_id": {"flightNumber": "$flightNumber", "origin": "$origin"},
-            "doc": {"$first": "$$ROOT"},
-        }},
-    ]
+    pipeline = latest_snapshot_stages(
+        "passenger_list",
+        query,
+        {"flightNumber": "$flightNumber", "origin": "$origin"},
+        {
+            "flightNumber": 1,
+            "origin": 1,
+            **{f"passengers.{field}": 1 for field in _PAX_FIELDS},
+        },
+    )
     cursor = db["passenger_list"].aggregate(pipeline)
 
     rows = []
-    for item in cursor:
-        doc = item["doc"]
+    for doc in cursor:
         fn = doc.get("flightNumber", "")
         origin = doc.get("origin", "")
         for pax in doc.get("passengers", []):
