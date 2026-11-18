@@ -54,6 +54,9 @@ def _build_nationality_lookup(db, flight_number, date, origin=None, snapshot_seq
                     entry["wheelchairCode"] = wc
                 if p.get("hasEmergencyContact"):
                     entry["hasEmergencyContact"] = True
+                for field in ("emergencyContactName", "emergencyContactPhone", "email"):
+                    if p.get(field):
+                        entry[field] = p[field]
                 ff_tier = p.get("ffTierLevel", "")
                 if ff_tier:
                     entry["ffTierLevel"] = ff_tier
@@ -120,6 +123,9 @@ def get_passengers(
             p["wheelchairCode"] = enrichment["wheelchairCode"]
         if "hasEmergencyContact" in enrichment:
             p["hasEmergencyContact"] = enrichment["hasEmergencyContact"]
+        for field in ("emergencyContactName", "emergencyContactPhone", "email"):
+            if field in enrichment:
+                p[field] = enrichment[field]
         if "ffTierLevel" in enrichment:
             p["ffTierLevel"] = enrichment["ffTierLevel"]
             p["ffTierName"] = enrichment.get("ffTierName", "")

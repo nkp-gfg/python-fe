@@ -400,6 +400,57 @@ def convert_passenger_list(raw_data, airline, flight_number, departure_date, ori
 
 # ── Reservations ───────────────────────────────────────────────────────────
 
+def _text_of(val):
+    """Return the text of an xmltodict leaf (str, or dict with #text)."""
+    if val is None:
+        return ""
+    if isinstance(val, dict):
+        val = val.get("#text", "")
+    if isinstance(val, (list, tuple)):
+        return _text_of(val[0]) if val else ""
+    return str(val).strip()
+
+
+def _extract_emails(raw):
+    """Collect addresses from one or more EmailAddress nodes."""
+    emails = []
+    for em in _ensure_list(raw):
+        if isinstance(em, dict):
+            address = _text_of(em.get("Address", em.get("#text")))
+        else:
+            address = _text_of(em)
+        if address and address not in emails:
+            emails.append(address)
+    return emails
+
+
+def _remark_text(rm):
+    """Join RemarkLines/RemarkLine text, falling back to flat Text fields."""
+    lines_wrapper = rm.get("RemarkLines") or {}
+    lines = _ensure_list(
+        lines_wrapper.get("RemarkLine") if isinstance(lines_wrapper, dict) else lines_wrapper
+    )
+    parts = []
+    for line in lines:
+        text = _text_of(line.get("Text") if isinstance(line, dict) else line)
+        if text:
+            parts.append(text)
+    if parts:
+        return "\n".join(parts)
+    return _text_of(rm.get("Text", rm.get("RemarkText", rm.get("#text"))))
+
+
+def _convert_generic_ssr(ssr):
+    """Normalize a GenericSpecialRequest(s) / SpecialService node."""
+    return {
+        "code": _text_of(ssr.get("Code", ssr.get("@code"))),
+        "text": _text_of(ssr.get("FreeText", ssr.get("Text"))),
+        "status": _text_of(ssr.get("ActionCode", ssr.get("Status"))),
+        "airline": _text_of(ssr.get("AirlineCode")),
+        "type": _text_of(ssr.get("@type")),
+    }
+
+
 def convert_reservations(raw_data, airline, flight_number, departure_airport, departure_date):
     """Convert Trip_SearchRS dict into a clean MongoDB document."""
     data = _strip_ns(raw_data)
@@ -417,16 +468,20 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
         inner = r.get("GetReservationRS", {}).get("Reservation", {})
 
         booking = inner.get("BookingDetails", {})
-        pax_res = inner.get("PassengerReservation", {})
+        pax_res = inner.get("PassengerReservation") or {}
 
         # Passengers
         raw_passengers = _ensure_list(
             (pax_res.get("Passengers") or {}).get("Passenger", [])
         )
         passengers = []
+        pax_emails = []
+        pax_ssrs = []
         for px in raw_passengers:
             # Extract APIS DOCSEntry for gender/DOB/nationality
-            special_requests = px.get("SpecialRequests", {})
+            special_requests = px.get("SpecialRequests") or {}
+            if not isinstance(special_requests, dict):
+                special_requests = {}
             apis_request = special_requests.get("APISRequest", {})
             if isinstance(apis_request, list):
                 apis_request = apis_request[0] if apis_request else {}
@@ -509,13 +564,30 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                 wheelchair_code = wheelchair_req.get("WheelchairCode", "")
 
             # Emergency contact
-            emergency_req = special_requests.get("EmergencyContactRequest", {})
-            if isinstance(emergency_req, list):
-                emergency_req = emergency_req[0] if emergency_req else {}
+            emergency_req = next(
+                (er for er in _ensure_list(special_requests.get("EmergencyContactRequest"))
+                 if isinstance(er, dict) and er),
+                {},
+            )
             has_emergency_contact = False
-            if isinstance(emergency_req, dict) and emergency_req:
+            emergency_name = ""
+            emergency_phone = ""
+            emergency_country = ""
+            if emergency_req:
                 has_emergency_contact = emergency_req.get(
                     "PassengerRefusal", "true") == "false"
+                emergency_name = _text_of(emergency_req.get("ContactName"))
+                emergency_phone = _text_of(emergency_req.get("PhoneNumber"))
+                emergency_country = _text_of(emergency_req.get("CountryCode"))
+
+            # Passenger-level email and generic SSRs (e.g. CTCM mobile contact)
+            px_emails = _extract_emails(px.get("EmailAddress"))
+            for em in px_emails:
+                if em not in pax_emails:
+                    pax_emails.append(em)
+            for gsr in _ensure_list(special_requests.get("GenericSpecialRequest")):
+                if isinstance(gsr, dict):
+                    pax_ssrs.append(_convert_generic_ssr(gsr))
 
             passengers.append({
                 "lastName": px.get("LastName", ""),
@@ -539,6 +611,10 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                 "specialMeal": special_meal,
                 "wheelchairCode": wheelchair_code,
                 "hasEmergencyContact": has_emergency_contact,
+                "emergencyContactName": emergency_name,
+                "emergencyContactPhone": emergency_phone,
+                "emergencyContactCountry": emergency_country,
+                "email": px_emails[0] if px_emails else "",
                 "docaAddress": doca_address,
             })
 
@@ -588,59 +664,70 @@ def convert_reservations(raw_data, airline, flight_number, departure_airport, de
                     "eTicket": tkt.get("@eTicketNumber", ""),
                 })
 
-        # SSR — Special Service Requests (wheelchair, meal, medical, etc.)
-        raw_ssrs = _ensure_list(
-            (pax_res.get("SpecialServices") or {}).get("SpecialService", [])
-        )
-        ssr_requests = []
-        for ssr in raw_ssrs:
-            if isinstance(ssr, dict):
-                ssr_requests.append({
-                    "code": ssr.get("Code", ssr.get("@code", "")),
-                    "text": ssr.get("Text", ssr.get("FreeText", "")),
-                    "status": ssr.get("ActionCode", ssr.get("Status", "")),
-                    "airline": ssr.get("AirlineCode", ""),
-                    "type": ssr.get("@type", ""),
-                })
+        # Sabre GetReservationRS places PhoneNumbers, EmailAddresses, Remarks
+        # and GenericSpecialRequests on the Reservation element, not on
+        # PassengerReservation; PassengerReservation is still read as a fallback.
+        contact_sources = [inner, pax_res]
 
-        # Email addresses
-        raw_emails = _ensure_list(
-            (pax_res.get("EmailAddresses") or {}).get("EmailAddress", [])
-        )
+        # SSR — Special Service Requests (wheelchair, meal, medical, etc.)
+        ssr_requests = []
+        for src in contact_sources:
+            for gsr in _ensure_list(src.get("GenericSpecialRequests")):
+                if isinstance(gsr, dict):
+                    ssr_requests.append(_convert_generic_ssr(gsr))
+            special_services = src.get("SpecialServices") or {}
+            if isinstance(special_services, dict):
+                for ssr in _ensure_list(special_services.get("SpecialService")):
+                    if isinstance(ssr, dict):
+                        ssr_requests.append(_convert_generic_ssr(ssr))
+        ssr_requests.extend(pax_ssrs)
+
+        # Email addresses (reservation-level first, then passenger-level)
         emails = []
-        for em in raw_emails:
-            if isinstance(em, dict):
-                emails.append(em.get("Address", em.get("#text", "")))
-            elif isinstance(em, str):
+        for src in contact_sources:
+            wrapper = src.get("EmailAddresses") or {}
+            if isinstance(wrapper, dict):
+                for em in _extract_emails(wrapper.get("EmailAddress")):
+                    if em not in emails:
+                        emails.append(em)
+        for em in pax_emails:
+            if em not in emails:
                 emails.append(em)
 
         # Phone numbers
-        raw_phones = _ensure_list(
-            (pax_res.get("PhoneNumbers") or {}).get("PhoneNumber", [])
-        )
         phones = []
-        for ph in raw_phones:
-            if isinstance(ph, dict):
-                phones.append({
-                    "number": ph.get("Number", ph.get("#text", "")),
-                    "type": ph.get("@type", ph.get("Type", "")),
-                })
-            elif isinstance(ph, str):
-                phones.append({"number": ph, "type": ""})
+        for src in contact_sources:
+            wrapper = src.get("PhoneNumbers") or {}
+            if not isinstance(wrapper, dict):
+                continue
+            for ph in _ensure_list(wrapper.get("PhoneNumber")):
+                if isinstance(ph, dict):
+                    number = _text_of(ph.get("Number", ph.get("#text")))
+                    if number:
+                        phones.append({
+                            "number": number,
+                            "type": _text_of(ph.get("@type", ph.get("Type"))),
+                            "cityCode": _text_of(ph.get("CityCode")),
+                        })
+                elif isinstance(ph, str) and ph:
+                    phones.append({"number": ph, "type": "", "cityCode": ""})
 
         # Remarks
-        raw_remarks = _ensure_list(
-            (pax_res.get("Remarks") or {}).get("Remark", [])
-        )
         remarks = []
-        for rm in raw_remarks:
-            if isinstance(rm, dict):
-                remarks.append({
-                    "type": rm.get("@type", rm.get("Type", "")),
-                    "text": rm.get("Text", rm.get("RemarkText", rm.get("#text", ""))),
-                })
-            elif isinstance(rm, str):
-                remarks.append({"type": "", "text": rm})
+        for src in contact_sources:
+            wrapper = src.get("Remarks") or {}
+            if not isinstance(wrapper, dict):
+                continue
+            for rm in _ensure_list(wrapper.get("Remark")):
+                if isinstance(rm, dict):
+                    text = _remark_text(rm)
+                    if text:
+                        remarks.append({
+                            "type": _text_of(rm.get("@type", rm.get("Type"))),
+                            "text": text,
+                        })
+                elif isinstance(rm, str) and rm:
+                    remarks.append({"type": "", "text": rm})
 
         # Ancillary services
         raw_ancillaries = _ensure_list(
