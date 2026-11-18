@@ -7,6 +7,7 @@ from functools import lru_cache
 from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import PyMongoError
 from backend.api.database import get_db
+from backend.api.routes.changes import MAX_CHANGE_DOCUMENTS
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
 from backend.api.validators import validate_date, validate_origin
 
@@ -1930,11 +1931,9 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
     if date:
         sched_query["departureDate"] = date
 
-    change_match = {"flightNumber": flight_number}
+    change_match = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         change_match["origin"] = origin
-    if date:
-        change_match["departureDate"] = date
 
     results = {}
 
@@ -1968,7 +1967,9 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
 
     def fetch_change_summary():
         counts = {}
-        for doc in db["changes"].find(change_match, {"changeType": 1}):
+        cursor = db["changes"].find(
+            change_match, {"changeType": 1}).limit(MAX_CHANGE_DOCUMENTS)
+        for doc in cursor:
             ct = doc.get("changeType")
             if ct:
                 counts[ct] = counts.get(ct, 0) + 1
@@ -2010,7 +2011,7 @@ def _fetch_dashboard_data_parallel(db, flight_number, origin, date, snapshot_seq
 def get_flight_dashboard(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
     snapshot_sequence: int = Query(
         None,
         ge=1,
@@ -2066,7 +2067,7 @@ def get_flight_dashboard(
 def get_flight_tree(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
     snapshot_sequence: int = Query(
         None,
         ge=1,
