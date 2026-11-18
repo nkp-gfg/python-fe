@@ -14,16 +14,20 @@ services:
       - mongodb_config:/data/configdb
     restart: unless-stopped
 
+  # Redis is the Celery broker: any client that can reach it can enqueue Sabre
+  # ingestion. It is reachable only on this Compose network (redis:6379) and
+  # every client must authenticate with REDIS_PASSWORD. Do not publish 6379.
   redis:
     image: redis:7-alpine
     container_name: falconeye_redis
-    ports:
-      - "6379:6379"
+    command: ["--requirepass", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     volumes:
       - redis_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -32,10 +36,10 @@ services:
     image: mher/flower:2.0
     container_name: falconeye_flower
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/0
     depends_on:
       redis:
         condition: service_healthy

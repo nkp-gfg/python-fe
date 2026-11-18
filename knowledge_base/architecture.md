@@ -116,7 +116,8 @@ Worker command: `celery -A backend.celery_app worker --loglevel=info --pool=thre
 | Variable                                                       | Purpose                                        |
 | -------------------------------------------------------------- | ---------------------------------------------- |
 | `MONGODB_URI`                                                  | MongoDB connection string                      |
-| `REDIS_URL`                                                    | Redis URL (default `redis://127.0.0.1:6379/0`) |
+| `REDIS_URL`                                                    | Redis URL, required, must carry a password     |
+| `REDIS_PASSWORD`                                               | Redis password, used when `REDIS_URL` has none |
 | `POSTGRES_URI`                                                 | PostgreSQL connection for OTP data             |
 | `SABRE_BASE_URL`                                               | Sabre SOAP endpoint                            |
 | `SABRE_CPAID`, `SABRE_USERNAME`, `SABRE_PASSWORD`              | Sabre authentication                           |

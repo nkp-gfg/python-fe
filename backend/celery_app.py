@@ -12,9 +12,11 @@ import os
 from celery import Celery
 from dotenv import load_dotenv
 
+from backend.redis_config import get_redis_url
+
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
+REDIS_URL = get_redis_url()
 
 app = Celery(
     "falconeye",
