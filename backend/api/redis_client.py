@@ -3,6 +3,8 @@
 import json
 import logging
 import os
+import time
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -17,10 +19,29 @@ JOB_PREFIX = "job:"
 CACHE_PREFIX = "cache:"
 SSE_CHANNEL = "falconeye:events"
 
+LOCK_PREFIX = "lock:"
+
 # TTLs (seconds)
 JOB_TTL = 24 * 3600        # Jobs expire after 24h
+COMPARISON_JOB_TTL = 3600   # Comparison jobs expire after 1h
 CACHE_TTL_SHORT = 30        # Dashboard cache: 30s
 CACHE_TTL_MEDIUM = 300      # Flight list cache: 5min
+
+COMPARISON_JOB_TYPES = frozenset({"comparison", "pnr_comparison"})
+OPEN_JOB_STATUSES = frozenset({"accepted", "running"})
+
+_JOB_TTL_BY_TYPE = {job_type: COMPARISON_JOB_TTL for job_type in COMPARISON_JOB_TYPES}
+
+_ADMISSION_LOCK_TTL = 10
+_ADMISSION_LOCK_WAIT = 2.0
+
+
+class JobLimitExceeded(Exception):
+    """Raised when a job would exceed its open-job cap."""
+
+
+def _job_ttl(job_type: str | None) -> int:
+    return _JOB_TTL_BY_TYPE.get(job_type or "", JOB_TTL)
 
 
 def _get_pool() -> redis.ConnectionPool:
@@ -66,8 +87,61 @@ def create_job(job_id: str, flights_queued: int, job_type: str = "ingestion") ->
         "progress": None,
     }
     r = get_redis()
-    r.set(f"{JOB_PREFIX}{job_id}", json.dumps(job, default=str), ex=JOB_TTL)
+    r.set(f"{JOB_PREFIX}{job_id}", json.dumps(job, default=str), ex=_job_ttl(job_type))
     return job
+
+
+def count_open_jobs(job_types: frozenset[str]) -> int:
+    """Count job records of the given types that are still accepted or running."""
+    r = get_redis()
+    open_jobs = 0
+    cursor = 0
+    while True:
+        cursor, keys = r.scan(cursor, match=f"{JOB_PREFIX}*", count=200)
+        for key in keys:
+            raw = r.get(key)
+            if raw is None:
+                continue
+            try:
+                job = json.loads(raw)
+            except ValueError:
+                continue
+            if job.get("jobType") in job_types and job.get("status") in OPEN_JOB_STATUSES:
+                open_jobs += 1
+        if cursor == 0:
+            break
+    return open_jobs
+
+
+def create_job_within_limit(
+    job_id: str,
+    flights_queued: int,
+    job_type: str,
+    *,
+    counted_types: frozenset[str],
+    limit: int,
+) -> dict:
+    """Create a job record only if fewer than ``limit`` jobs of ``counted_types`` are open.
+
+    The count and the write happen under one Redis lock so concurrent requests,
+    including ones served by other API processes, cannot both take the last slot.
+    Blocks for up to ``_ADMISSION_LOCK_WAIT`` seconds; call it off the event loop.
+    """
+    r = get_redis()
+    lock_key = f"{LOCK_PREFIX}jobs:{'+'.join(sorted(counted_types))}"
+    token = uuid.uuid4().hex
+    deadline = time.monotonic() + _ADMISSION_LOCK_WAIT
+    while not r.set(lock_key, token, nx=True, ex=_ADMISSION_LOCK_TTL):
+        if time.monotonic() >= deadline:
+            raise JobLimitExceeded("Job admission is busy; retry shortly")
+        time.sleep(0.05)
+    try:
+        if count_open_jobs(counted_types) >= limit:
+            raise JobLimitExceeded(f"At most {limit} jobs of this kind may be open at once")
+        return create_job(job_id, flights_queued, job_type=job_type)
+    finally:
+        if r.get(lock_key) == token:
+            r.delete(lock_key)
 
 
 def get_job(job_id: str) -> dict | None:
@@ -87,7 +161,7 @@ def update_job(job_id: str, **fields) -> None:
     for k, v in fields.items():
         job[k] = v
     r = get_redis()
-    r.set(f"{JOB_PREFIX}{job_id}", json.dumps(job, default=str), ex=JOB_TTL)
+    r.set(f"{JOB_PREFIX}{job_id}", json.dumps(job, default=str), ex=_job_ttl(job.get("jobType")))
 
 
 def set_job_running(job_id: str) -> None:

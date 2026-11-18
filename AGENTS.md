@@ -55,6 +55,7 @@ docker-compose up -d
 .\start-backend.ps1   # Windows — starts uvicorn + Celery worker
 # macOS/Linux:
 # celery -A backend.celery_app worker --loglevel=info --pool=threads --concurrency=4 &
+# celery -A backend.celery_app worker -Q comparison -n comparison@%h --loglevel=info --pool=threads --concurrency=1 &
 # uvicorn backend.api.main:app --reload
 ```
 
@@ -237,6 +238,7 @@ def create_feature(req: FeatureRequest):
   - `REDIS_URL=redis://127.0.0.1:6379/0`
   - `DATABASE_URL=postgresql://...` (audit logs)
   - `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` (frontend sees this)
+ - `FALCONEYE_API_TOKEN` (bearer token required by all `/compare/*` routes; unset means those routes refuse every request)
 
 - Secrets: Use environment variables; never hardcode credentials in code.
 

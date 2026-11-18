@@ -10,12 +10,20 @@ $celery = Start-Process -NoNewWindow -PassThru -FilePath "$PSScriptRoot\venv\Scr
 
 Write-Host "Celery worker started (PID: $($celery.Id))" -ForegroundColor Green
 
+# Comparison jobs run on their own queue and pool so they never delay ingestion
+$comparison = Start-Process -NoNewWindow -PassThru -FilePath "$PSScriptRoot\venv\Scripts\celery.exe" `
+    -ArgumentList "-A backend.celery_app worker -Q comparison -n comparison@%h --loglevel=info --pool=threads --concurrency=1" `
+    -WorkingDirectory $PSScriptRoot
+
+Write-Host "Comparison worker started (PID: $($comparison.Id))" -ForegroundColor Green
+
 # Start uvicorn in foreground (Ctrl+C stops everything)
 try {
     & "$PSScriptRoot\venv\Scripts\uvicorn.exe" backend.api.main:app --reload
 }
 finally {
-    Write-Host "`nStopping Celery worker..." -ForegroundColor Yellow
+    Write-Host "`nStopping Celery workers..." -ForegroundColor Yellow
     Stop-Process -Id $celery.Id -Force -ErrorAction SilentlyContinue
+    Stop-Process -Id $comparison.Id -Force -ErrorAction SilentlyContinue
     Write-Host "All processes stopped." -ForegroundColor Green
 }
