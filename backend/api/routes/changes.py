@@ -7,6 +7,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_origin
+from backend.feeder.storage import CHANGES_FEED_INDEX
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["changes"])
@@ -711,7 +712,7 @@ activity_router = APIRouter(prefix="/activity", tags=["activity"])
 
 @activity_router.get("/feed")
 def get_activity_feed(
-    date: str = Query(None, description="Filter by date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
     limit: int = Query(50, ge=1, le=200),
     categories: str = Query(
         None,
@@ -719,16 +720,14 @@ def get_activity_feed(
     ),
 ):
     """
-    Get a real-time activity feed across all flights.
+    Get a real-time activity feed across all flights for one departure date.
     
     Shows recent events for monitoring dashboards.
     """
     validate_date(date)
     db = get_db()
 
-    query = {}
-    if date:
-        query["departureDate"] = date
+    query = {"departureDate": date}
 
     if categories:
         category_list = [c.strip() for c in categories.split(",")]
@@ -748,7 +747,12 @@ def get_activity_feed(
         if selected_types:
             query["changeType"] = {"$in": selected_types}
 
-    cursor = db["changes"].find(query).sort("detectedAt", -1).limit(limit)
+    cursor = (
+        db["changes"].find(query)
+        .sort("detectedAt", -1)
+        .hint(CHANGES_FEED_INDEX)
+        .limit(limit)
+    )
 
     events = []
     for change in cursor:
