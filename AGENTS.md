@@ -50,6 +50,8 @@ Layer 4: Current State (flights/passengers/reservations) — materialized view
 docker-compose up -d
 ```
 
+Compose refuses to start until `REDIS_PASSWORD` is set in `.env`. Use a URL-safe value (for example `openssl rand -hex 32`) because it is embedded in Redis URLs. Redis is the Celery broker, so it is not published on the host: only clients on the Compose network reach it, at `redis:6379`, and every client must authenticate. The API and worker need a route to that authenticated Redis plus `REDIS_URL`/`REDIS_PASSWORD` (see below).
+
 **Backend** (one terminal):
 ```powershell
 .\start-backend.ps1   # Windows — starts uvicorn + Celery worker
@@ -234,7 +236,7 @@ def create_feature(req: FeatureRequest):
 - `.env` file (not in git):
   - `MONGODB_URI=mongodb+srv://...`
   - `SABRE_*` (credentials for SOAP client)
-  - `REDIS_URL=redis://127.0.0.1:6379/0`
+  - `REDIS_URL=redis://:<password>@<host>:6379/0`, or `REDIS_URL` without a password plus `REDIS_PASSWORD` (required; the API and Celery refuse a Redis URL with no password)
   - `DATABASE_URL=postgresql://...` (audit logs)
   - `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` (frontend sees this)
 

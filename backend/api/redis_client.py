@@ -2,11 +2,12 @@
 
 import json
 import logging
-import os
 from datetime import datetime, timezone
 from typing import Any
 
 import redis
+
+from backend.redis_config import get_redis_url, redact_redis_url
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,9 @@ CACHE_TTL_MEDIUM = 300      # Flight list cache: 5min
 def _get_pool() -> redis.ConnectionPool:
     global _pool
     if _pool is None:
-        url = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
+        url = get_redis_url()
         _pool = redis.ConnectionPool.from_url(url, decode_responses=True)
-        logger.info("Redis connection pool created (%s)", url)
+        logger.info("Redis connection pool created (%s)", redact_redis_url(url))
     return _pool
 
 
