@@ -260,7 +260,7 @@ def _process_api_call(api_type, snapshot_type, flight_info,
 
     # Layer 2: Convert and store snapshot
     converted = converter_fn(*converter_args)
-    snapshot_id, checksum, is_dup = storage.store_snapshot(
+    snapshot_id, checksum, is_dup, seq = storage.store_snapshot(
         request_id=request_id,
         airline=airline,
         flight_number=fn,
@@ -282,7 +282,7 @@ def _process_api_call(api_type, snapshot_type, flight_info,
     num_changes = 0
     if not is_dup:
         prev_snap = storage.get_previous_snapshot(
-            fn, origin, dep_date, snapshot_type)
+            fn, origin, dep_date, snapshot_type, before_sequence=seq)
         if prev_snap:
             after_snap = {"snapshotId": snapshot_id, "data": converted}
             changes = detect_changes(
