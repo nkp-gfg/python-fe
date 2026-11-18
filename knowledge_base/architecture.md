@@ -49,7 +49,8 @@
 
 **Middleware:**
 
-- CORS: `allow_origins=["*"]`, `allow_credentials=False`
+- CORS: origins from `CORS_ALLOWED_ORIGINS` (never `*`), `allow_credentials=False`, GET/POST only
+- Browser origin guard: 403 for requests whose `Origin` is not allowed, or cross-site `no-cors` requests without one
 - Correlation ID: attaches `X-Request-ID` to every request/response
 
 **Exception handlers:**
@@ -123,6 +124,7 @@ Worker command: `celery -A backend.celery_app worker --loglevel=info --pool=thre
 | `SABRE_PSEUDO_CITY_CODE`, `SABRE_ORGANIZATION`, `SABRE_DOMAIN` | Sabre session context                          |
 | `SABRE_API_DELAY_SECONDS`                                      | Rate limit between calls (default 0.5s)        |
 | `NEXT_PUBLIC_API_URL`                                          | Frontend → backend base URL                    |
+| `CORS_ALLOWED_ORIGINS`                                         | Comma-separated web app origins allowed to call the API (default `http://localhost:3000,http://127.0.0.1:3000`) |
 
 ## Not Yet Implemented
 
