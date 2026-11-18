@@ -226,7 +226,7 @@ function buildDonutOption(data: { name: string; value: number; color?: string }[
       textStyle: { color: ECHARTS_TEXT_COLOR },
       formatter: (params: any) => {
         const item = Array.isArray(params) ? params[0] : params;
-        return `${item?.name ?? ""}<br/>${(item?.value ?? 0).toLocaleString()} (${item?.percent ?? 0}%)`;
+        return `${escapeHtml(item?.name)}<br/>${(item?.value ?? 0).toLocaleString()} (${item?.percent ?? 0}%)`;
       },
     },
     series: [{
@@ -252,6 +252,12 @@ function buildDonutOption(data: { name: string; value: number; color?: string }[
       { type: "text", left: "center", top: "53%", style: { text: total.toLocaleString(), fill: ECHARTS_TEXT_COLOR, fontSize: 22, fontWeight: 700 } },
     ],
   };
+}
+
+/** ECharts inserts the string returned by a tooltip formatter function as HTML without encoding it. */
+function escapeHtml(value: unknown) {
+  const escapes: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return String(value ?? "").replace(/[&<>"']/g, (char) => escapes[char]);
 }
 
 function buildMultiLineAreaOption(

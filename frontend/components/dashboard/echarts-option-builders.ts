@@ -64,6 +64,19 @@ type BarDatum = {
   fill?: string
 }
 
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+}
+
+/** ECharts inserts the string returned by a tooltip formatter function as HTML without encoding it. */
+export function escapeHtml(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => HTML_ESCAPES[char])
+}
+
 function normalizeNumericValue(value: unknown) {
   const rawValue = Array.isArray(value) ? value[0] : value
   return typeof rawValue === "number" ? rawValue : Number(rawValue ?? 0)
@@ -92,7 +105,7 @@ export function buildDonutChartOption({
         const item = Array.isArray(params) ? params[0] : params
         const value = normalizeNumericValue(item?.value)
         const percent = typeof item?.percent === "number" ? item.percent : 0
-        return `${item?.name ?? "Unknown"}<br/>${value.toLocaleString()} passengers (${percent}%)`
+        return `${escapeHtml(item?.name ?? "Unknown")}<br/>${value.toLocaleString()} passengers (${percent}%)`
       },
     },
     series: [
@@ -168,7 +181,7 @@ export function buildPassengerProgressFunnelOption({
       formatter: (params) => {
         const item = Array.isArray(params) ? params[0] : params
         const value = normalizeNumericValue(item?.value)
-        return `${item?.name ?? "Unknown"}<br/>${value.toLocaleString()} passengers`
+        return `${escapeHtml(item?.name ?? "Unknown")}<br/>${value.toLocaleString()} passengers`
       },
     },
     series: [
@@ -262,8 +275,8 @@ export function buildCabinStackedBarOption({
           }))
           .filter((item) => item.value > 0)
         const totalValue = rows.reduce((sum, item) => sum + item.value, 0)
-        const lines = rows.map((item) => `${item.seriesName}: ${item.value.toLocaleString()}`).join("<br/>")
-        return `${rows[0]?.axisValueLabel ?? ""}<br/>Total: ${totalValue.toLocaleString()}${lines ? `<br/>${lines}` : ""}`
+        const lines = rows.map((item) => `${escapeHtml(item.seriesName)}: ${item.value.toLocaleString()}`).join("<br/>")
+        return `${escapeHtml(rows[0]?.axisValueLabel)}<br/>Total: ${totalValue.toLocaleString()}${lines ? `<br/>${lines}` : ""}`
       },
     },
     xAxis: {
@@ -335,8 +348,8 @@ export function buildHistoryStackedAreaOption({
           marker: item.marker,
         }))
         const sourcePoint = data[(Array.isArray(params) ? params[0] : params)?.dataIndex ?? 0]
-        const lines = rows.map((item) => `${item.marker}${item.name}: ${item.value.toLocaleString()}`).join("<br/>")
-        return `${sourcePoint?.timestamp ?? ""}<br/>${lines}`
+        const lines = rows.map((item) => `${item.marker}${escapeHtml(item.name)}: ${item.value.toLocaleString()}`).join("<br/>")
+        return `${escapeHtml(sourcePoint?.timestamp)}<br/>${lines}`
       },
     },
     grid: {
@@ -437,8 +450,8 @@ export function buildBoardingProgressAreaOption({
           marker: item.marker,
         }))
         const sourcePoint = data[(Array.isArray(params) ? params[0] : params)?.dataIndex ?? 0]
-        const lines = rows.map((item) => `${item.marker}${item.name}: ${item.value.toLocaleString()}`).join("<br/>")
-        return `${sourcePoint?.timestamp ?? ""}<br/>${lines}`
+        const lines = rows.map((item) => `${item.marker}${escapeHtml(item.name)}: ${item.value.toLocaleString()}`).join("<br/>")
+        return `${escapeHtml(sourcePoint?.timestamp)}<br/>${lines}`
       },
     },
     grid: {
@@ -510,7 +523,7 @@ export function buildCheckInTimelineAreaOption({
       formatter: (params) => {
         const item = Array.isArray(params) ? params[0] : params
         const value = normalizeNumericValue(item?.value)
-        return `${item?.name ?? ""}<br/>Check-ins: ${value.toLocaleString()}`
+        return `${escapeHtml(item?.name)}<br/>Check-ins: ${value.toLocaleString()}`
       },
     },
     grid: {
@@ -576,7 +589,7 @@ export function buildHorizontalBarOption({
         const item = Array.isArray(params) ? params[0] : params
         const source = data[item?.dataIndex ?? 0]
         const value = normalizeNumericValue(item?.value)
-        return `${source?.label ?? item?.name ?? ""}<br/>${valueLabel}: ${valueFormatter ? valueFormatter(value) : value.toLocaleString()}`
+        return `${escapeHtml(source?.label ?? item?.name)}<br/>${escapeHtml(valueLabel)}: ${escapeHtml(valueFormatter ? valueFormatter(value) : value.toLocaleString())}`
       },
     },
     xAxis: {
@@ -645,7 +658,7 @@ export function buildVerticalBarOption({
         const item = Array.isArray(params) ? params[0] : params
         const source = data[item?.dataIndex ?? 0]
         const value = normalizeNumericValue(item?.value)
-        return `${source?.label ?? item?.name ?? ""}<br/>${valueLabel}: ${value.toLocaleString()}`
+        return `${escapeHtml(source?.label ?? item?.name)}<br/>${escapeHtml(valueLabel)}: ${value.toLocaleString()}`
       },
     },
     xAxis: {
@@ -719,10 +732,10 @@ export function buildPhaseTransitionSankeyOption({
         const item = Array.isArray(params) ? params[0] : params
         if (item?.dataType === "edge") {
           const d = item.data as { source?: string; target?: string; value?: number }
-          return `${d.source ?? ""} → ${d.target ?? ""}<br/>${(d.value ?? 0).toLocaleString()} passengers`
+          return `${escapeHtml(d.source)} → ${escapeHtml(d.target)}<br/>${(d.value ?? 0).toLocaleString()} passengers`
         }
         const d = item?.data as { name?: string; value?: number }
-        return `${d?.name ?? ""}`
+        return escapeHtml(d?.name)
       },
     },
     series: [
@@ -804,8 +817,8 @@ export function buildPhaseStackedBarOption({
           .filter((r) => r.value > 0)
         const total = rows.reduce((sum, r) => sum + r.value, 0)
         const header = (Array.isArray(params) ? params[0] : params)?.name ?? ""
-        const lines = rows.map((r) => `${r.marker}${r.name}: ${r.value.toLocaleString()}`).join("<br/>")
-        return `<strong>${header}</strong><br/>Total: ${total.toLocaleString()}<br/>${lines}`
+        const lines = rows.map((r) => `${r.marker}${escapeHtml(r.name)}: ${r.value.toLocaleString()}`).join("<br/>")
+        return `<strong>${escapeHtml(header)}</strong><br/>Total: ${total.toLocaleString()}<br/>${lines}`
       },
     },
     grid: {
@@ -882,8 +895,8 @@ export function buildPhaseDemographicBarOption({
           }))
           .filter((r) => r.value > 0)
         const header = (Array.isArray(params) ? params[0] : params)?.name ?? ""
-        const lines = rows.map((r) => `${r.marker}${r.name}: ${r.value.toLocaleString()}`).join("<br/>")
-        return `<strong>${header}</strong><br/>${lines}`
+        const lines = rows.map((r) => `${r.marker}${escapeHtml(r.name)}: ${r.value.toLocaleString()}`).join("<br/>")
+        return `<strong>${escapeHtml(header)}</strong><br/>${lines}`
       },
     },
     grid: {
