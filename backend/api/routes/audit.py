@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query
 from backend.api.database import get_db
 from backend.api.validators import validate_date, validate_origin
 from backend.api.audit_rules import run_audit
+from backend.api.routes.changes import MAX_CHANGE_DOCUMENTS
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["audit"])
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/flights", tags=["audit"])
 def get_flight_audit(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
     Run process audit rules against the latest flight data.
@@ -26,32 +27,30 @@ def get_flight_audit(
     validate_origin(origin)
     db = get_db()
 
-    # Build query
-    query = {"flightNumber": flight_number}
+    query = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     # Fetch latest passenger_list
     pax_doc = db["passenger_list"].find_one(query, sort=[("fetchedAt", -1)])
 
     # Fetch latest reservations
-    res_query = {"flightNumber": flight_number}
-    if date:
-        res_query["departureDate"] = date
+    res_query = {"flightNumber": flight_number, "departureDate": date}
     res_doc = db["reservations"].find_one(res_query, sort=[("fetchedAt", -1)])
 
-    # Fetch all changes for this flight
     changes_cursor = db["changes"].find(
-        query, {"_id": 0}).sort("sequenceNumber", 1)
-    # Flatten: each doc may have a "changes" array or be a single change record
+        query, {"_id": 0}).sort("sequenceNumber", 1).limit(MAX_CHANGE_DOCUMENTS)
+    # Flatten: each doc may have a "changes" array or be a single change record.
+    # Nested arrays can expand past the document cap, so bound the flat list too.
     all_changes = []
     for doc in changes_cursor:
         if "changes" in doc and isinstance(doc["changes"], list):
-            all_changes.extend(doc["changes"])
+            all_changes.extend(
+                doc["changes"][:MAX_CHANGE_DOCUMENTS - len(all_changes)])
         else:
             all_changes.append(doc)
+        if len(all_changes) >= MAX_CHANGE_DOCUMENTS:
+            break
 
     # Run audit
     result = run_audit(pax_doc, res_doc, all_changes)

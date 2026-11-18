@@ -11,6 +11,9 @@ from backend.api.validators import validate_date, validate_origin
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["changes"])
 
+# Upper bound on change documents any single request reads from MongoDB.
+MAX_CHANGE_DOCUMENTS = 1000
+
 
 def _now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -104,7 +107,7 @@ def get_changes(
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
     change_type: str = Query(
         None, description="Filter by change type (e.g. BOARDED, CHECKED_IN)"),
-    limit: int = Query(100, ge=1, le=1000),
+    limit: int = Query(100, ge=1, le=MAX_CHANGE_DOCUMENTS),
 ):
     """Get detected changes for a flight, newest first."""
     validate_date(date)
@@ -132,20 +135,19 @@ def get_changes(
 def get_changes_summary(
     flight_number: str,
     origin: str = Query(None),
-    date: str = Query(None),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """Get a summary of change counts by type for a flight."""
     validate_date(date)
     validate_origin(origin)
     db = get_db()
-    match = {"flightNumber": flight_number}
+    match = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         match["origin"] = origin
-    if date:
-        match["departureDate"] = date
 
     counts = {}
-    for doc in db["changes"].find(match, {"changeType": 1}):
+    cursor = db["changes"].find(match, {"changeType": 1}).limit(MAX_CHANGE_DOCUMENTS)
+    for doc in cursor:
         ct = doc.get("changeType")
         if ct:
             counts[ct] = counts.get(ct, 0) + 1
@@ -314,7 +316,7 @@ def get_passenger_changes(
     flight_number: str,
     pnr: str,
     date: str = Query(None, description="Departure date YYYY-MM-DD"),
-    limit: int = Query(100, ge=1, le=1000),
+    limit: int = Query(100, ge=1, le=MAX_CHANGE_DOCUMENTS),
 ):
     """Get all changes for a specific passenger by PNR."""
     validate_date(date)
@@ -338,7 +340,7 @@ def get_passenger_changes(
 def get_passenger_timeline(
     flight_number: str,
     pnr: str,
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
     origin: str = Query(None, description="Departure airport code"),
 ):
     """
@@ -351,14 +353,12 @@ def get_passenger_timeline(
     validate_origin(origin)
     db = get_db()
 
-    # Get all changes for this passenger
-    query = {"flightNumber": flight_number, "passenger.pnr": pnr}
-    if date:
-        query["departureDate"] = date
+    query = {"flightNumber": flight_number, "passenger.pnr": pnr, "departureDate": date}
     if origin:
         query["origin"] = origin
 
-    cursor = db["changes"].find(query).sort("detectedAt", 1)  # Chronological
+    cursor = db["changes"].find(query).sort(
+        "detectedAt", 1).limit(MAX_CHANGE_DOCUMENTS)  # Chronological
     changes = list(cursor)
 
     # Also get initial appearance from PASSENGER_ADDED
@@ -588,7 +588,7 @@ def _get_current_passenger_state(db, flight_number: str, pnr: str,
 def get_flight_timeline(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
     Get a comprehensive timeline of all flight events.
@@ -600,15 +600,12 @@ def get_flight_timeline(
     validate_origin(origin)
     db = get_db()
 
-    # Build query
-    query = {"flightNumber": flight_number}
+    query = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
-    # Get all changes for this flight
-    changes = list(db["changes"].find(query).sort("detectedAt", 1))
+    changes = list(db["changes"].find(query).sort(
+        "detectedAt", 1).limit(MAX_CHANGE_DOCUMENTS))
 
     if not changes:
         raise HTTPException(status_code=404, detail="No timeline data found")
@@ -776,7 +773,7 @@ def get_activity_feed(
 def get_boarding_progress(
     flight_number: str,
     origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
     Get check-in and boarding progress over time.
@@ -787,18 +784,18 @@ def get_boarding_progress(
     validate_origin(origin)
     db = get_db()
 
-    query = {"flightNumber": flight_number}
+    query = {"flightNumber": flight_number, "departureDate": date}
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     # Get check-in and boarding events
     checkin_query = {**query, "changeType": "CHECKED_IN"}
     boarding_query = {**query, "changeType": "BOARDED"}
 
-    checkins = list(db["changes"].find(checkin_query).sort("detectedAt", 1))
-    boardings = list(db["changes"].find(boarding_query).sort("detectedAt", 1))
+    checkins = list(db["changes"].find(checkin_query).sort(
+        "detectedAt", 1).limit(MAX_CHANGE_DOCUMENTS))
+    boardings = list(db["changes"].find(boarding_query).sort(
+        "detectedAt", 1).limit(MAX_CHANGE_DOCUMENTS))
 
     # Get total passenger count from latest snapshot
     snapshot = db["snapshots"].find_one(
@@ -834,7 +831,7 @@ def get_boarding_progress(
     # Get flight status transitions
     status_changes = list(db["changes"].find(
         {**query, "changeType": "STATUS_CHANGE"}
-    ).sort("detectedAt", 1))
+    ).sort("detectedAt", 1).limit(MAX_CHANGE_DOCUMENTS))
 
     milestones = []
     for sc in status_changes:
@@ -871,7 +868,7 @@ def get_boarding_progress(
 def get_passengers_history_badges(
     flight_number: str,
     origin: str = Query(None),
-    date: str = Query(None),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
     Get a summary of change counts per passenger for badge display.
@@ -882,15 +879,20 @@ def get_passengers_history_badges(
     validate_origin(origin)
     db = get_db()
 
-    query = {"flightNumber": flight_number, "passenger.pnr": {"$exists": True}}
+    query = {
+        "flightNumber": flight_number,
+        "passenger.pnr": {"$exists": True},
+        "departureDate": date,
+    }
     if origin:
         query["origin"] = origin
-    if date:
-        query["departureDate"] = date
 
     UPGRADE_TYPES = {"CABIN_CHANGE", "CLASS_CHANGE", "UPGRADE_CONFIRMED"}
     badges = {}
-    for doc in db["changes"].find(query, {"passenger.pnr": 1, "changeType": 1, "detectedAt": 1}):
+    cursor = db["changes"].find(
+        query, {"passenger.pnr": 1, "changeType": 1, "detectedAt": 1}
+    ).limit(MAX_CHANGE_DOCUMENTS)
+    for doc in cursor:
         pnr = (doc.get("passenger") or {}).get("pnr")
         if not pnr:
             continue
