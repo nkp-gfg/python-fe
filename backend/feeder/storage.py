@@ -73,9 +73,28 @@ def _drop_index_if_exists(collection, index_name: str):
         pass
 
 
+def _ensure_change_query_indexes(db):
+    """Indexes for change reads that are not scoped to one flight.
+
+    Created on every startup, before the skip below, so databases that
+    already have the older index set still receive them. Without a leading
+    departureDate key, date-scoped summaries scan the whole change history.
+    """
+    changes = db["changes"]
+    _drop_index_if_exists(changes, "chg_type")
+    changes.create_index(
+        [("departureDate", 1), ("changeType", 1), ("detectedAt", -1)],
+        name="chg_date_type")
+    changes.create_index(
+        [("changeType", 1), ("detectedAt", -1)], name="chg_type_recent")
+    changes.create_index([("detectedAt", -1)], name="chg_recent")
+
+
 def ensure_indexes():
     """Create indexes for all collections (skipped if already present)."""
     db = get_db()
+
+    _ensure_change_query_indexes(db)
 
     # Quick check: if main indexes already exist, skip the entire operation
     # to avoid slow dropIndex/createIndex on every startup.
@@ -127,8 +146,6 @@ def ensure_indexes():
         [("afterSnapshotId", 1)], name="chg_snapshot")
     db["changes"].create_index(
         [("passenger.pnr", 1), ("detectedAt", -1)], name="chg_pnr")
-    db["changes"].create_index(
-        [("changeType", 1)], name="chg_type")
 
     # flights (current state)
     db["flights"].create_index(
