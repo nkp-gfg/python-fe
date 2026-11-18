@@ -234,6 +234,7 @@ def create_feature(req: FeatureRequest):
 - `.env` file (not in git):
   - `MONGODB_URI=mongodb+srv://...`
   - `SABRE_*` (credentials for SOAP client)
+  - `MONGO_ROOT_USERNAME`, `MONGO_ROOT_PASSWORD` (required by `docker-compose.yml`; no defaults, MongoDB is not published on a host port)
   - `REDIS_URL=redis://127.0.0.1:6379/0`
   - `DATABASE_URL=postgresql://...` (audit logs)
   - `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` (frontend sees this)
