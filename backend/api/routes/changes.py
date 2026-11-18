@@ -11,6 +11,10 @@ from backend.api.validators import validate_date, validate_origin
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/flights", tags=["changes"])
 
+# Upper bound on change/snapshot documents a single timeline or progress
+# query may pull into the API process.
+FLIGHT_EVENT_LIMIT = 50
+
 
 def _now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -587,37 +591,43 @@ def _get_current_passenger_state(db, flight_number: str, pnr: str,
 @router.get("/{flight_number}/timeline")
 def get_flight_timeline(
     flight_number: str,
-    origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    origin: str = Query(..., description="Departure airport code"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
-    Get a comprehensive timeline of all flight events.
+    Get a timeline of the most recent events for one flight departure.
     
     Combines flight status changes, passenger events, and operational updates
-    into a chronological feed showing the flight's lifecycle.
+    into a chronological feed showing the flight's lifecycle. At most
+    FLIGHT_EVENT_LIMIT changes and snapshots are returned; ``truncated`` is
+    set when older entries were left out.
     """
     validate_date(date)
     validate_origin(origin)
     db = get_db()
 
-    # Build query
-    query = {"flightNumber": flight_number}
-    if origin:
-        query["origin"] = origin
-    if date:
-        query["departureDate"] = date
+    query = {
+        "flightNumber": flight_number,
+        "origin": origin,
+        "departureDate": date,
+    }
 
-    # Get all changes for this flight
-    changes = list(db["changes"].find(query).sort("detectedAt", 1))
+    changes = list(
+        db["changes"].find(
+            query,
+            projection={"passenger": 0, "_raw": 0},
+        ).sort("detectedAt", -1).limit(FLIGHT_EVENT_LIMIT)
+    )
+    changes.reverse()
 
     if not changes:
         raise HTTPException(status_code=404, detail="No timeline data found")
 
-    # Get snapshots for context
     snapshots = list(db["snapshots"].find(
         query,
-        projection={"data": 0}
-    ).sort("fetchedAt", 1))
+        projection={"fetchedAt": 1, "sequenceNumber": 1, "snapshotType": 1},
+    ).sort("fetchedAt", -1).limit(FLIGHT_EVENT_LIMIT))
+    snapshots.reverse()
 
     # Build timeline events
     events = []
@@ -639,7 +649,6 @@ def get_flight_timeline(
     for change in changes:
         change.pop("_id", None)
         change_type = change.get("changeType", "")
-        passenger = change.get("passenger")
 
         event = {
             "timestamp": change.get("detectedAt"),
@@ -652,9 +661,6 @@ def get_flight_timeline(
                 "newValue": change.get("newValue"),
             },
         }
-
-        if passenger:
-            event["passenger"] = passenger
 
         if change.get("metadata"):
             event["metadata"] = change["metadata"]
@@ -674,6 +680,10 @@ def get_flight_timeline(
         "events": events,
         "eventCount": len(events),
         "stats": stats,
+        "truncated": (
+            len(changes) >= FLIGHT_EVENT_LIMIT
+            or len(snapshots) >= FLIGHT_EVENT_LIMIT
+        ),
     }
 
 
@@ -775,66 +785,52 @@ def get_activity_feed(
 @router.get("/{flight_number}/boarding-progress")
 def get_boarding_progress(
     flight_number: str,
-    origin: str = Query(None, description="Departure airport code"),
-    date: str = Query(None, description="Departure date YYYY-MM-DD"),
+    origin: str = Query(..., description="Departure airport code"),
+    date: str = Query(..., description="Departure date YYYY-MM-DD"),
 ):
     """
-    Get check-in and boarding progress over time.
+    Get check-in and boarding progress over time for one flight departure.
     
-    Returns time-series data for charting the boarding curve.
+    Current counts come from the latest passenger_list snapshot. Each series
+    holds the most recent FLIGHT_EVENT_LIMIT events, with cumulative counts
+    anchored so the last point matches the current count; ``truncated`` is
+    set when older events were left out.
     """
     validate_date(date)
     validate_origin(origin)
     db = get_db()
 
-    query = {"flightNumber": flight_number}
-    if origin:
-        query["origin"] = origin
-    if date:
-        query["departureDate"] = date
+    query = {
+        "flightNumber": flight_number,
+        "origin": origin,
+        "departureDate": date,
+    }
 
-    # Get check-in and boarding events
-    checkin_query = {**query, "changeType": "CHECKED_IN"}
-    boarding_query = {**query, "changeType": "BOARDED"}
-
-    checkins = list(db["changes"].find(checkin_query).sort("detectedAt", 1))
-    boardings = list(db["changes"].find(boarding_query).sort("detectedAt", 1))
-
-    # Get total passenger count from latest snapshot
     snapshot = db["snapshots"].find_one(
         {**query, "snapshotType": "passenger_list"},
-        sort=[("sequenceNumber", -1)]
+        {
+            "data.totalPassengers": 1,
+            "data.passengers.isCheckedIn": 1,
+            "data.passengers.isBoarded": 1,
+        },
+        sort=[("sequenceNumber", -1)],
     )
+    data = (snapshot or {}).get("data")
+    if not isinstance(data, dict):
+        data = {}
+    total_passengers = data.get("totalPassengers", 0)
+    metrics = _passenger_metrics(data) if isinstance(data.get("passengers"), list) else None
 
-    total_passengers = 0
-    if snapshot:
-        total_passengers = snapshot.get("data", {}).get("totalPassengers", 0)
+    checkin = _progress_series(
+        db, query, "CHECKED_IN", metrics["checkedIn"] if metrics else None)
+    boarding = _progress_series(
+        db, query, "BOARDED", metrics["boarded"] if metrics else None)
 
-    # Build time series
-    checkin_series = []
-    cumulative = 0
-    for c in checkins:
-        cumulative += 1
-        checkin_series.append({
-            "timestamp": c.get("detectedAt"),
-            "count": cumulative,
-            "passenger": c.get("passenger"),
-        })
-
-    boarding_series = []
-    cumulative = 0
-    for b in boardings:
-        cumulative += 1
-        boarding_series.append({
-            "timestamp": b.get("detectedAt"),
-            "count": cumulative,
-            "passenger": b.get("passenger"),
-        })
-
-    # Get flight status transitions
     status_changes = list(db["changes"].find(
-        {**query, "changeType": "STATUS_CHANGE"}
-    ).sort("detectedAt", 1))
+        {**query, "changeType": "STATUS_CHANGE"},
+        projection={"detectedAt": 1, "newValue": 1, "oldValue": 1},
+    ).sort("detectedAt", -1).limit(FLIGHT_EVENT_LIMIT))
+    status_changes.reverse()
 
     milestones = []
     for sc in status_changes:
@@ -844,24 +840,50 @@ def get_boarding_progress(
             "previousStatus": sc.get("oldValue"),
         })
 
+    def _progress(series):
+        current = series["current"]
+        return {
+            "current": current,
+            "total": total_passengers,
+            "percentage": round(current / total_passengers * 100, 1) if total_passengers else 0,
+            "series": series["series"],
+            "truncated": series["truncated"],
+        }
+
     return {
         "flightNumber": flight_number,
         "origin": origin,
         "departureDate": date,
         "totalPassengers": total_passengers,
-        "checkinProgress": {
-            "current": len(checkins),
-            "total": total_passengers,
-            "percentage": round(len(checkins) / total_passengers * 100, 1) if total_passengers else 0,
-            "series": checkin_series,
-        },
-        "boardingProgress": {
-            "current": len(boardings),
-            "total": total_passengers,
-            "percentage": round(len(boardings) / total_passengers * 100, 1) if total_passengers else 0,
-            "series": boarding_series,
-        },
+        "checkinProgress": _progress(checkin),
+        "boardingProgress": _progress(boarding),
         "milestones": milestones,
+    }
+
+
+def _progress_series(db, query: dict, change_type: str, current: int | None) -> dict:
+    """Most recent FLIGHT_EVENT_LIMIT events of one type as cumulative points.
+
+    ``current`` is the count from the latest snapshot; when it is None the
+    count of loaded events is used instead.
+    """
+    docs = list(db["changes"].find(
+        {**query, "changeType": change_type},
+        projection={"detectedAt": 1},
+    ).sort("detectedAt", -1).limit(FLIGHT_EVENT_LIMIT))
+    docs.reverse()
+
+    if current is None:
+        current = len(docs)
+    start = max(current, len(docs)) - len(docs)
+    series = [
+        {"timestamp": doc.get("detectedAt"), "count": start + index + 1}
+        for index, doc in enumerate(docs)
+    ]
+    return {
+        "current": current,
+        "series": series,
+        "truncated": len(docs) >= FLIGHT_EVENT_LIMIT,
     }
 
 

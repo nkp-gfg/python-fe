@@ -276,14 +276,11 @@ export function fetchPassengerTimeline(
 
 export function fetchFlightTimeline(
   flightNumber: string,
-  origin?: string,
-  date?: string,
+  origin: string,
+  date: string,
 ): Promise<FlightTimelineResponse> {
-  const params = new URLSearchParams();
-  if (origin) params.set("origin", origin);
-  if (date) params.set("date", date);
-  const qs = params.toString() ? `?${params}` : "";
-  return get<FlightTimelineResponse>(`/flights/${flightNumber}/timeline${qs}`);
+  const params = new URLSearchParams({ origin, date });
+  return get<FlightTimelineResponse>(`/flights/${flightNumber}/timeline?${params}`);
 }
 
 export function fetchActivityFeed(
@@ -300,14 +297,11 @@ export function fetchActivityFeed(
 
 export function fetchBoardingProgress(
   flightNumber: string,
-  origin?: string,
-  date?: string,
+  origin: string,
+  date: string,
 ): Promise<BoardingProgressResponse> {
-  const params = new URLSearchParams();
-  if (origin) params.set("origin", origin);
-  if (date) params.set("date", date);
-  const qs = params.toString() ? `?${params}` : "";
-  return get<BoardingProgressResponse>(`/flights/${flightNumber}/boarding-progress${qs}`);
+  const params = new URLSearchParams({ origin, date });
+  return get<BoardingProgressResponse>(`/flights/${flightNumber}/boarding-progress?${params}`);
 }
 
 export function fetchPassengerHistoryBadges(

@@ -1095,11 +1095,6 @@ export interface FlightTimelineEvent {
     snapshotType?: string;
     sequenceNumber?: number;
   };
-  passenger?: {
-    pnr: string;
-    lastName: string;
-    firstName: string;
-  };
   metadata?: Record<string, unknown>;
 }
 
@@ -1128,6 +1123,7 @@ export interface FlightTimelineResponse {
   events: FlightTimelineEvent[];
   eventCount: number;
   stats: FlightTimelineStats;
+  truncated?: boolean;
 }
 
 // --- Activity Feed Types ---
@@ -1163,11 +1159,6 @@ export interface ProgressDataPoint {
   timestamp: string;
   count: number;
   cumulativeCount: number;
-  passenger?: {
-    pnr: string;
-    lastName: string;
-    firstName: string;
-  };
 }
 
 export interface ProgressSeries {
@@ -1176,6 +1167,7 @@ export interface ProgressSeries {
   percentage: number;
   data: ProgressDataPoint[];
   series?: ProgressDataPoint[];
+  truncated?: boolean;
 }
 
 export interface FlightMilestone {

@@ -271,7 +271,7 @@ export function FlightTimeline({
   const { data, isLoading, error } = useQuery({
     queryKey: ["flightTimeline", flightNumber, origin, date],
     queryFn: () => fetchFlightTimeline(flightNumber, origin, date),
-    enabled: !!flightNumber,
+    enabled: !!flightNumber && !!origin && !!date,
     retry: false,
   });
 
