@@ -20,6 +20,7 @@ import type {
   NetworkAnalyticsResponse,
   AnalyticsFiltersResponse,
 } from "./types";
+import { clearApiToken, getApiToken } from "./auth-token";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -38,10 +39,17 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function authHeaders(): Record<string, string> {
+  const token = getApiToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
+    headers: authHeaders(),
     signal: withTimeout(REQUEST_TIMEOUT_MS),
   });
+  if (res.status === 401) clearApiToken();
   if (!res.ok) {
     let errMsg = `API ${res.status}: ${res.statusText}`;
     try {
@@ -62,10 +70,11 @@ async function get<T>(path: string): Promise<T> {
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: body ? JSON.stringify(body) : undefined,
     signal: withTimeout(REQUEST_TIMEOUT_MS),
   });
+  if (res.status === 401) clearApiToken();
   if (!res.ok) {
     let errMsg = `API ${res.status}: ${res.statusText}`;
     try {
