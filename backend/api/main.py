@@ -6,6 +6,7 @@ Run with:
 """
 
 from backend.api.routes import flights, passengers, reservations, changes, ingestion, schedule, audit, otp, comparison, events, data_audit, analytics
+from backend.api.body_limit import MAX_REQUEST_BODY_BYTES, RequestBodyLimitMiddleware
 from backend.api.database import get_db, close_db
 from backend.api.postgres import close_pool as close_pg_pool
 from backend.api.redis_client import get_redis, close_redis
@@ -64,6 +65,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# ── Request body size limit ───────────────────────────────────────────────
+# Registered before CORS so it runs inside it and 413s still carry CORS headers.
+app.add_middleware(RequestBodyLimitMiddleware,
+                   max_body_bytes=MAX_REQUEST_BODY_BYTES)
 
 # ── CORS ──────────────────────────────────────────────────────────────────
 app.add_middleware(
