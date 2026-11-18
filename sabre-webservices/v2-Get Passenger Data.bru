@@ -39,7 +39,7 @@ docs {
   ## Lookup Mode (choose ONE):
   
   ### Mode 1: PNRLocator only (simplest)
-  Just provide `<PNRLocator>ABC123</PNRLocator>` — returns all pax in the PNR.
+  Just provide `<PNRLocator>XXXXXX</PNRLocator>` — returns all pax in the PNR.
   
   ### Mode 2: Itinerary + PassengerList (most common)
   Provide Itinerary (Airline, Flight, DepartureDate, Origin) plus
@@ -176,9 +176,9 @@ vars:pre-request {
   departureDate: 2026-03-20
   origin: DMM
   airlineCode: GF
-  lastName: ACHARI RAMANUJAM
-  firstName: NARAYAN
-  pnr: OYBWMM
+  lastName: SMITH
+  firstName: JOHN
+  pnr: ABC123
 }
 
 script:pre-request {
