@@ -1237,14 +1237,15 @@ def _build_dashboard_payload(fs, pl, origin, date, change_summary, reservation_d
     no_show_available = False
     if trip_report_doc:
         # MLX report → cancelled passengers = offloaded
-        mlx = trip_report_doc.get("cancelledPassengers", [])
-        if mlx is not None:
+        mlx = trip_report_doc.get("cancelledPassengers")
+        if trip_report_doc.get("mlxStatus") == "success" and isinstance(mlx, list):
             offloaded = len(mlx)
             offloaded_available = True
 
         # MLC report → ever-booked passengers for no-show detection
-        mlc = trip_report_doc.get("everBookedPassengers", [])
-        if mlc is not None and current_flight_status in ("FINAL", "PDC") and pl:
+        mlc = trip_report_doc.get("everBookedPassengers")
+        if (trip_report_doc.get("mlcStatus") == "success" and isinstance(mlc, list)
+                and current_flight_status in ("FINAL", "PDC") and pl):
             # No-show = passengers in MLC (ever-booked) who are NOT in current manifest
             current_pnr_names = set()
             for pax in pl.get("passengers", []):
