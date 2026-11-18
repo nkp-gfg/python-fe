@@ -13,6 +13,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timezone
+from xml.sax.saxutils import escape as xml_escape
 
 import requests
 import structlog
@@ -40,6 +41,38 @@ def _log_retry(retry_state):
 class SabreError(Exception):
     """Raised when a Sabre API call fails."""
     pass
+
+
+class SabreIncompleteResponseError(SabreError):
+    """Raised when a response reports more records than could be retrieved."""
+    pass
+
+
+# Trip_SearchRS warning: results were truncated at the view / MaxItemsReturned limit.
+TRIP_SEARCH_TRUNCATED_WARNING = "200006"
+
+
+def _local_child(node, name):
+    """Return the child of an xmltodict node whose local name is `name`."""
+    if not isinstance(node, dict):
+        return None
+    for key, value in node.items():
+        if key.split(":")[-1] == name:
+            return value
+    return None
+
+
+def _as_list(value):
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
+def _int_attr(node, name):
+    try:
+        return int(str(node.get(f"@{name}")).strip())
+    except (TypeError, ValueError):
+        return None
 
 
 class SabreClient:
@@ -262,8 +295,12 @@ class SabreClient:
 
     def get_reservations(self, airline, flight_number, departure_airport, departure_datetime):
         """
-        Call Trip_SearchRQ.
+        Call Trip_SearchRQ, following TokenCriteria pages until every record
+        counted by ReservationsList@TotalResults has been retrieved. Later pages
+        are merged into the returned body.
         Returns (parsed_body_dict, raw_xml_string, request_meta).
+        Raises SabreIncompleteResponseError when the full result set cannot be
+        retrieved, so callers never treat a partial list as complete.
         """
         body = templates.RESERVATION.format(
             **self._common_vars(),
@@ -276,14 +313,128 @@ class SabreClient:
             "Trip_SearchRQ", body, timeout=60)
         parsed = self._parse_xml(xml_text)
         data = self._extract_body(parsed, "Trip_SearchRS")
+        flight = f"{airline}{flight_number}"
+        self._raise_on_trip_search_errors(data, flight)
+        pages_fetched, pages_ms = self._merge_remaining_reservation_pages(data, flight)
         meta = {
             "requestXml": request_xml,
             "httpStatus": http_status,
-            "durationMs": duration_ms,
+            "durationMs": duration_ms + pages_ms,
             "sessionToken": self._token,
             "conversationId": self._conversation_id,
+            "pagesFetched": 1 + pages_fetched,
         }
         return data, xml_text, meta
+
+    def _get_reservation_page(self, page_token, page):
+        """Fetch one follow-up page of a Trip_SearchRQ result by its Token."""
+        body = templates.RESERVATION_PAGE.format(
+            **self._common_vars(),
+            page_token=xml_escape(page_token),
+            page=int(page),
+        )
+        xml_text, _, duration_ms, _ = self._post("Trip_SearchRQ", body, timeout=60)
+        data = self._extract_body(self._parse_xml(xml_text), "Trip_SearchRS")
+        return data, duration_ms
+
+    @staticmethod
+    def _raise_on_trip_search_errors(data, flight):
+        errors = _as_list(_local_child(_local_child(data, "Errors"), "Error"))
+        if errors:
+            raise SabreError(
+                f"Trip_SearchRS for {flight} returned errors: {str(errors)[:500]}")
+
+    @staticmethod
+    def _trip_search_truncated(data):
+        """True when Sabre warns that results were cut at the response limit."""
+        warnings = _as_list(_local_child(_local_child(data, "Warnings"), "Warning"))
+        for warning in warnings:
+            if isinstance(warning, dict):
+                code = str(warning.get("@ShortText") or "").strip()
+                text = str(warning.get("#text") or "")
+            else:
+                code, text = "", str(warning or "")
+            if code == TRIP_SEARCH_TRUNCATED_WARNING or "Number of results exceeded" in text:
+                return True
+        return False
+
+    @staticmethod
+    def _reservation_records(data):
+        res_list = _local_child(data, "ReservationsList")
+        container = _local_child(res_list, "Reservations")
+        return res_list, container, _as_list(_local_child(container, "Reservation"))
+
+    def _merge_remaining_reservation_pages(self, data, flight):
+        """
+        Merge every remaining Trip_SearchRS page into `data` in place.
+        Returns (pages_fetched, total_duration_ms).
+        """
+        res_list, container, records = self._reservation_records(data)
+        if not isinstance(res_list, dict):
+            res_list = {}
+        total = _int_attr(res_list, "TotalResults")
+        page_count = _int_attr(res_list, "NumberPages") or 1
+        page_token = str(res_list.get("@Token") or "").strip()
+        if page_token == "0":
+            page_token = ""
+        truncated = self._trip_search_truncated(data)
+
+        merged = list(records)
+        seen = {r.get("@Locator") if isinstance(r, dict) else None for r in records}
+        pages_fetched = 0
+        pages_ms = 0
+        page = 2
+
+        def needs_more():
+            if total is not None:
+                return len(seen) < total
+            return truncated
+
+        while needs_more() and page_token and page <= page_count:
+            page_data, page_ms = self._get_reservation_page(page_token, page)
+            pages_fetched += 1
+            pages_ms += page_ms
+            self._raise_on_trip_search_errors(page_data, flight)
+            _, _, page_records = self._reservation_records(page_data)
+            added = 0
+            for record in page_records:
+                locator = record.get("@Locator") if isinstance(record, dict) else None
+                if locator in seen:
+                    continue
+                seen.add(locator)
+                merged.append(record)
+                added += 1
+            page += 1
+            if added == 0:
+                break
+
+        incomplete_reason = None
+        if total is not None and len(seen) < total:
+            incomplete_reason = f"retrieved {len(seen)} of {total} reservations"
+        elif truncated and pages_fetched == 0:
+            incomplete_reason = "response was truncated at the result limit"
+        elif truncated and total is None and page <= page_count:
+            incomplete_reason = f"stopped at page {page - 1} of {page_count}"
+        if incomplete_reason:
+            logger.warning("trip_search_incomplete", flight=flight,
+                           total_results=total, retrieved=len(seen),
+                           number_pages=page_count, pages_fetched=1 + pages_fetched,
+                           has_page_token=bool(page_token), truncated=truncated)
+            raise SabreIncompleteResponseError(
+                f"Trip_SearchRS for {flight} is incomplete: {incomplete_reason}")
+
+        if pages_fetched:
+            if not isinstance(container, dict):
+                container = {}
+                res_list["Reservations"] = container
+            key = next((k for k in container if k.split(":")[-1] == "Reservation"),
+                       "Reservation")
+            container[key] = merged
+            res_list["@NumberResults"] = str(len(merged))
+            logger.info("trip_search_pages_merged", flight=flight,
+                        pages=1 + pages_fetched, reservations=len(merged),
+                        total_results=total)
+        return pages_fetched, pages_ms
 
     # ── Passenger Data (per-passenger detail) ─────────────────────────────
 
