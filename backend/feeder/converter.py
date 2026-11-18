@@ -37,6 +37,26 @@ def _safe_int(val, default=0):
         return default
 
 
+def _element_text(val):
+    """Text content of an xmltodict element that may carry attributes.
+
+    Elements with attributes parse as {"@attr": ..., "#text": ...}; plain
+    elements parse as a string, and empty ones as None.
+    """
+    if isinstance(val, dict):
+        text = val.get("#text")
+        return text if isinstance(text, str) else ""
+    return val if isinstance(val, str) else ""
+
+
+def _element_attr(val, name):
+    """Attribute value of an xmltodict element, or '' when absent."""
+    if isinstance(val, dict):
+        attr = val.get(f"@{name}")
+        return attr if isinstance(attr, str) else ""
+    return ""
+
+
 def _combine_datetime(date_val, time_val):
     """Combine date and time parts into ISO string, returning '' if both empty."""
     d = (date_val or "").strip()
@@ -159,7 +179,7 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
         "status": itin.get("FlightStatus", ""),
         "timeToDeparture": _safe_int(itin.get("TimeToDepartureInMinutes")),
         "aircraft": {
-            "type": itin.get("AircraftType", ""),
+            "type": _element_text(itin.get("AircraftType")),
             "registration": itin.get("AircraftRegistration", ""),
             "configNumber": itin.get("AircraftConfigNumber", ""),
             "seatConfig": itin.get("SeatConfig", ""),
@@ -194,8 +214,8 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
         "gate": itin.get("DepartureGate", ""),
         "terminal": itin.get("DepartureTerminal", ""),
         "boarding": {
-            "time": itin.get("BoardingTime", ""),
-            "indicator": (itin.get("BoardingTime") or {}).get("@boardingIndicator", "") if isinstance(itin.get("BoardingTime"), dict) else "",
+            "time": _element_text(itin.get("BoardingTime")),
+            "indicator": _element_attr(itin.get("BoardingTime"), "boardingIndicator"),
         },
         "legs": [
             {
@@ -207,8 +227,8 @@ def convert_flight_status(raw_data, airline, flight_number, origin, departure_da
         ],
         "passengerCounts": pax_counts,
         "jumpSeat": {
-            "cockpit": _safe_int(jump.get("Cockpit")),
-            "cabin": _safe_int(jump.get("Cabin")),
+            "cockpit": _safe_int(_element_text(jump.get("Cockpit"))),
+            "cabin": _safe_int(_element_text(jump.get("Cabin"))),
             "cockpitInUse": jump.get("@cockpitInUse", "false") == "true",
             "cabinInUse": jump.get("@cabinInUse", "false") == "true",
         },
