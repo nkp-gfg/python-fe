@@ -107,17 +107,21 @@ This document catalogs operational scenarios and edge cases handled by the Falco
 - **MLX (cancelled passengers):** Passengers booked but removed before flight
 - **MLC (ever-booked passengers):** All passengers ever on any version of the flight
 
-**Storage & Merge** (converter.py):
-```python
-"cancelledPassengers": mlx_doc.get("passengers", []) if mlx_doc else [],
-"cancelledCount": mlx_doc.get("totalPassengers", 0) if mlx_doc else 0,
-"everBookedPassengers": mlc_doc.get("passengers", []) if mlc_doc else [],
-"everBookedCount": mlc_doc.get("totalPassengers", 0) if mlc_doc else 0,
-```
+**Parsing** (`converter.convert_trip_report`): passengers are read from
+`Report/ReportResult/Details/Entry` — `GroupEntry` / `ScheduleChangeEntry`
+(`Name` + `Locator`), `ReservationEntry` / `PaxEntry` (`LastName`, `FirstName`,
+`Locator`) and a named `EntryHeader`. A report is `status="success"` only when
+the response has a `Success` element, no `Errors`, a `Report` element, and every
+passenger entry parsed; otherwise its passenger list is `None`.
+
+**Storage & Merge** (`converter.merge_trip_reports`): stores `mlxStatus` /
+`mlcStatus` next to `cancelledPassengers` / `everBookedPassengers`. The dashboard
+sets `offloadedAvailable` / `noShowAvailable` only when the matching status is
+`"success"`.
 
 **Edge Case — Partial Trip Report Failure:**
-- MLX fails, MLC succeeds: document stored with `cancelledCount=0`, `everBookedCount=n`
-- Both fail: `trip_reports` collection not updated
+- Either MLX or MLC fails (SabreError or unparseable body): `trip_reports` not
+  updated, `tripReports.status="error"`; raw responses are still archived
 
 **Known Limitation:**
 - Trip reports reflect state at API call time; earlier cancellations not retroactively marked
