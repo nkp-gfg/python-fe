@@ -523,6 +523,29 @@ def run_feeder(flights, progress_callback=None):
             try:
                 raw, xml, meta = client.get_reservations(
                     airline, fn, origin, dep_dt)
+                converted = convert_reservations(
+                    raw, airline, fn, origin, dep_date)
+                if not converted.get("reservations"):
+                    # Archive the empty body, but do not snapshot it or replace
+                    # the current reservation list. A miss and a genuinely empty
+                    # flight look the same, and an empty success used to be
+                    # diffed as RESERVATION_REMOVED.
+                    storage.store_raw_request(
+                        api_type="Reservations",
+                        flight_info=flight_info,
+                        request_xml=meta["requestXml"],
+                        response_xml=xml,
+                        response_json=raw,
+                        http_status=meta["httpStatus"],
+                        duration_ms=meta["durationMs"],
+                        session_token=meta.get("sessionToken"),
+                        conversation_id=meta.get("conversationId"),
+                    )
+                    raise SabreError(
+                        "Trip Search returned no reservations; the response was "
+                        "archived as a failed call and was not stored as the "
+                        "current reservation list"
+                    )
                 details = _process_api_call(
                     "Reservations", "reservations", flight_info,
                     raw, xml, meta,

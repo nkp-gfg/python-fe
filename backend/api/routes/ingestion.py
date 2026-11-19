@@ -12,7 +12,7 @@ from datetime import date, datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from backend.feeder.runner import run_feeder
@@ -70,7 +70,7 @@ class SabreIngestRequest(BaseModel):
     )
     departureDate: date = Field(..., description="Departure date YYYY-MM-DD")
     departureDateTime: datetime = Field(
-        ..., description="Departure timestamp YYYY-MM-DDTHH:MM:SS"
+        ..., description="Station-local departure timestamp YYYY-MM-DDTHH:MM:SS, without a timezone offset"
     )
     flightSequenceNumber: int | None = Field(
         default=None,
@@ -81,6 +81,16 @@ class SabreIngestRequest(BaseModel):
         description="IATA service type: J=scheduled, P=positioning/ferry, C=charter. "
                     "Only J flights are available in Sabre DCS.",
     )
+
+    @field_validator("departureDateTime")
+    @classmethod
+    def departure_datetime_is_station_local(cls, value: datetime) -> datetime:
+        """Trip Search Is is an exact local timestamp, not a UTC instant."""
+        if value.tzinfo is not None and value.utcoffset() is not None:
+            raise ValueError(
+                "departureDateTime must be the station-local time without a timezone offset"
+            )
+        return value
 
 
 class SabreApiResult(BaseModel):

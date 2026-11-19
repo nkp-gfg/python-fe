@@ -100,12 +100,21 @@ function buildIngestPayload(f: OtpFlight): SabreIngestRequest {
     );
   }
 
+  // Trip Search DepartureDateTime Is is the station-local timestamp.
+  // Use the clock on scheduledDepartureLocal with the local departure date.
+  // Do not send the UTC instant, and do not invent midnight when local time is absent.
+  let departureDateTime;
+  const localClock = f.scheduledDepartureLocal?.match(/T(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (localClock) {
+    departureDateTime = `${departureDate}T${localClock[1]}:${localClock[2]}:${localClock[3] ?? "00"}`;
+  }
+
   return {
     airline: f.carrierCode ?? "GF",
     flightNumber: f.flightNumber,
     origin: f.origin,
     departureDate,
-    departureDateTime: f.scheduledDepartureUtc ?? `${departureDate}T00:00:00`,
+    ...(departureDateTime ? { departureDateTime } : {}),
     flightSequenceNumber: f.flightSequenceNumber,
     serviceTypeCode: f.serviceTypeCode ?? undefined,
   };
