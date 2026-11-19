@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:echarts-stale-option": "vitest run components/ui/echarts-stale-option.test.tsx"
   },
   "dependencies": {
     "@radix-ui/react-progress": "^1.1.8",
@@ -35,7 +36,10 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.0",
+    "jsdom": "^31.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^6.4.6",
+    "vitest": "^5.1.1"
   }
 }
