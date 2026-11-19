@@ -62,12 +62,54 @@ function getPhaseBorder(status: string) {
   return PHASE_BORDERS[status.toUpperCase()] ?? "border-muted-foreground/20";
 }
 
-function fmtTime(iso?: string | null): string {
-  if (!iso) return "—";
-  // ISO string like "2026-03-30T09:55:00"
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+/* ─────────── STATION TIME HELPERS ─────────── */
+
+// Clocks are kept as epoch ms on a UTC axis and formatted in UTC, so the
+// browser's own time zone never enters the result.
+
+const ISO_ZONE_SUFFIX = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+const MAX_STATION_OFFSET_MS = 14 * 60 * 60_000;
+
+/** Instant from a *_utc column; zone-less strings carry the UTC clock. */
+function parseUtcInstant(iso?: string | null): number | null {
+  if (!iso) return null;
+  const s = iso.trim();
+  const ms = Date.parse(ISO_ZONE_SUFFIX.test(s) ? s : `${s}Z`);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+/** Wall-clock digits of a *_local column, as written for the station. */
+function parseWallClock(iso?: string | null): number | null {
+  if (!iso) return null;
+  const ms = Date.parse(`${iso.trim().replace(ISO_ZONE_SUFFIX, "")}Z`);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function formatClock(ms: number): string {
+  return new Date(ms).toISOString().slice(11, 16);
+}
+
+/** Station UTC offset implied by a scheduled local/UTC pair, or null if unknown. */
+function stationOffsetMs(localIso?: string | null, utcIso?: string | null): number | null {
+  const wall = parseWallClock(localIso);
+  const instant = parseUtcInstant(utcIso);
+  if (wall === null || instant === null) return null;
+  const offset = wall - instant;
+  return Math.abs(offset) <= MAX_STATION_OFFSET_MS ? offset : null;
+}
+
+/** Scheduled station time; falls back to an explicitly labelled UTC clock. */
+function fmtScheduled(localIso?: string | null, utcIso?: string | null): string {
+  const wall = parseWallClock(localIso);
+  if (wall !== null) return formatClock(wall);
+  const instant = parseUtcInstant(utcIso);
+  return instant === null ? "—" : `${formatClock(instant)}Z`;
+}
+
+/** UTC instant shown in the station zone; labelled UTC when the offset is unknown. */
+function fmtStationInstant(instant: number | null, offset: number | null): string {
+  if (instant === null) return "—";
+  return offset === null ? `${formatClock(instant)}Z` : formatClock(instant + offset);
 }
 
 /* ─────────── helpers ─────────── */
@@ -708,10 +750,16 @@ function FlightRow({
   dateRollover: boolean;
 }) {
   const status = flight.flightStatus;
-  const std = fmtTime(flight.scheduledDepartureUtc);
-  const sta = fmtTime(flight.scheduledArrivalUtc);
-  const etd = fmtTime(flight.estimatedBlockOffUtc);
-  const delayed = etd !== "—" && etd !== std;
+  const depOffset = stationOffsetMs(flight.scheduledDepartureLocal, flight.scheduledDepartureUtc);
+  const arrOffset = stationOffsetMs(flight.scheduledArrivalLocal, flight.scheduledArrivalUtc);
+  const std = fmtScheduled(flight.scheduledDepartureLocal, flight.scheduledDepartureUtc);
+  const sta = fmtScheduled(flight.scheduledArrivalLocal, flight.scheduledArrivalUtc);
+  const stdInstant = parseUtcInstant(flight.scheduledDepartureUtc);
+  const etdInstant = parseUtcInstant(flight.estimatedBlockOffUtc);
+  const etd = fmtStationInstant(etdInstant, depOffset);
+  const delayed = etdInstant !== null && etdInstant !== stdInstant;
+  const atdInstant = parseUtcInstant(flight.actualBlockOffUtc);
+  const ataInstant = parseUtcInstant(flight.actualBlockOnUtc);
   const pax = flight.totalPax ?? 0;
 
   // Sum delay from delay_details JSONB
@@ -801,9 +849,9 @@ function FlightRow({
           {delayed && (
             <span className="ml-1 text-[10px] font-semibold text-rose-500">{"\u2192"} {etd}</span>
           )}
-          {flight.actualBlockOffUtc && (
+          {atdInstant !== null && (
             <div className="text-[9px] text-emerald-600 dark:text-emerald-400">
-              ATD {fmtTime(flight.actualBlockOffUtc)}
+              ATD {fmtStationInstant(atdInstant, depOffset)}
             </div>
           )}
         </div>
@@ -811,9 +859,9 @@ function FlightRow({
         {/* STA */}
         <div className="text-xs tabular-nums text-muted-foreground mt-0.5 sm:mt-0">
           {sta}
-          {flight.actualBlockOnUtc && (
+          {ataInstant !== null && (
             <div className="text-[9px] text-emerald-600 dark:text-emerald-400">
-              ATA {fmtTime(flight.actualBlockOnUtc)}
+              ATA {fmtStationInstant(ataInstant, arrOffset)}
             </div>
           )}
         </div>
