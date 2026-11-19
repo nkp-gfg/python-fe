@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["./*"],
+      "next/navigation": ["./tests/shims/navigation.tsx"],
+      "next/link": ["./tests/shims/link.tsx"],
+      "next/dynamic": ["./tests/shims/dynamic.tsx"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx", "../components/**/*.ts", "../components/**/*.tsx", "../lib/**/*.ts", "../app/**/*.tsx"]
+}
