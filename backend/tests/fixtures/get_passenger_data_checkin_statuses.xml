@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GetPassengerDataRS shaped like sabre_docs sample 4_2_1.
+  DetailStatus values are the DetailStatus.ACS enumeration from
+  sabre_docs/GetPassengerDataRQ_v4-0-0/GetPassengerDataRQRS_v4-0-0.xsd:
+  ValidationRequired, ValidationFailed, WithDOCRequired.
+  No credentials.
+-->
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap-env:Body>
+    <ns3:GetPassengerDataRS xmlns:ns2="http://services.sabre.com/STL/v3" xmlns:ns3="http://services.sabre.com/checkin/getPassengerData/v4">
+      <PassengerDataResponseList>
+        <PassengerDataResponse>
+          <LineNumber>1</LineNumber>
+          <LastName>JAMES</LastName>
+          <FirstName>DICK</FirstName>
+          <PassengerID>292DEA0D0001</PassengerID>
+          <PNRLocator nameAssociationID="1">ABC123</PNRLocator>
+          <PassengerItineraryList>
+            <PassengerItinerary>
+              <SegmentID>1</SegmentID>
+              <Airline>GF</Airline>
+              <Flight>2057</Flight>
+              <BookingClass>Y</BookingClass>
+              <Origin>BAH</Origin>
+              <Destination>LHR</Destination>
+              <DepartureDate>2026-04-02</DepartureDate>
+              <AircraftType>32N</AircraftType>
+              <Cabin>Y</Cabin>
+              <PassengerType>F</PassengerType>
+              <BagCount>0</BagCount>
+              <TotalBagWeightAndUnit>0</TotalBagWeightAndUnit>
+              <RequiredInfoList>
+                <RequiredInfo>
+                  <Code>DOCS</Code>
+                  <DetailStatus>ValidationRequired</DetailStatus>
+                  <FreeText>!DOCS REQUIRED</FreeText>
+                </RequiredInfo>
+                <RequiredInfo>
+                  <Code>TIM</Code>
+                  <DetailStatus>ValidationFailed</DetailStatus>
+                  <FreeText>TIMATIC VALIDATION FAILED</FreeText>
+                </RequiredInfo>
+                <RequiredInfo>
+                  <Code>DOCV</Code>
+                  <DetailStatus>WithDOCRequired</DetailStatus>
+                  <FreeText>WITH DOCUMENT REQUIRED</FreeText>
+                </RequiredInfo>
+              </RequiredInfoList>
+            </PassengerItinerary>
+          </PassengerItineraryList>
+          <RequiredInfoSumList>
+            <RequiredInfo>
+              <Code>DOCS</Code>
+              <DetailStatus>ValidationRequired</DetailStatus>
+              <FreeText>!DOCS REQUIRED</FreeText>
+            </RequiredInfo>
+            <RequiredInfo>
+              <Code>TIM</Code>
+              <DetailStatus>ValidationFailed</DetailStatus>
+              <FreeText>TIMATIC VALIDATION FAILED</FreeText>
+            </RequiredInfo>
+            <RequiredInfo>
+              <Code>DOCV</Code>
+              <DetailStatus>WithDOCRequired</DetailStatus>
+              <FreeText>WITH DOCUMENT REQUIRED</FreeText>
+            </RequiredInfo>
+          </RequiredInfoSumList>
+        </PassengerDataResponse>
+      </PassengerDataResponseList>
+    </ns3:GetPassengerDataRS>
+  </soap-env:Body>
+</soap-env:Envelope>
