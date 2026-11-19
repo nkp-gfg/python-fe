@@ -1,0 +1,13 @@
+{
+  "name": "analytics-date-query-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "rm -rf node_modules/react node_modules/react-dom && ln -s ../../frontend/node_modules/react node_modules/react && ln -s ../../frontend/node_modules/react-dom node_modules/react-dom && vitest run --config vitest.config.mts"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.0",
+    "jsdom": "26.1.0",
+    "vitest": "3.2.4"
+  }
+}
