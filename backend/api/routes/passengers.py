@@ -4,7 +4,12 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from backend.api.database import get_db
 from backend.api.snapshot_versioning import get_snapshot_data_as_of
-from backend.api.validators import validate_date, validate_origin
+from backend.api.validators import (
+    validate_airline,
+    validate_date,
+    validate_flight_number,
+    validate_origin,
+)
 from backend.sabre.client import SabreClient, SabreError
 from backend.feeder.converter import convert_passenger_data
 
@@ -491,8 +496,10 @@ def get_passenger_detail(
     Requires the passenger's PNR. Looks up the last name from the
     stored passenger list automatically.
     """
+    validate_flight_number(flight_number)
     validate_date(date)
     validate_origin(origin)
+    validate_airline(airline)
     db = get_db()
     # Look up last name from stored passenger list
     query = {"flightNumber": flight_number, "passengers.pnr": pnr}
