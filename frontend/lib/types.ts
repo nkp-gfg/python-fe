@@ -368,7 +368,8 @@ export interface SabreIngestRequest {
   flightNumber: string;
   origin: string;
   departureDate: string;
-  departureDateTime: string;
+  /** Station-local departure timestamp. Omitted when that time is unknown. */
+  departureDateTime?: string;
   flightSequenceNumber?: number;
   serviceTypeCode?: string;
 }

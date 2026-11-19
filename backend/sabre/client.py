@@ -263,14 +263,22 @@ class SabreClient:
     def get_reservations(self, airline, flight_number, departure_airport, departure_datetime):
         """
         Call Trip_SearchRQ.
+        departure_datetime: station-local YYYY-MM-DDThh:mm:ss. Sabre matches
+        DepartureDateTime Is against that exact local timestamp.
         Returns (parsed_body_dict, raw_xml_string, request_meta).
         """
+        local_departure = str(departure_datetime or "").strip()
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", local_departure):
+            raise SabreError(
+                "Trip Search DepartureDateTime Is must be a station-local "
+                "timestamp YYYY-MM-DDThh:mm:ss with no timezone offset"
+            )
         body = templates.RESERVATION.format(
             **self._common_vars(),
             airline=airline,
             flight_number=flight_number,
             departure_airport=departure_airport,
-            departure_datetime=departure_datetime,
+            departure_datetime=local_departure,
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
             "Trip_SearchRQ", body, timeout=60)

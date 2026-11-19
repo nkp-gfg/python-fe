@@ -260,11 +260,14 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
     onSettled: () => setIngestingFlight(null),
   });
 
-  /** Convert Sabre "2026-03-20T04:00PM" → ISO "2026-03-20T16:00:00" */
+  /** Convert Sabre "2026-03-20T04:00PM" → ISO "2026-03-20T16:00:00".
+   *  A missing or unparsed schedule time stays empty. Midnight on fallbackDate
+   *  is not a substitute for an unknown station-local departure.
+   */
   function toIsoDateTime(raw: string | undefined, fallbackDate: string): string {
-    if (!raw) return `${fallbackDate}T00:00:00`;
+    if (!raw || !fallbackDate) return "";
     const m = raw.match(/(\d{4}-\d{2}-\d{2})T(\d{1,2}):(\d{2})(AM|PM)?/i);
-    if (!m) return `${fallbackDate}T00:00:00`;
+    if (!m) return "";
     const [, datePart, hStr, min, ampm] = m;
     let h = parseInt(hStr, 10);
     if (ampm) {
@@ -283,7 +286,16 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
   function executeIngest() {
     if (!confirmFlight) return;
     const flight = confirmFlight;
+    const departureDateTime = toIsoDateTime(flight.schedule?.scheduledDeparture, flight.departureDate);
     setConfirmFlight(null);
+    if (!departureDateTime) {
+      pushToast({
+        variant: "error",
+        title: "Station-local departure time is required",
+        description: `${flight.airline ?? ""}${flight.flightNumber} has no schedule departure time, so Trip Search was not queried.`,
+      });
+      return;
+    }
     const key = `${flight.flightNumber}-${flight.origin}-${flight.departureDate}`;
     setIngestingFlight(key);
     ingestMutation.mutate({
@@ -291,7 +303,7 @@ export function FlightWorkbench({ initialSelection }: FlightWorkbenchProps) {
       flightNumber: flight.flightNumber,
       origin: flight.origin,
       departureDate: flight.departureDate,
-      departureDateTime: toIsoDateTime(flight.schedule?.scheduledDeparture, flight.departureDate),
+      departureDateTime,
     });
   }
 
