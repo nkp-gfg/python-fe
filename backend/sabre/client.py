@@ -13,6 +13,8 @@ import re
 import time
 import uuid
 from datetime import datetime, timezone
+from xml.sax.saxutils import escape as _sax_escape
+from xml.sax.saxutils import unescape as _sax_unescape
 
 import requests
 import structlog
@@ -27,6 +29,28 @@ from tenacity import (
 from . import templates
 
 logger = structlog.get_logger(__name__)
+
+_XML_QUOTE_ENTITIES = {'"': "&quot;", "'": "&apos;"}
+
+
+def _xml(value):
+    """Escape a value for use as XML text or a quoted attribute value.
+
+    Every value formatted into a SOAP template must pass through this, so
+    caller-supplied or stored data can never add or close elements.
+    """
+    if value is None:
+        return ""
+    return _sax_escape(str(value), _XML_QUOTE_ENTITIES)
+
+
+# display_codes is inserted as markup, so only these fixed fragments are allowed.
+_DISPLAY_CODE_SETS = frozenset({
+    templates.DISPLAY_CODES_BOOKED,
+    templates.DISPLAY_CODES_CHECKEDIN,
+    templates.DISPLAY_CODES_NOSHOW_OFL,
+    templates.DISPLAY_CODES_ALL,
+})
 
 
 def _log_retry(retry_state):
@@ -91,11 +115,11 @@ class SabreClient:
     def _common_vars(self):
         """Variables shared across all authenticated templates."""
         return {
-            "cpaid": self._cpaid,
-            "conversation_id": self._conversation_id,
-            "message_id": self._message_id(),
-            "timestamp": self._timestamp(),
-            "token": self._token,
+            "cpaid": _xml(self._cpaid),
+            "conversation_id": _xml(self._conversation_id),
+            "message_id": _xml(self._message_id()),
+            "timestamp": _xml(self._timestamp()),
+            "token": _xml(self._token),
         }
 
     def _rate_limit(self):
@@ -157,15 +181,15 @@ class SabreClient:
         """Authenticate and obtain a BinarySecurityToken."""
         self._conversation_id = self._conversation_id_new()
         body = templates.SESSION_CREATE.format(
-            cpaid=self._cpaid,
-            conversation_id=self._conversation_id,
-            message_id=self._message_id(),
-            timestamp=self._timestamp(),
-            username=self._username,
-            password=self._password,
-            organization=self._organization,
-            domain=self._domain,
-            pseudo_city_code=self._pseudo_city_code,
+            cpaid=_xml(self._cpaid),
+            conversation_id=_xml(self._conversation_id),
+            message_id=_xml(self._message_id()),
+            timestamp=_xml(self._timestamp()),
+            username=_xml(self._username),
+            password=_xml(self._password),
+            organization=_xml(self._organization),
+            domain=_xml(self._domain),
+            pseudo_city_code=_xml(self._pseudo_city_code),
         )
         xml_text, _, _, _ = self._post("SessionCreateRQ", body)
         match = re.search(
@@ -175,7 +199,8 @@ class SabreClient:
         if not match:
             raise SabreError(
                 f"Session creation failed. Response: {xml_text[:500]}")
-        self._token = match.group(1).strip()
+        self._token = _sax_unescape(match.group(1).strip(), {
+            "&quot;": '"', "&apos;": "'"})
         logger.info("sabre_session_created",
                     token_prefix=self._token[:20],
                     conversation_id=self._conversation_id)
@@ -206,10 +231,10 @@ class SabreClient:
             departure_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         body = templates.FLIGHT_STATUS.format(
             **self._common_vars(),
-            airline=airline,
-            flight_number=flight_number,
-            departure_date=departure_date,
-            origin=origin,
+            airline=_xml(airline),
+            flight_number=_xml(flight_number),
+            departure_date=_xml(departure_date),
+            origin=_xml(origin),
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
             "ACS_FlightDetailRQ", body)
@@ -237,12 +262,14 @@ class SabreClient:
         """
         if display_codes is None:
             display_codes = templates.DISPLAY_CODES_BOOKED
+        if display_codes not in _DISPLAY_CODE_SETS:
+            raise ValueError("display_codes must be a templates.DISPLAY_CODES_* constant")
         body = templates.PASSENGER_LIST.format(
             **self._common_vars(),
-            airline=airline,
-            flight_number=flight_number,
-            departure_date=departure_date,
-            origin=origin,
+            airline=_xml(airline),
+            flight_number=_xml(flight_number),
+            departure_date=_xml(departure_date),
+            origin=_xml(origin),
             display_codes=display_codes,
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
@@ -267,10 +294,10 @@ class SabreClient:
         """
         body = templates.RESERVATION.format(
             **self._common_vars(),
-            airline=airline,
-            flight_number=flight_number,
-            departure_airport=departure_airport,
-            departure_datetime=departure_datetime,
+            airline=_xml(airline),
+            flight_number=_xml(flight_number),
+            departure_airport=_xml(departure_airport),
+            departure_datetime=_xml(departure_datetime),
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
             "Trip_SearchRQ", body, timeout=60)
@@ -296,17 +323,17 @@ class SabreClient:
         """
         first_name_element = ""
         if first_name:
-            first_name_element = f'<FirstName>{first_name}</FirstName>'
+            first_name_element = f'<FirstName>{_xml(first_name)}</FirstName>'
         pnr_element = ""
         if pnr:
-            pnr_element = f'<PNRLocator>{pnr}</PNRLocator>'
+            pnr_element = f'<PNRLocator>{_xml(pnr)}</PNRLocator>'
         body = templates.PASSENGER_DATA.format(
             **self._common_vars(),
-            airline=airline,
-            flight_number=flight_number,
-            departure_date=departure_date,
-            origin=origin,
-            last_name=last_name,
+            airline=_xml(airline),
+            flight_number=_xml(flight_number),
+            departure_date=_xml(departure_date),
+            origin=_xml(origin),
+            last_name=_xml(last_name),
             first_name_element=first_name_element,
             pnr_element=pnr_element,
         )
@@ -333,11 +360,11 @@ class SabreClient:
         """
         body = templates.TRIP_REPORT.format(
             **self._common_vars(),
-            airline=airline,
-            flight_number=flight_number,
-            departure_date=departure_date,
-            origin=origin,
-            report_type=report_type,
+            airline=_xml(airline),
+            flight_number=_xml(flight_number),
+            departure_date=_xml(departure_date),
+            origin=_xml(origin),
+            report_type=_xml(report_type),
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
             "Trip_ReportsRQ", body, timeout=60)
@@ -366,11 +393,11 @@ class SabreClient:
         departure_datetime = f"{mm_dd}T00:00"
         body = templates.VERIFY_FLIGHT_DETAILS.format(
             **self._common_vars(),
-            airline=airline,
-            flight_number=flight_number,
-            departure_datetime=departure_datetime,
-            origin=origin,
-            destination=destination,
+            airline=_xml(airline),
+            flight_number=_xml(flight_number),
+            departure_datetime=_xml(departure_datetime),
+            origin=_xml(origin),
+            destination=_xml(destination),
         )
         xml_text, http_status, duration_ms, request_xml = self._post(
             "VerifyFlightDetailsLLSRQ", body, timeout=30)
