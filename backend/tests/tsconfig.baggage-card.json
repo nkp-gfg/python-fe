@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../../frontend/*"]
+    }
+  },
+  "include": ["./*.mts", "./*.tsx", "../../frontend/**/*.ts", "../../frontend/**/*.tsx"]
+}
